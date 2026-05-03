@@ -39,10 +39,8 @@ export function useTheme() {
 
       if (dark) {
         root.classList.add('dark');
-        root.setAttribute('data-mantine-color-scheme', 'dark');
       } else {
         root.classList.remove('dark');
-        root.setAttribute('data-mantine-color-scheme', 'light');
       }
 
       localStorage.setItem('markdawn-theme', theme);

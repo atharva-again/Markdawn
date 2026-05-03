@@ -229,7 +229,7 @@ const latexCodeBlockView: NodeViewConstructor = (node, view, getPos) => {
   let currentNodeContent = node.content.firstChild?.text ?? '';
 
   dom.addEventListener('mouseenter', () => {
-    dom.style.background = 'var(--mantine-color-default-hover)';
+    dom.style.background = 'rgba(0, 0, 0, 0.05)';
   });
 
   dom.addEventListener('mouseleave', () => {

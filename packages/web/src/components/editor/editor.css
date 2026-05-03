@@ -245,8 +245,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--mantine-color-body, #fff);
-  border: 1px solid var(--mantine-color-default-border, #e4e4e7);
+  background: #fff;
+  border: 1px solid #e4e4e7;
   border-radius: 8px;
   padding: 8px 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
@@ -270,15 +270,15 @@
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
-  border: 1px solid var(--mantine-color-default-border, #e4e4e7);
+  border: 1px solid #e4e4e7;
   background: transparent;
-  color: var(--mantine-color-text, #18181b);
+  color: #18181b;
   transition: background-color 0.15s;
 }
 
 .link-hover-tooltip-edit:hover,
 .link-hover-tooltip-remove:hover {
-  background: var(--mantine-color-gray-1, #f4f4f5);
+  background: #f4f4f5;
 }
 
 .dark .link-hover-tooltip {
@@ -305,8 +305,8 @@
 .link-editor-popup {
   position: absolute;
   z-index: 1000;
-  background: var(--mantine-color-body, #fff);
-  border: 1px solid var(--mantine-color-default-border, #e4e4e7);
+  background: #fff;
+  border: 1px solid #e4e4e7;
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
@@ -321,7 +321,7 @@
 .link-editor-header {
   font-size: 12px;
   font-weight: 600;
-  color: var(--mantine-color-gray-6, #71717a);
+  color: #71717a;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -331,17 +331,17 @@
   padding: 10px 12px;
   font-size: 13px;
   line-height: 1.5;
-  border: 1px solid var(--mantine-color-default-border, #e4e4e7);
+  border: 1px solid #e4e4e7;
   border-radius: 6px;
-  background: var(--mantine-color-input, #f4f4f5);
-  color: var(--mantine-color-text, #18181b);
+  background: #f4f4f5;
+  color: #18181b;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .link-editor-input:focus {
-  border-color: var(--mantine-color-blue-6, #2563eb);
-  box-shadow: 0 0 0 2px var(--mantine-color-blue-light, #dbeafe);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px #dbeafe;
 }
 
 .link-editor-buttons {
@@ -361,23 +361,23 @@
 
 .link-editor-btn-cancel {
   background: transparent;
-  color: var(--mantine-color-text, #18181b);
-  border: 1px solid var(--mantine-color-default-border, #e4e4e7);
+  color: #18181b;
+  border: 1px solid #e4e4e7;
 }
 
 .link-editor-btn-cancel:hover {
-  background: var(--mantine-color-gray-1, #f4f4f5);
+  background: #f4f4f5;
 }
 
 .link-editor-btn-save {
-  background: var(--mantine-color-blue-6, #2563eb);
+  background: #2563eb;
   color: white;
   border: none;
   font-weight: 600;
 }
 
 .link-editor-btn-save:hover {
-  background: var(--mantine-color-blue-7, #1d4ed8);
+  background: #1d4ed8;
 }
 
 .link-editor-btn-remove {
@@ -592,7 +592,7 @@
 
 .math-editor-popup textarea:focus {
   outline: none;
-  border-color: var(--mantine-color-blue-filled);
+  border-color: #2563eb;
 }
 
 .math-editor-popup button {
@@ -664,8 +664,8 @@
 .math-editor-popup {
   position: absolute;
   z-index: 1000;
-  background: var(--mantine-color-body, #fff);
-  border: 1px solid var(--mantine-color-default-border, #e4e4e7);
+  background: #fff;
+  border: 1px solid #e4e4e7;
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
@@ -680,7 +680,7 @@
 .math-editor-header {
   font-size: 12px;
   font-weight: 600;
-  color: var(--mantine-color-gray-6, #71717a);
+  color: #71717a;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -691,19 +691,19 @@
   font-family: "JetBrains Mono", "Fira Code", monospace;
   font-size: 13px;
   line-height: 1.5;
-  border: 1px solid var(--mantine-color-default-border, #e4e4e7);
+  border: 1px solid #e4e4e7;
   border-radius: 6px;
   resize: vertical;
-  background: var(--mantine-color-input, #f4f4f5);
-  color: var(--mantine-color-text, #18181b);
+  background: #f4f4f5;
+  color: #18181b;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
   min-width: 300px;
 }
 
 .math-editor-textarea:focus {
-  border-color: var(--mantine-color-blue-6, #2563eb);
-  box-shadow: 0 0 0 2px var(--mantine-color-blue-light, #dbeafe);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px #dbeafe;
 }
 
 .math-editor-buttons {
@@ -723,23 +723,23 @@
 
 .math-editor-btn-cancel {
   background: transparent;
-  color: var(--mantine-color-text, #18181b);
-  border: 1px solid var(--mantine-color-default-border, #e4e4e7);
+  color: #18181b;
+  border: 1px solid #e4e4e7;
 }
 
 .math-editor-btn-cancel:hover {
-  background: var(--mantine-color-gray-1, #f4f4f5);
+  background: #f4f4f5;
 }
 
 .math-editor-btn-done {
-  background: var(--mantine-color-blue-6, #2563eb);
+  background: #2563eb;
   color: white;
   border: none;
   font-weight: 600;
 }
 
 .math-editor-btn-done:hover {
-  background: var(--mantine-color-blue-7, #1d4ed8);
+  background: #1d4ed8;
 }
 
 .math-editor-btn-done:active {
