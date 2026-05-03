@@ -85,10 +85,11 @@ export default function Workspace() {
     }
   }, [navigate, workspace, workspaceSlug]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selection.clear is stable (useCallback + useMemo) but linter can't detect it; deps are workspaceSlug/folderId intentionally
   useEffect(() => {
     selection.clear();
     setLastSelectedIndex(null);
-  }, [selection]);
+  }, [workspaceSlug, folderId]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

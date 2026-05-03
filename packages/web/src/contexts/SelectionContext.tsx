@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+  type ReactNode,
+} from 'react';
 
 export type SelectionItem = {
   id: string;
@@ -55,22 +62,21 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
     [selectedItems],
   );
 
-  return (
-    <SelectionContext.Provider
-      value={{
-        selectedItems,
-        selectedCount: selectedItems.length,
-        select,
-        deselect,
-        toggle,
-        selectAll,
-        clear,
-        isSelected,
-      }}
-    >
-      {children}
-    </SelectionContext.Provider>
+  const value = useMemo(
+    () => ({
+      selectedItems,
+      selectedCount: selectedItems.length,
+      select,
+      deselect,
+      toggle,
+      selectAll,
+      clear,
+      isSelected,
+    }),
+    [selectedItems, select, deselect, toggle, selectAll, clear, isSelected],
   );
+
+  return <SelectionContext.Provider value={value}>{children}</SelectionContext.Provider>;
 }
 
 export function useSelection() {

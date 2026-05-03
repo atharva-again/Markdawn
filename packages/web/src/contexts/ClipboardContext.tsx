@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+  type ReactNode,
+} from 'react';
 
 export type ClipboardItem = {
   id: string;
@@ -43,11 +50,12 @@ export function ClipboardProvider({ children }: { children: ReactNode }) {
     [state.items],
   );
 
-  return (
-    <ClipboardContext.Provider value={{ state, copy, cut, clear, isInClipboard }}>
-      {children}
-    </ClipboardContext.Provider>
+  const value = useMemo(
+    () => ({ state, copy, cut, clear, isInClipboard }),
+    [state, copy, cut, clear, isInClipboard],
   );
+
+  return <ClipboardContext.Provider value={value}>{children}</ClipboardContext.Provider>;
 }
 
 export function useClipboard() {
