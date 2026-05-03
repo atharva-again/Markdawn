@@ -49,6 +49,7 @@ export default function Page() {
     setCollabStatus(newStatus);
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: must re-find editor element when navigating to a different page
   useEffect(() => {
     const findEditorElement = () => {
       const editorElement = document.querySelector('.milkdown-editor');
@@ -61,7 +62,7 @@ export default function Page() {
     const timeoutId = setTimeout(findEditorElement, 500);
 
     return () => clearTimeout(timeoutId);
-  }, []);
+  }, [pageId]);
 
   const { data: page } = useQuery({
     queryKey: ['pages', 'detail', pageId],

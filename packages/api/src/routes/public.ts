@@ -44,7 +44,7 @@ publicRoute.get('/public/:token', async (c) => {
 const publicShareRoute = new Hono();
 publicShareRoute.use('*', requireAuth);
 
-// POST /share/:pageId - Enable public sharing
+// POST /:pageId/share - Enable public sharing
 publicShareRoute.post(':pageId/share', async (c) => {
   const pageId = c.req.param('pageId');
   const user = c.get('user') as { id: string };
@@ -86,7 +86,7 @@ publicShareRoute.post(':pageId/share', async (c) => {
   });
 });
 
-// DELETE /share/:pageId - Disable public sharing
+// DELETE /:pageId/share - Disable public sharing
 publicShareRoute.delete(':pageId/share', async (c) => {
   const pageId = c.req.param('pageId');
   const user = c.get('user') as { id: string };

@@ -38,9 +38,10 @@ export function WikiLinkSuggestions({
     return filtered.slice(0, MAX_RESULTS);
   }, [pages, trimmedQuery]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: must reset selection when query changes or menu opens/closes
   useEffect(() => {
     setSelectedIndex(0);
-  }, []);
+  }, [trimmedQuery, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
