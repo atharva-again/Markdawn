@@ -1,7 +1,6 @@
-import { ActionIcon, Button, Group, Popover, Stack, Text, Tooltip } from '@mantine/core';
-import { IconPhoto, IconTrash } from '@tabler/icons-react';
+import { IconTrash } from '@tabler/icons-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface CoverPickerProps {
   coverType: string | null;
@@ -42,95 +41,100 @@ const SOLID_COLORS = [
 
 export function CoverPicker({ coverType, coverValue, onChange, children }: CoverPickerProps) {
   const [opened, setOpened] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!opened) return;
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpened(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [opened]);
 
   return (
-    <Popover
-      opened={opened}
-      onChange={setOpened}
-      position="bottom-start"
-      withArrow
-      shadow="md"
-      transitionProps={{ transition: 'pop', duration: 150 }}
-    >
-      <Popover.Target>
-        <button
-          type="button"
-          onClick={() => setOpened((o) => !o)}
-          className="cursor-pointer inline-block bg-transparent border-none p-0"
-        >
-          {children}
-        </button>
-      </Popover.Target>
-      <Popover.Dropdown className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 rounded-lg shadow-xl w-80 min-w-[20rem]">
-        <Stack gap="md">
-          <div>
-            <Group justify="space-between" mb="xs">
-              <Text size="sm" fw={500} className="text-zinc-700 dark:text-zinc-300">
-                Gradients
-              </Text>
-              {(coverType || coverValue) && (
-                <Tooltip label="Remove cover">
-                  <ActionIcon
-                    variant="subtle"
-                    color="red"
-                    size="sm"
-                    onClick={() => {
-                      onChange(null, null);
-                      setOpened(false);
-                    }}
-                  >
-                    <IconTrash size={14} />
-                  </ActionIcon>
-                </Tooltip>
-              )}
-            </Group>
-            <div className="grid grid-cols-4 gap-2">
-              {GRADIENTS.map((gradient) => (
-                <button
-                  type="button"
-                  key={gradient}
-                  className={`w-full h-11 rounded-md cursor-pointer transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900 ${
-                    coverType === 'gradient' && coverValue === gradient
-                      ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-zinc-900'
-                      : ''
-                  }`}
-                  style={{ background: gradient }}
-                  onClick={() => {
-                    onChange('gradient', gradient);
-                    setOpened(false);
-                  }}
-                  aria-label="Select gradient"
-                />
-              ))}
-            </div>
-          </div>
+    <div ref={containerRef} className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setOpened((o) => !o)}
+        className="cursor-pointer inline-block bg-transparent border-none p-0"
+      >
+        {children}
+      </button>
+      {opened && (
+        <div className="absolute z-40 top-full left-0 mt-1 animate-scale-in origin-top-left">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 rounded-lg shadow-xl w-80 min-w-[20rem]">
+            <div className="flex flex-col gap-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Gradients
+                  </span>
+                  {(coverType || coverValue) && (
+                    <button
+                      type="button"
+                      title="Remove cover"
+                      className="cursor-pointer inline-flex items-center justify-center w-7 h-7 rounded-md text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      onClick={() => {
+                        onChange(null, null);
+                        setOpened(false);
+                      }}
+                    >
+                      <IconTrash size={14} />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {GRADIENTS.map((gradient) => (
+                    <button
+                      type="button"
+                      key={gradient}
+                      className={`w-full h-11 rounded-md cursor-pointer transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900 ${
+                        coverType === 'gradient' && coverValue === gradient
+                          ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-zinc-900'
+                          : ''
+                      }`}
+                      style={{ background: gradient }}
+                      onClick={() => {
+                        onChange('gradient', gradient);
+                        setOpened(false);
+                      }}
+                      aria-label="Select gradient"
+                    />
+                  ))}
+                </div>
+              </div>
 
-          <div>
-            <Text size="sm" fw={500} className="text-zinc-700 dark:text-zinc-300 mb-2">
-              Solid Colors
-            </Text>
-            <div className="grid grid-cols-6 gap-2">
-              {SOLID_COLORS.map((color) => (
-                <button
-                  type="button"
-                  key={color}
-                  className={`w-full h-9 rounded-md cursor-pointer transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900 ${
-                    coverType === 'solid' && coverValue === color
-                      ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-zinc-900'
-                      : ''
-                  }`}
-                  style={{ backgroundColor: color }}
-                  onClick={() => {
-                    onChange('solid', color);
-                    setOpened(false);
-                  }}
-                  aria-label={`Select color ${color}`}
-                />
-              ))}
+              <div>
+                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2 block">
+                  Solid Colors
+                </span>
+                <div className="grid grid-cols-6 gap-2">
+                  {SOLID_COLORS.map((color) => (
+                    <button
+                      type="button"
+                      key={color}
+                      className={`w-full h-9 rounded-md cursor-pointer transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900 ${
+                        coverType === 'solid' && coverValue === color
+                          ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-zinc-900'
+                          : ''
+                      }`}
+                      style={{ backgroundColor: color }}
+                      onClick={() => {
+                        onChange('solid', color);
+                        setOpened(false);
+                      }}
+                      aria-label={`Select color ${color}`}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        </Stack>
-      </Popover.Dropdown>
-    </Popover>
+        </div>
+      )}
+    </div>
   );
 }

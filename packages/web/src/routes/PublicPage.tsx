@@ -1,4 +1,3 @@
-import { Loader } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -53,7 +52,7 @@ export default function PublicPage() {
           </Link>
         </header>
         <div className="flex-1 flex items-center justify-center">
-          <Loader color="gray" />
+          <div className="w-8 h-8 border-2 border-zinc-300 dark:border-zinc-600 border-t-zinc-600 dark:border-t-zinc-300 rounded-full animate-spin" />
         </div>
       </div>
     );
