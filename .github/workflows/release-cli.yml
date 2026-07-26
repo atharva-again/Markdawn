@@ -1,0 +1,67 @@
+name: Release CLI
+
+on:
+  push:
+    tags:
+      - "cli/v*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache-dependency-path: cli/go.sum
+
+      - name: Test
+        working-directory: cli
+        run: go test -race ./...
+
+      - name: Build release archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#cli/v}"
+          mkdir -p dist
+          for target in \
+            linux/amd64 linux/arm64 \
+            darwin/amd64 darwin/arm64 \
+            windows/amd64 windows/arm64; do
+            goos="${target%/*}"
+            goarch="${target#*/}"
+            archive="markdawn_${version}_${goos}_${goarch}"
+            stage="$(mktemp -d)"
+            binary="markdawn"
+            if [[ "$goos" == "windows" ]]; then binary="markdawn.exe"; fi
+            CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go -C cli build \
+              -trimpath \
+              -ldflags "-s -w -X main.version=${version} -X main.commit=${GITHUB_SHA}" \
+              -o "$stage/$binary" .
+            cp LICENSE cli/README.md cli/DESIGN.md "$stage/"
+            if [[ "$goos" == "windows" ]]; then
+              (cd "$stage" && zip -q -r "$GITHUB_WORKSPACE/dist/${archive}.zip" .)
+            else
+              tar -C "$stage" -czf "dist/${archive}.tar.gz" .
+            fi
+            rm -rf "$stage"
+          done
+          (cd dist && sha256sum markdawn_* > checksums.txt)
+
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: "dist/markdawn_*"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
