@@ -25,7 +25,7 @@ describe('access verifier', () => {
       principal: {
         kind: 'account',
         user: { id: 'user-1', email: 'user@example.com', name: 'User', avatarUrl: null },
-        sessionToken: 'session-1',
+        credential: { kind: 'session', raw: 'session-1' },
       },
       permission: 'edit',
       accessRevision: '1',
@@ -53,7 +53,7 @@ describe('access verifier', () => {
           {
             page_id: 'page-1',
             user_id: 'user-1',
-            session_token: 'valid-session',
+            credential_raw: 'valid-session',
             permission: 'edit',
             access_revision: '12',
           },
@@ -64,7 +64,7 @@ describe('access verifier', () => {
           {
             page_id: 'page-1',
             user_id: 'user-1',
-            session_token: 'session',
+            credential_raw: 'session',
             permission: null,
             access_revision: '13',
           },
@@ -72,13 +72,15 @@ describe('access verifier', () => {
       });
     const verifier = createAccessVerifier({ query } as unknown as Pool, logger);
 
-    await expect(verifier.assertPageAccess('page-1', 'user-1', 'valid-session')).resolves.toEqual({
-      permission: 'edit',
-      accessRevision: '12',
-    });
-    await expect(verifier.assertPageAccess('page-1', 'user-1', 'session')).rejects.toEqual(
-      expect.objectContaining({ accessRevision: '13' }),
-    );
+    await expect(
+      verifier.assertPageAccess('page-1', 'user-1', {
+        kind: 'session',
+        raw: 'valid-session',
+      }),
+    ).resolves.toEqual({ permission: 'edit', accessRevision: '12' });
+    await expect(
+      verifier.assertPageAccess('page-1', 'user-1', { kind: 'session', raw: 'session' }),
+    ).rejects.toEqual(expect.objectContaining({ accessRevision: '13' }));
   });
 
   it('distinguishes verification failures from canonical access denial', async () => {
@@ -90,9 +92,9 @@ describe('access verifier', () => {
       });
     const verifier = createAccessVerifier({ query } as unknown as Pool, logger);
 
-    await expect(verifier.assertPageAccess('page-1', 'user-1', 'session')).rejects.toBeInstanceOf(
-      CollabVerificationError,
-    );
+    await expect(
+      verifier.assertPageAccess('page-1', 'user-1', { kind: 'session', raw: 'session' }),
+    ).rejects.toBeInstanceOf(CollabVerificationError);
     await expect(verifier.assertAnonymousPageAccess('page-1')).rejects.toEqual(
       expect.objectContaining({ accessRevision: '20' }),
     );

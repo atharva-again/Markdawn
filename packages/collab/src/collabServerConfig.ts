@@ -13,4 +13,7 @@ export interface CollabServerConfig {
   maxPayloadBytes?: number;
   maxAwarenessPayloadBytes?: number;
   maxDocumentBytes?: number;
+  internalSecret: string;
+  maxConcurrentContentCommands?: number;
+  maxContentCommandsPerDocument?: number;
 }

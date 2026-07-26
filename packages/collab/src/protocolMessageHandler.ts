@@ -2,6 +2,7 @@ import type { beforeHandleMessagePayload, Connection, Document } from '@hocuspoc
 import { COLLAB_TERMINAL_REASONS, type StatelessShareMessage } from '@markdawn/shared';
 import type { Pool, PoolClient } from 'pg';
 import { withSerializedPermissionCheck } from './accessVerifier';
+import type { AuthenticatedCredential } from './authenticatedCredential';
 import { validateAwarenessIdentity } from './awarenessPolicy';
 import { CollabAccessError, CollabProtocolDeniedError } from './collabErrors';
 import {
@@ -11,12 +12,13 @@ import {
 } from './collaborationProtocol';
 import {
   type CollabSession,
-  getSessionToken,
+  getAuthenticatedCredential,
   getSessionUser,
   isAnonymousSession,
   isCollabSession,
   waitForWriteApplications,
 } from './collabSession';
+import type { CredentialState } from './credentialQueries';
 import { rejectConnectionTraffic, waitForConnectionTraffic } from './hocuspocusV3Adapter';
 import {
   applyPermissionState,
@@ -24,14 +26,13 @@ import {
   getCurrentPermission,
   sendPermissionSnapshot,
 } from './permissionState';
-import type { SessionState } from './sessionQueries';
 import type { createWriteAdmissionRuntime } from './writeAdmissionRuntime';
 
 type MessageHandlerOptions = {
   pool: Pool;
   maxAwarenessPayloadBytes: number;
   isMetaRoom(documentName: string): boolean;
-  getSessionState(userId: string, sessionToken: string): Promise<SessionState>;
+  getSessionState(userId: string, credential: AuthenticatedCredential): Promise<CredentialState>;
   lockDocumentAccessMutation(documentName: string, client: PoolClient): Promise<void>;
   lockActivePage(documentName: string, client: PoolClient): Promise<string>;
   assertAnonymousPageAccess(
@@ -41,7 +42,7 @@ type MessageHandlerOptions = {
   assertPageAccess(
     documentName: string,
     userId: string,
-    sessionToken: string,
+    credential: AuthenticatedCredential,
     client: PoolClient,
   ): Promise<GrantedPermissionState>;
   writeAdmissions: ReturnType<typeof createWriteAdmissionRuntime>;
@@ -95,9 +96,10 @@ async function verifyMetaMessage(
   options: MessageHandlerOptions,
 ): Promise<void> {
   await withSerializedPermissionCheck(session, async () => {
+    if (session.principal.kind !== 'account') throw new CollabAccessError();
     const state = await options.getSessionState(
       getSessionUser(session).id,
-      getSessionToken(session),
+      getAuthenticatedCredential(session),
     );
     applyPermissionState(undefined, session, {
       permission: null,
@@ -175,7 +177,7 @@ async function verifyPageMessage(
         : await options.assertPageAccess(
             documentName,
             user.id,
-            session.principal.sessionToken,
+            getAuthenticatedCredential(session),
             transaction.client,
           );
       const previousPermission = getCurrentPermission(session);

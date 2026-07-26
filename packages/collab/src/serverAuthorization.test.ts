@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Document, Server } from '@hocuspocus/server';
 import { getStableColor } from '@markdawn/shared';
@@ -24,6 +25,7 @@ describe('collab server authorization', () => {
   beforeAll(async () => {
     server = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger,
       permissionRevalidationMs: 0,
@@ -55,6 +57,21 @@ describe('collab server authorization', () => {
     }
   });
 
+  it('rejects API tokens on the public collaboration socket', async () => {
+    const user = await createTestUser(pool);
+    const page = await createTestPage(pool, user.id);
+    const tokenId = crypto.randomUUID();
+    const token = `mdn_${tokenId.replaceAll('-', '')}_${'a'.repeat(43)}`;
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    await pool.query(
+      `insert into api_tokens (id, user_id, name, token_hash, scopes)
+       values ($1, $2, 'Agent test', $3, array['pages:read', 'pages:write'])`,
+      [tokenId, user.id, tokenHash],
+    );
+
+    await expectAuthenticationFailure(port, token, page.id);
+  });
+
   it('makes user metadata rooms read only to clients', async () => {
     const user = await createTestUser(pool);
     const session = await createTestSession(pool, user.id);
@@ -73,6 +90,7 @@ describe('collab server authorization', () => {
   it('closes connections that exceed the configured WebSocket payload limit', async () => {
     const limitedServer = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger: createMockLogger(),
       permissionRevalidationMs: 0,
@@ -148,6 +166,7 @@ describe('collab server authorization', () => {
     it('rejects awareness updates above the dedicated presence payload limit', async () => {
       const awarenessServer = createCollabServer({
         port: 0,
+        internalSecret: 'test-collaboration-internal-secret',
         pool,
         logger: createMockLogger(),
         permissionRevalidationMs: 0,

@@ -21,15 +21,36 @@
       "development": "./src/utils/yjs-helpers.ts",
       "types": "./src/utils/yjs-helpers.ts",
       "default": "./dist/utils/yjs-helpers.js"
+    },
+    "./markdown-yjs": {
+      "development": "./src/utils/markdownToYjs.ts",
+      "types": "./src/utils/markdownToYjs.ts",
+      "default": "./dist/utils/markdownToYjs.js"
+    },
+    "./yjs-document-replacement": {
+      "development": "./src/utils/yjsDocumentReplacement.ts",
+      "types": "./src/utils/yjsDocumentReplacement.ts",
+      "default": "./dist/utils/yjsDocumentReplacement.js"
+    },
+    "./node/api-token-credential": {
+      "development": "./src/node/apiTokenCredential.ts",
+      "types": "./src/node/apiTokenCredential.ts",
+      "default": "./dist/node/apiTokenCredential.js"
     }
   },
   "dependencies": {
     "@logtape/logtape": "^2.0.5",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5",
     "yaml": "^2.9.0",
-    "yjs": "^13.6.29"
+    "yjs": "^13.6.29",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/unist": "^3.0.3",
     "typescript": "^5.7.0"
   }
 }

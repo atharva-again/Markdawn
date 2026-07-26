@@ -1,5 +1,7 @@
 node_modules/
 dist/
+/cli/cli
+/cli/markdawn
 .env
 .env.local
 *.env

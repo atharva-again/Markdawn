@@ -7,9 +7,11 @@ import {
 } from '@markdawn/shared';
 import type { Pool } from 'pg';
 import type { PermissionQueryExecutor } from './accessVerifier';
+import type { AuthenticatedCredential } from './authenticatedCredential';
 import { CollabAccessError, CollabVerificationError } from './collabErrors';
 import {
   type CollabSession,
+  getAuthenticatedCredential,
   getSessionToken,
   getSessionUser,
   isAnonymousSession,
@@ -39,7 +41,7 @@ type AccessVerifier = {
   assertPageAccess(
     pageId: string,
     userId: string,
-    sessionToken: string,
+    credential: AuthenticatedCredential,
     executor?: PermissionQueryExecutor,
   ): Promise<GrantedPermissionState>;
   lockDocumentAccessMutation(pageId: string, executor: PermissionQueryExecutor): Promise<void>;
@@ -133,7 +135,7 @@ export function createDocumentWriteCoordinator({
         : await access.assertPageAccess(
             documentName,
             user.id,
-            context.principal.sessionToken,
+            getAuthenticatedCredential(context),
             executor,
           );
       applyPermissionState(undefined, context, state);

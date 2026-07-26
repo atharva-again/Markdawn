@@ -66,6 +66,7 @@ export default async function setup(): Promise<() => Promise<void>> {
 
     // Seed env vars for test worker processes
     process.env.BETTER_AUTH_SECRET ??= 'test-secret-that-is-at-least-32-characters-long';
+    process.env.COLLAB_INTERNAL_SECRET ??= 'test-collaboration-internal-secret';
     process.env.BETTER_AUTH_URL ??= 'http://localhost:3001';
     process.env.FRONTEND_URL ??= 'http://localhost:3001';
     process.env.GITHUB_CLIENT_ID ??= 'test';

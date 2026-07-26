@@ -39,6 +39,7 @@ describe('collaboration providers', () => {
   beforeAll(async () => {
     server = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger: createLogger(),
       debounceMs: 50,

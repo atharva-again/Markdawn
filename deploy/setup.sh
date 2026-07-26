@@ -15,7 +15,7 @@ if [ "$EUID" -eq 0 ]; then
 fi
 
 echo -e "${YELLOW}[STEP 1/8] Installing common tools, Podman, and Caddy...${NC}"
-sudo dnf install -y git nano curl podman dnf5-plugins unzip
+sudo dnf install -y git nano curl openssl podman dnf5-plugins unzip
 sudo dnf copr enable -y @caddy/caddy
 sudo dnf install -y caddy
 sudo dnf install -y firewalld
@@ -42,6 +42,9 @@ fi
 
 cd "$REPO_DIR"
 
+# shellcheck source=collaboration-secret.sh
+. "$REPO_DIR/deploy/collaboration-secret.sh"
+
 echo -e "${YELLOW}[STEP 4/8] Installing Node.js and pnpm...${NC}"
 curl -fsSL https://fnm.vercel.app/install | bash
 export PATH="$HOME/.local/share/fnm:$PATH"
@@ -53,10 +56,15 @@ corepack enable pnpm
 pnpm -v
 
 echo -e "${YELLOW}[STEP 5/8] Configuring environment...${NC}"
+created_env=false
 if [ -f ".env" ]; then
     echo -e "${GREEN}[OK] .env already exists. Skipping creation.${NC}"
 else
     cp .env.production .env
+    created_env=true
+fi
+ensureCollaborationSecret .env
+if [ "$created_env" = "true" ]; then
     echo -e "${YELLOW}.env created from .env.production. Edit it now:${NC}"
     nano .env
 fi

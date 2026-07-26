@@ -7,6 +7,7 @@ import {
   extractPropertyTagConnections,
   normalizeWikiLinkLookupKey,
 } from '@markdawn/shared';
+import { bindWikiLinkTargets, markdownToYjsState } from '@markdawn/shared/markdown-yjs';
 import { type ConnectionDraft, normalizeTagSlug } from '@markdawn/shared/yjs-helpers';
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -22,7 +23,6 @@ import {
   MAX_IMAGE_SIZE_BYTES,
   safeImageMimeForExtension,
 } from '../utils/image-upload';
-import { bindWikiLinkTargets, markdownToYjsState, stripLeadingH1 } from '../utils/markdown-to-yjs';
 import {
   getExtension,
   isImageFile,
@@ -289,9 +289,9 @@ obsidianImportRoute.post('/', async (c) => {
       if (!file.content) continue;
       ensureDocumentInputSize(file.content);
 
-      const { frontmatter, body, title: frontmatterTitle } = parseFrontmatter(file.content);
+      const { frontmatter, body } = parseFrontmatter(file.content);
       const fileName = path.basename(file.path, '.md');
-      const title = normalizePageTitle(frontmatterTitle || fileName);
+      const title = normalizePageTitle(fileName);
 
       const dir = path.dirname(file.path);
       const normalizedDir = dir.replace(/\\/g, '/');
@@ -302,8 +302,7 @@ obsidianImportRoute.post('/', async (c) => {
       }
 
       const processedBody = processMarkdownContent(body, imagePathToUrl);
-      const contentForEditor = stripLeadingH1(processedBody, title);
-      const ydocBuffer = Buffer.from(markdownToYjsState(contentForEditor));
+      const ydocBuffer = Buffer.from(markdownToYjsState(processedBody));
       ensureYdocSize(ydocBuffer);
       const pageId = await db.transaction(async (tx) => {
         await lockWorkspaceAccessMutation(tx, user.id);

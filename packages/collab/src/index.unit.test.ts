@@ -53,6 +53,7 @@ vi.mock('@markdawn/shared/yjs-helpers', () => ({
 
 describe('collab package entry point', () => {
   it('resolves the module graph without errors', async () => {
+    vi.stubEnv('COLLAB_INTERNAL_SECRET', 'test-collaboration-internal-secret');
     const mod = await import('./index');
     expect(mod).toBeDefined();
   });

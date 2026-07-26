@@ -1,4 +1,5 @@
 import type { SharePermission } from '@markdawn/shared';
+import type { AuthenticatedCredential } from './authenticatedCredential';
 import type { ConnectionLifecycle } from './hocuspocusV3Adapter';
 
 const collabSessionBrand: unique symbol = Symbol('markdawn.collabSession');
@@ -19,7 +20,7 @@ export type AccountCollabSession = SessionBase & {
       name: string;
       avatarUrl: string | null;
     };
-    sessionToken: string;
+    credential: AuthenticatedCredential;
   };
 };
 
@@ -55,7 +56,16 @@ export function getSessionUser(session: CollabSession) {
 }
 
 export function getSessionToken(session: CollabSession): string {
-  return session.principal.sessionToken;
+  return session.principal.kind === 'account'
+    ? session.principal.credential.raw
+    : session.principal.sessionToken;
+}
+
+export function getAuthenticatedCredential(session: CollabSession): AuthenticatedCredential {
+  if (session.principal.kind !== 'account') {
+    throw new Error('Anonymous collaboration sessions do not have authenticated credentials');
+  }
+  return session.principal.credential;
 }
 
 export function isAnonymousSession(session: CollabSession): session is AnonymousCollabSession {

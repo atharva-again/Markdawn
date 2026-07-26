@@ -40,7 +40,7 @@ describe('obsidian-import / isMarkdownFile', () => {
 });
 
 describe('obsidian-import / parseFrontmatter', () => {
-  it('parses YAML frontmatter with title and tags', () => {
+  it('preserves title as ordinary YAML frontmatter alongside tags', () => {
     const result = parseFrontmatter(`---
 title: My Note
 tags:
@@ -50,7 +50,7 @@ tags:
 
 # Content`);
 
-    expect(result.title).toBe('My Note');
+    expect(result.frontmatter.title).toBe('My Note');
     expect(result.tags).toEqual(['tag1', 'tag2']);
     expect(result.body).toContain('# Content');
   });
@@ -70,7 +70,7 @@ tags: [tag1, tag2]
 
 Body`);
 
-    expect(result.title).toBe('Note');
+    expect(result.frontmatter.title).toBe('Note');
     expect(result.tags).toEqual(['tag1', 'tag2']);
   });
 
@@ -80,8 +80,8 @@ Body`);
     expect(result.body).toBe('');
   });
 
-  it('extracts title from H1 when no frontmatter', () => {
+  it('preserves an H1 as authored body content', () => {
     const result = parseFrontmatter('# Page Title\n\nSome content');
-    expect(result.title).toBe('Page Title');
+    expect(result.body).toBe('# Page Title\n\nSome content');
   });
 });

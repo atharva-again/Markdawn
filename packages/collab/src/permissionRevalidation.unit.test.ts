@@ -30,7 +30,7 @@ describe('revalidateActivePageConnections', () => {
             {
               page_id: pageId,
               user_id: userId,
-              session_token: 'session-1',
+              credential_raw: 'session-1',
               permission: null,
               access_revision: '103',
             },

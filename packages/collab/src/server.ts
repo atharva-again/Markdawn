@@ -6,14 +6,18 @@ import {
   DEFAULT_MAX_COLLAB_PAYLOAD_BYTES,
   isPageMetaRoomName,
   MAX_YDOC_BYTES,
+  requireCollaborationInternalSecret,
 } from '@markdawn/shared';
 import type { Pool } from 'pg';
 import type * as Y from 'yjs';
 import { createAccessVerifier } from './accessVerifier';
+import type { AuthenticatedCredential } from './authenticatedCredential';
 import { rememberOutboundAwarenessEntries } from './awarenessPolicy';
 import { CollabVerificationError } from './collabErrors';
 import type { CollabServerConfig } from './collabServerConfig';
 import { createConnectionEstablishmentHook } from './connectionEstablishment';
+import { createContentCommandAdmission } from './contentCommandAdmission';
+import { queryCredentialState } from './credentialQueries';
 import {
   publishFolderDeletion,
   publishPageDeletion,
@@ -23,9 +27,11 @@ import { createDocumentChangeHooks } from './documentChangeHooks';
 import { reconcileActiveDocumentContent } from './documentContentReconciliation';
 import { createDocumentFlusher } from './documentFlusher';
 import { createDocumentLoader } from './documentLoader';
+import { createDocumentMutationGate } from './documentMutationGate';
 import { createDocumentWriteCoordinator } from './documentWriteCoordinator';
 import { createGrantNotifier } from './grantNotifications';
 import { createHocuspocusV3LifecycleHooks } from './hocuspocusV3Adapter';
+import { createInternalContentCommands } from './internalContentCommands';
 import {
   createPageRenamePublication,
   rebuildActivePageMetaDocuments,
@@ -35,8 +41,13 @@ import { createPageTitleRuntime, type PageTitleRuntime } from './pageTitleRuntim
 import { revalidateActivePageConnections } from './permission-handler';
 import { createProtocolMessageHandler } from './protocolMessageHandler';
 import { createSessionAuthenticator } from './sessionAuthenticator';
-import { querySessionState } from './sessionQueries';
 import { createWriteAdmissionRuntime } from './writeAdmissionRuntime';
+
+function stopHocuspocusDefaultRequestHandling(): Promise<never> {
+  // Hocuspocus only suppresses its default HTTP response when an onRequest
+  // hook rejects. Call this after a handler has already written the response.
+  return Promise.reject();
+}
 
 export { sanitizeCanonicalYjsUpdate, yjsUpdateTouchesTitle } from './collaborationProtocol';
 export type { CollabServerConfig } from './collabServerConfig';
@@ -45,6 +56,8 @@ export { publishPageRename } from './metadataPublications';
 export { broadcastWikiLinkPresentationInvalidation } from './wikiLinkInvalidation';
 
 const APPLICATION_FENCE_TIMEOUT_MS = 10_000;
+const MAX_CONCURRENT_CONTENT_COMMANDS = 8;
+const MAX_CONTENT_COMMANDS_PER_DOCUMENT = 1;
 export type CollaborationRuntime = { titles: PageTitleRuntime };
 export type CollabServer = Server & { readonly collaboration: CollaborationRuntime };
 
@@ -79,7 +92,10 @@ export function createCollabServer(config: CollabServerConfig) {
     maxPayloadBytes = DEFAULT_MAX_COLLAB_PAYLOAD_BYTES,
     maxAwarenessPayloadBytes = DEFAULT_MAX_AWARENESS_PAYLOAD_BYTES,
     maxDocumentBytes = MAX_YDOC_BYTES,
+    maxConcurrentContentCommands = MAX_CONCURRENT_CONTENT_COMMANDS,
+    maxContentCommandsPerDocument = MAX_CONTENT_COMMANDS_PER_DOCUMENT,
   } = config;
+  const internalSecret = requireCollaborationInternalSecret(config.internalSecret);
   if (!Number.isInteger(maxPayloadBytes) || maxPayloadBytes < 1) {
     throw new Error('maxPayloadBytes must be a positive integer');
   }
@@ -92,9 +108,14 @@ export function createCollabServer(config: CollabServerConfig) {
   if (!Number.isInteger(applicationFenceTimeoutMs) || applicationFenceTimeoutMs < 1) {
     throw new Error('applicationFenceTimeoutMs must be a positive integer');
   }
+  const contentCommandAdmission = createContentCommandAdmission({
+    maxConcurrent: maxConcurrentContentCommands,
+    maxPerDocument: maxContentCommandsPerDocument,
+  });
   const accessVerifier = createAccessVerifier(pool, logger);
-  const getSessionState = async (userId: string, sessionToken: string) => {
-    const state = await querySessionState(pool, { userId, sessionToken });
+  const documentMutationGate = createDocumentMutationGate();
+  const getSessionState = async (userId: string, credential: AuthenticatedCredential) => {
+    const state = await queryCredentialState(pool, { userId, credential });
     if (!state) throw new CollabVerificationError('Missing session state');
     return state;
   };
@@ -173,10 +194,29 @@ export function createCollabServer(config: CollabServerConfig) {
     flushDocument,
   });
 
+  const handleInternalContentCommand = createInternalContentCommands({
+    pool,
+    logger,
+    get hocuspocus() {
+      return server.hocuspocus;
+    },
+    access: accessVerifier,
+    flushDocument,
+    withDocumentContentLock,
+    withDocumentMutationGate: documentMutationGate.runRestMutation,
+    tryAcquireContentCommand: contentCommandAdmission.tryAcquire,
+    internalSecret,
+    rejectLiveMutation: (pageId) =>
+      blockDocumentForReload(pageId, 4500, COLLAB_DOCUMENT_RELOAD_REASONS.RELOAD_REQUIRED),
+  });
+
   const server = new Server({
     port,
     onRequest: async ({ request, response }) => {
       const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
+      if (await handleInternalContentCommand(request, response)) {
+        await stopHocuspocusDefaultRequestHandling();
+      }
       if (pathname !== '/health') return;
 
       try {
@@ -188,10 +228,12 @@ export function createCollabServer(config: CollabServerConfig) {
         response.writeHead(503, { 'Content-Type': 'application/json' });
         response.end(JSON.stringify({ status: 'unavailable' }));
       }
-      // Prevent Hocuspocus from writing its default response after this hook.
-      await Promise.reject();
+      await stopHocuspocusDefaultRequestHandling();
     },
-    lifecycleHooks: createHocuspocusV3LifecycleHooks({ rememberOutboundAwarenessEntries }),
+    lifecycleHooks: createHocuspocusV3LifecycleHooks({
+      rememberOutboundAwarenessEntries,
+      isRestMutationActive: documentMutationGate.isRestMutationActive,
+    }),
     debounce: debounceMs,
     maxDebounce: maxDebounceMs,
     onAuthenticate: createSessionAuthenticator({
@@ -200,16 +242,16 @@ export function createCollabServer(config: CollabServerConfig) {
       isDocumentBlocked,
       isMetaRoom,
       assertAnonymousPageAccess,
-      assertPageAccess: (documentName, userId, sessionToken) =>
-        assertPageAccess(documentName, userId, sessionToken, pool),
+      assertPageAccess: (documentName, userId, credential) =>
+        assertPageAccess(documentName, userId, credential, pool),
       assertMetaRoomAccess,
     }),
     connected: createConnectionEstablishmentHook({
       isMetaRoom,
       getSessionState,
       assertAnonymousPageAccess,
-      assertPageAccess: (documentName, userId, sessionToken) =>
-        assertPageAccess(documentName, userId, sessionToken, pool),
+      assertPageAccess: (documentName, userId, credential) =>
+        assertPageAccess(documentName, userId, credential, pool),
     }),
     beforeHandleMessage: createProtocolMessageHandler({
       pool,
@@ -220,8 +262,8 @@ export function createCollabServer(config: CollabServerConfig) {
       lockActivePage,
       assertAnonymousPageAccess: (documentName, client) =>
         assertAnonymousPageAccess(documentName, client),
-      assertPageAccess: (documentName, userId, sessionToken, client) =>
-        assertPageAccess(documentName, userId, sessionToken, client),
+      assertPageAccess: (documentName, userId, credential, client) =>
+        assertPageAccess(documentName, userId, credential, client),
       writeAdmissions: writeAdmissionRuntime,
     }),
     onLoadDocument: createDocumentLoader({
@@ -239,8 +281,8 @@ export function createCollabServer(config: CollabServerConfig) {
       lockActivePage,
       assertAnonymousPageAccess: (documentName, client) =>
         assertAnonymousPageAccess(documentName, client),
-      assertPageAccess: (documentName, userId, sessionToken, client) =>
-        assertPageAccess(documentName, userId, sessionToken, client),
+      assertPageAccess: (documentName, userId, credential, client) =>
+        assertPageAccess(documentName, userId, credential, client),
     }),
     ...documentChangeHooks,
     extensions: [],

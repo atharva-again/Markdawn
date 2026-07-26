@@ -11,6 +11,7 @@ import {
   waitForPermissionChecks,
   waitForWriteApplications,
 } from './collabSession';
+import type { DocumentFlushResult } from './documentFlusher';
 import {
   getConnectionLifecycle,
   type WriteAdmission,
@@ -41,7 +42,7 @@ export function createDocumentChangeHooks(options: {
     document: Y.Doc,
     fallbackContext: CollabSession | undefined,
     source: 'persist' | 'disconnect',
-  ): Promise<void>;
+  ): Promise<DocumentFlushResult>;
 }) {
   return {
     onChange: async ({ documentName, context, document, update }: onChangePayload) => {

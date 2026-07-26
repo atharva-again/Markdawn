@@ -23,9 +23,9 @@ tags:
 Body`);
 
     expect(result).toEqual({
-      title: 'Imported note',
       tags: ['Project', 'Needs review'],
       frontmatter: {
+        title: 'Imported note',
         published: true,
         priority: 2,
         description: 'Value #1',
@@ -71,7 +71,6 @@ nested:
 ---
 Body`);
 
-    expect(result.title).toBe('');
     expect(result.tags).toEqual([]);
     expect(Object.getPrototypeOf(result.frontmatter)).toBeNull();
     expect(Object.hasOwn(result.frontmatter, '__proto__')).toBe(true);

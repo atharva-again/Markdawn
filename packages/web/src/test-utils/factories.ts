@@ -68,7 +68,6 @@ export function createMockPage(overrides: Partial<Page> = {}): Page {
     coverType: null,
     coverValue: null,
     position: 'a0',
-    ydoc: null,
     properties: null,
     createdBy: null,
     createdAt: new Date('2024-01-01'),

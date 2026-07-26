@@ -1,5 +1,6 @@
 import { Connection, Document } from '@hocuspocus/server';
 import { describe, expect, it, vi } from 'vitest';
+import * as Y from 'yjs';
 import {
   createConnectionLifecycle,
   createHocuspocusV3LifecycleHooks,
@@ -8,6 +9,7 @@ import {
   removePendingWriteAdmission,
   type WriteAdmission,
 } from './hocuspocusV3Adapter';
+import { encodeYjsUpdateMessage } from './serverTestHarness';
 
 describe('Hocuspocus v3 adapter state', () => {
   it('settles establishment exactly once and remains fail closed after rejection', async () => {
@@ -23,6 +25,7 @@ describe('Hocuspocus v3 adapter state', () => {
     const context = { lifecycle };
     const hooks = createHocuspocusV3LifecycleHooks({
       rememberOutboundAwarenessEntries: vi.fn(),
+      isRestMutationActive: () => false,
     });
 
     releaseConnectionTraffic(context);
@@ -44,6 +47,35 @@ describe('Hocuspocus v3 adapter state', () => {
     expect(context.lifecycle.pendingWriteAdmissions).toEqual([]);
   });
 
+  it('rejects a live write while a REST mutation owns the document', () => {
+    const documentName = crypto.randomUUID();
+    const source = new Y.Doc();
+    source.getText('content').insert(0, 'live update');
+    const message = encodeYjsUpdateMessage(documentName, Y.encodeStateAsUpdate(source));
+    const close = vi.fn();
+    const apply = vi.fn();
+    const hooks = createHocuspocusV3LifecycleHooks({
+      rememberOutboundAwarenessEntries: vi.fn(),
+      isRestMutationActive: (name) => name === documentName,
+    });
+
+    expect(() =>
+      hooks.applyMessage?.(
+        { message: { decoder: { arr: message } } } as never,
+        new Document(documentName),
+        { close } as never,
+        undefined,
+        apply,
+      ),
+    ).toThrow('Live write rejected while a REST content mutation is in progress');
+    expect(apply).not.toHaveBeenCalled();
+    expect(close).toHaveBeenCalledWith({
+      code: 4500,
+      reason: 'Content changed by a REST request; reconnect to resync',
+    });
+    source.destroy();
+  });
+
   it('keeps lifecycle hooks scoped to each connection', () => {
     const firstRemember = vi.fn();
     const secondRemember = vi.fn();
@@ -63,7 +95,10 @@ describe('Hocuspocus v3 adapter state', () => {
         crypto.randomUUID(),
         { lifecycle },
         false,
-        createHocuspocusV3LifecycleHooks({ rememberOutboundAwarenessEntries: remember }),
+        createHocuspocusV3LifecycleHooks({
+          rememberOutboundAwarenessEntries: remember,
+          isRestMutationActive: () => false,
+        }),
       );
     };
     const firstConnection = createConnection(firstRemember);

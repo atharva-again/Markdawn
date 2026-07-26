@@ -3,15 +3,16 @@ import type { Logger } from '@logtape/logtape';
 import { parsePageMetaRoomName } from '@markdawn/shared';
 import type { Pool, PoolClient, QueryResult } from 'pg';
 import * as Y from 'yjs';
+import type { AuthenticatedCredential } from './authenticatedCredential';
 import { CollabAccessError } from './collabErrors';
 import { sanitizeCanonicalYjsUpdate } from './collaborationProtocol';
-import { getSessionToken, getSessionUser, isCollabSession } from './collabSession';
+import { getAuthenticatedCredential, getSessionUser, isCollabSession } from './collabSession';
+import type { CredentialState } from './credentialQueries';
 import { getDocumentContentHash } from './documentContentHash';
 import { DocumentSizeLimitError } from './documentSizeError';
 import { rebuildPageMetaDocument } from './pageMetadata';
 import type { PageTitleRuntime } from './pageTitleRuntime';
 import { applyPermissionState, type GrantedPermissionState } from './permissionState';
-import type { SessionState } from './sessionQueries';
 import { isUuid } from './utils';
 
 export function createDocumentLoader(options: {
@@ -24,7 +25,7 @@ export function createDocumentLoader(options: {
   setDocumentSizeEstimate(documentName: string, size: number): void;
   setDocumentContentHash(documentName: string, hash: string): void;
   assertMetaRoomAccess(userId: string, roomUserId: string): Promise<void>;
-  getSessionState(userId: string, sessionToken: string): Promise<SessionState>;
+  getSessionState(userId: string, credential: AuthenticatedCredential): Promise<CredentialState>;
   lockDocumentAccessMutation(documentName: string, client: PoolClient): Promise<void>;
   lockActivePage(documentName: string, client: PoolClient): Promise<string>;
   assertAnonymousPageAccess(
@@ -34,7 +35,7 @@ export function createDocumentLoader(options: {
   assertPageAccess(
     documentName: string,
     userId: string,
-    sessionToken: string,
+    credential: AuthenticatedCredential,
     client: PoolClient,
   ): Promise<GrantedPermissionState>;
 }) {
@@ -54,7 +55,11 @@ export function createDocumentLoader(options: {
       if (!userId) throw new CollabAccessError(session.accessRevision);
       const sessionUser = getSessionUser(session);
       await options.assertMetaRoomAccess(sessionUser.id, userId);
-      const state = await options.getSessionState(sessionUser.id, getSessionToken(session));
+      if (session.principal.kind !== 'account') throw new CollabAccessError(session.accessRevision);
+      const state = await options.getSessionState(
+        sessionUser.id,
+        getAuthenticatedCredential(session),
+      );
       applyPermissionState(undefined, session, {
         permission: null,
         accessRevision: state.accessRevision,
@@ -81,7 +86,7 @@ export function createDocumentLoader(options: {
           : await options.assertPageAccess(
               documentName,
               getSessionUser(session).id,
-              session.principal.sessionToken,
+              getAuthenticatedCredential(session),
               client,
             );
       applyPermissionState(connectionConfig, session, access);

@@ -1,4 +1,4 @@
-import { MAX_PAGE_TITLE_LENGTH } from '@markdawn/shared';
+import { MAX_PAGE_TITLE_LENGTH, truncateUnicodeCodePoints } from '@markdawn/shared';
 import type React from 'react';
 import { useCallback, useRef } from 'react';
 import type * as Y from 'yjs';
@@ -42,13 +42,15 @@ export function PageTitle({
       type="text"
       value={title}
       readOnly={readOnly}
-      onChange={(e) => !readOnly && setTitle(e.target.value)}
+      onChange={(e) =>
+        !readOnly && setTitle(truncateUnicodeCodePoints(e.target.value, MAX_PAGE_TITLE_LENGTH))
+      }
       onBlur={handleBlurOrEnter}
       onKeyDown={handleBlurOrEnter}
       className="w-full font-bold leading-tight text-zinc-900 dark:text-zinc-50 bg-transparent outline-none placeholder:text-zinc-300 dark:placeholder:text-zinc-700 focus:ring-0 focus:border-transparent transition-colors break-words font-serif"
       placeholder="Page Title"
       autoComplete="off"
-      maxLength={MAX_PAGE_TITLE_LENGTH}
+      maxLength={MAX_PAGE_TITLE_LENGTH * 2}
       data-testid="page-title"
       style={{ fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}
     />

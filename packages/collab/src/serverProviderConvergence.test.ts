@@ -19,6 +19,7 @@ describe('collab server provider convergence', () => {
   beforeAll(async () => {
     server = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger,
       debounceMs: 50,

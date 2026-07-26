@@ -5,6 +5,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { timing } from 'hono/timing';
+import { v1ErrorResponse, v1NotFound } from './middleware/v1Errors';
 import { authRoutes } from './routes';
 import backlinksRoute from './routes/backlinks';
 import bulkRemovalRoute from './routes/bulk-removal';
@@ -22,6 +23,11 @@ import templatesRoute from './routes/templates';
 import testSetupRoute from './routes/test-setup';
 import trashRoute from './routes/trash';
 import uploadsRoute from './routes/uploads';
+import foldersV1Route from './routes/v1/folders';
+import meV1Route from './routes/v1/me';
+import openApiV1Route from './routes/v1/openapi';
+import pagesV1Route from './routes/v1/pages';
+import tokensV1Route from './routes/v1/tokens';
 import versionsRoute from './routes/versions';
 import workspaceRoute from './routes/workspace';
 
@@ -42,6 +48,8 @@ export async function createApp() {
   app.use(
     '*',
     cors({
+      allowHeaders: ['Authorization', 'Content-Type', 'If-Match', 'Idempotency-Key'],
+      exposeHeaders: ['ETag'],
       origin: (origin: string | undefined): OriginDecision => {
         if (!isProduction) {
           return origin ?? '*';
@@ -66,6 +74,17 @@ export async function createApp() {
   app.get('/api/health', (c) => {
     return c.json({ status: 'ok', timestamp: Date.now() });
   });
+
+  const v1App = new Hono();
+  v1App.route('/me', meV1Route);
+  v1App.route('/openapi.json', openApiV1Route);
+  v1App.route('/tokens', tokensV1Route);
+  v1App.route('/pages', pagesV1Route);
+  v1App.route('/folders', foldersV1Route);
+  v1App.all('*', v1NotFound);
+  v1App.notFound(v1NotFound);
+  v1App.onError((error, context) => v1ErrorResponse(context, error));
+  app.route('/api/v1', v1App);
 
   app.route('/api/pages', pagesPublicRoute);
   app.route('/api/pages', exportRoute);

@@ -6,7 +6,6 @@ export interface Page {
   coverType: string | null;
   coverValue: string | null;
   position: string;
-  ydoc: Uint8Array | null;
   properties: Record<string, unknown> | null;
   createdBy: string | null;
   ownerId?: string | null;

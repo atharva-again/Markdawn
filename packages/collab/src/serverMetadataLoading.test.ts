@@ -22,6 +22,7 @@ describe('collab server metadata loading', () => {
   beforeAll(async () => {
     server = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger,
       debounceMs: 50,
@@ -204,6 +205,7 @@ describe('collab server metadata loading', () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
     const periodicServer = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger: createMockLogger(),
       permissionRevalidationMs: 1_000,

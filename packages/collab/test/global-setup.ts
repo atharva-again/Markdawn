@@ -67,6 +67,7 @@ export default async function setup(): Promise<() => Promise<void>> {
     process.env.DATABASE_URL = testDbUrl;
     process.env.COLLAB_PORT ??= '0';
     process.env.BETTER_AUTH_SECRET ??= 'test-secret-that-is-at-least-32-characters-long';
+    process.env.COLLAB_INTERNAL_SECRET ??= 'test-collaboration-internal-secret';
     process.env.BETTER_AUTH_URL ??= 'http://localhost:3001';
     process.env.GITHUB_CLIENT_ID ??= 'test';
     process.env.GITHUB_CLIENT_SECRET ??= 'test';

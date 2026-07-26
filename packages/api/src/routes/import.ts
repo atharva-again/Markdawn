@@ -4,6 +4,7 @@ import {
   parseMarkdownFrontmatter,
   UnsupportedMarkdownFrontmatterError,
 } from '@markdawn/shared';
+import { bindWikiLinkTargets, createYjsDocWithTitle } from '@markdawn/shared/markdown-yjs';
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -12,11 +13,6 @@ import { executeQuery } from '../db/query';
 import { requireAuth } from '../middleware/auth';
 import { getDestinationOwnerId } from '../utils/destinationOwner';
 import { ensureDocumentInputSize, ensureYdocSize } from '../utils/documentSize';
-import {
-  bindWikiLinkTargets,
-  createYjsDocWithTitle,
-  stripLeadingH1,
-} from '../utils/markdown-to-yjs';
 import { replacePageConnectionIndex } from '../utils/pageConnectionIndex';
 import type { PageDatabaseRow } from '../utils/pageRows';
 import { normalizePageTitle } from '../utils/pageTitle';
@@ -101,12 +97,11 @@ importRoute.post('/markdown', async (c) => {
     }
     throw error;
   }
-  const { title: frontmatterTitle, body, frontmatter: properties } = parsedMarkdown;
-  const title = normalizePageTitle(frontmatterTitle || file.name.replace(/\.md$/, ''));
+  const { body, frontmatter: properties } = parsedMarkdown;
+  const title = normalizePageTitle(file.name.replace(/\.md$/i, ''));
 
   const localImageCount = countLocalImageReferences(body);
-  const contentForEditor = stripLeadingH1(body, title);
-  const unresolvedYdocBuffer = Buffer.from(createYjsDocWithTitle(title, contentForEditor));
+  const unresolvedYdocBuffer = Buffer.from(createYjsDocWithTitle(title, body));
   ensureYdocSize(unresolvedYdocBuffer);
 
   const hasProperties = Object.keys(properties).length > 0;

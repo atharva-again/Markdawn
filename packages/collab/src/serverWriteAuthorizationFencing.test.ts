@@ -23,6 +23,7 @@ describe('collab server write authorization fencing', () => {
   beforeAll(async () => {
     server = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger,
       debounceMs: 50,
@@ -447,6 +448,7 @@ describe('collab server write authorization fencing', () => {
       const ownerSession = await createTestSession(pool, owner.id);
       const replicaServer = createCollabServer({
         port: 0,
+        internalSecret: 'test-collaboration-internal-secret',
         pool,
         logger: mockLogger(),
         permissionRevalidationMs: 0,

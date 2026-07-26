@@ -437,9 +437,7 @@ export function extractConnectionsFromYDoc(update: Uint8Array): ConnectionDraft[
 
 export function extractWikiLinkTargetIds(update: Uint8Array): string[] {
   const doc = new Y.Doc();
-  Y.applyUpdate(doc, update);
   const targetIds = new Set<string>();
-
   const visit = (element: Y.XmlFragment | Y.XmlElement): void => {
     for (let index = 0; index < element.length; index++) {
       const item = element.get(index);
@@ -451,8 +449,13 @@ export function extractWikiLinkTargetIds(update: Uint8Array): string[] {
       visit(item);
     }
   };
-  visit(doc.getXmlFragment('prosemirror'));
-  return [...targetIds];
+  try {
+    Y.applyUpdate(doc, update);
+    visit(doc.getXmlFragment('prosemirror'));
+    return [...targetIds];
+  } finally {
+    doc.destroy();
+  }
 }
 
 function extractConnectionsFromXml(element: Y.XmlFragment | Y.XmlElement): ConnectionDraft[] {

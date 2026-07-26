@@ -67,17 +67,25 @@ if podman container exists markdawn-postgres; then
 fi
 
 # Validate compatibility before pulling code, replacing Quadlet units, or overwriting image tags.
-echo -e "${YELLOW}[STEP 1/8] Pulling latest code...${NC}"
+echo -e "${YELLOW}[STEP 1/9] Pulling latest code...${NC}"
 git pull origin master
 
-echo -e "${YELLOW}[STEP 2/8] Installing dependencies...${NC}"
+# shellcheck source=collaboration-secret.sh
+. "$REPO_DIR/deploy/collaboration-secret.sh"
+
+# Existing installations predate the private API-to-collaboration command
+# boundary. Generate its independent credential once during upgrade, and
+# refuse repository placeholders rather than starting with a known secret.
+ensureCollaborationSecret .env
+
+echo -e "${YELLOW}[STEP 2/9] Installing dependencies...${NC}"
 pnpm install
 
-echo -e "${YELLOW}[STEP 3/8] Building web packages...${NC}"
+echo -e "${YELLOW}[STEP 3/9] Building web packages...${NC}"
 pnpm --filter @markdawn/shared build
 pnpm --filter @markdawn/web build
 
-echo -e "${YELLOW}[STEP 4/8] Updating Podman Quadlet units...${NC}"
+echo -e "${YELLOW}[STEP 4/9] Updating Podman Quadlet units...${NC}"
 podman volume create postgres-data 2>/dev/null || true
 podman volume create markdawn-data 2>/dev/null || true
 cp "$REPO_DIR/deploy/quadlet/markdawn.pod" ~/.config/containers/systemd/
@@ -86,18 +94,44 @@ cp "$REPO_DIR/deploy/quadlet/markdawn-api.container" ~/.config/containers/system
 cp "$REPO_DIR/deploy/quadlet/markdawn-collab.container" ~/.config/containers/systemd/
 systemctl --user daemon-reload
 
-echo -e "${YELLOW}[STEP 5/8] Rebuilding container images...${NC}"
+echo -e "${YELLOW}[STEP 5/9] Rebuilding container images...${NC}"
 podman build -t localhost/markdawn-api:latest -f "$REPO_DIR/deploy/Containerfile.api" "$REPO_DIR"
 podman build -t localhost/markdawn-collab:latest -f "$REPO_DIR/deploy/Containerfile.collab" "$REPO_DIR"
 
-echo -e "${YELLOW}[STEP 6/8] Stopping application services...${NC}"
-systemctl --user stop markdawn-api.service markdawn-collab.service 2>/dev/null || true
+echo -e "${YELLOW}[STEP 6/9] Recreating the application pod...${NC}"
+# Podman fixes published ports when a pod is created. Capture the current pod
+# before stopping its Quadlet services so changes such as localhost-only port
+# bindings cannot leave an older, publicly bound pod running.
+EXISTING_POD_ID=""
+if podman container exists markdawn-postgres; then
+    EXISTING_POD_ID=$(podman inspect --format '{{.Pod}}' markdawn-postgres)
+fi
+systemctl --user stop markdawn-api.service markdawn-collab.service markdawn-postgres.service
+systemctl --user stop markdawn-pod.service
+if [ -n "$EXISTING_POD_ID" ] && podman pod exists "$EXISTING_POD_ID"; then
+    podman pod rm --force "$EXISTING_POD_ID"
+fi
 
-echo -e "${YELLOW}[STEP 7/8] Running database migrations...${NC}"
+echo -e "${YELLOW}[STEP 7/9] Starting PostgreSQL in the recreated pod...${NC}"
+systemctl --user start markdawn-pod.service markdawn-postgres.service
+POSTGRES_READY=false
+for _ in {1..30}; do
+    if podman exec markdawn-postgres pg_isready -U markdawn -d markdawn >/dev/null 2>&1; then
+        POSTGRES_READY=true
+        break
+    fi
+    sleep 2
+done
+if [ "$POSTGRES_READY" != "true" ]; then
+    echo -e "${RED}[ERROR] PostgreSQL is unavailable after recreating the pod.${NC}"
+    exit 1
+fi
+
+echo -e "${YELLOW}[STEP 8/9] Running database migrations...${NC}"
 pnpm --filter @markdawn/api db:migrate
 
-echo -e "${YELLOW}[STEP 8/8] Restarting application services...${NC}"
-systemctl --user restart markdawn-api.service markdawn-collab.service
+echo -e "${YELLOW}[STEP 9/9] Starting application services...${NC}"
+systemctl --user start markdawn-api.service markdawn-collab.service
 
 echo -e "${YELLOW}[CHECK] Verifying API is healthy...${NC}"
 for i in {1..15}; do

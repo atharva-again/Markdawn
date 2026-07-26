@@ -1,10 +1,10 @@
-import { normalizeWikiLinkLookupKey } from '@markdawn/shared';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
 import type { Node as UnistNode } from 'unist';
 import * as Y from 'yjs';
+import { normalizeWikiLinkLookupKey } from './wikiLink.js';
 
 // Reference-counted console.warn suppression for a harmless Yjs warning
 // that fires when pushing to detached XmlElements during doc construction.
@@ -111,8 +111,6 @@ export function bindWikiLinkTargets(
   pageLookup: ReadonlyMap<string, string>,
 ): Uint8Array {
   const doc = new Y.Doc();
-  Y.applyUpdate(doc, ydocBinary);
-
   const visit = (element: Y.XmlFragment | Y.XmlElement): void => {
     for (let index = 0; index < element.length; index++) {
       const item = element.get(index);
@@ -134,8 +132,13 @@ export function bindWikiLinkTargets(
     }
   };
 
-  doc.transact(() => visit(doc.getXmlFragment('prosemirror')));
-  return Y.encodeStateAsUpdate(doc);
+  try {
+    Y.applyUpdate(doc, ydocBinary);
+    doc.transact(() => visit(doc.getXmlFragment('prosemirror')));
+    return Y.encodeStateAsUpdate(doc);
+  } finally {
+    doc.destroy();
+  }
 }
 
 /**

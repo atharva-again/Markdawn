@@ -1,9 +1,9 @@
 import type { Pool } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  credentialPagePermissionKey,
   queryAnonymousPagePermissions,
-  querySessionPagePermissions,
-  sessionPagePermissionKey,
+  queryCredentialPagePermissions,
 } from './permissionQueries';
 
 describe('permission queries', () => {
@@ -14,17 +14,21 @@ describe('permission queries', () => {
           {
             page_id: 'page-1',
             user_id: 'user-1',
-            session_token: 'session-1',
+            credential_raw: 'session-1',
             permission: 'edit',
             access_revision: '9',
           },
         ],
       }),
     } as unknown as Pool;
-    const candidate = { pageId: 'page-1', userId: 'user-1', sessionToken: 'session-1' };
+    const candidate = {
+      pageId: 'page-1',
+      userId: 'user-1',
+      credential: { kind: 'session' as const, raw: 'session-1' },
+    };
 
-    const states = await querySessionPagePermissions(pool, [candidate]);
-    expect(states.get(sessionPagePermissionKey(candidate))).toEqual({
+    const states = await queryCredentialPagePermissions(pool, [candidate]);
+    expect(states.get(credentialPagePermissionKey(candidate))).toEqual({
       permission: 'edit',
       accessRevision: '9',
     });
@@ -39,5 +43,36 @@ describe('permission queries', () => {
     await expect(queryAnonymousPagePermissions(pool, ['page-1'])).resolves.toEqual(
       new Map([['page-1', { permission: null, accessRevision: '10' }]]),
     );
+  });
+
+  it('authorizes trusted internal commands from account permissions', async () => {
+    const pool = {
+      query: vi.fn().mockResolvedValue({
+        rows: [
+          {
+            page_id: 'page-1',
+            user_id: 'user-1',
+            permission: 'edit',
+            access_revision: '11',
+          },
+        ],
+      }),
+    } as unknown as Pool;
+    const candidate = {
+      pageId: 'page-1',
+      userId: 'user-1',
+      credential: {
+        kind: 'internal' as const,
+        raw: 'request-1',
+        tokenId: null,
+        idempotencyPrincipal: 'session:hash',
+      },
+    };
+
+    const states = await queryCredentialPagePermissions(pool, [candidate]);
+    expect(states.get(credentialPagePermissionKey(candidate))).toEqual({
+      permission: 'edit',
+      accessRevision: '11',
+    });
   });
 });

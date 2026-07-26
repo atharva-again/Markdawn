@@ -266,10 +266,10 @@ uploadsRoute.get('/:filename', async (c) => {
     }
   });
 
+  c.header('Cache-Control', materialized.cacheControl);
   return c.body(materialized.fileBuffer, 200, {
     'Content-Type': materialized.upload.mime_type,
     'Content-Length': materialized.upload.size.toString(),
-    'Cache-Control': materialized.cacheControl,
     'Content-Security-Policy': "default-src 'none'; sandbox",
     'X-Content-Type-Options': 'nosniff',
     'Cross-Origin-Resource-Policy': 'same-origin',
