@@ -1,4 +1,8 @@
-import { getUnicodeCodePointLength, MAX_PAGE_TITLE_LENGTH } from '@markdawn/shared';
+import {
+  getUnicodeCodePointLength,
+  MAX_PAGE_TITLE_LENGTH,
+  normalizePageIcon,
+} from '@markdawn/shared';
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -83,7 +87,7 @@ pageResourcesRoute.post(
         actor: { kind: 'user', id: principal.userId },
         parentId,
         title,
-        icon: parsed.icon,
+        icon: request.icon === undefined ? parsed.icon : normalizePageIcon(request.icon),
         content: { kind: 'markdown', body: parsed.body, properties: parsed.properties },
       });
       await recordTokenAuditEvent(principal, 'page.create', 'success', page.id, tx);
@@ -165,12 +169,7 @@ pageResourcesRoute.patch(
       const current = await getAccessiblePageById(pageId, principal.userId, tx);
       if (!current) throw new HTTPException(404, { message: 'Page not found' });
       const title = request.title === undefined ? undefined : normalizePageTitle(request.title);
-      const icon =
-        request.icon === undefined
-          ? undefined
-          : typeof request.icon === 'string' && request.icon.trim()
-            ? request.icon.trim()
-            : null;
+      const icon = request.icon === undefined ? undefined : normalizePageIcon(request.icon);
       const row = await updatePageMetadata(tx, {
         pageId,
         ...(title === undefined ? {} : { title }),

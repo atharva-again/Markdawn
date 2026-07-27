@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_YDOC_BYTES } from '../constants/collaboration';
+import { normalizePageIcon } from './pageIcon';
 import { applyExactEdits, composePageMarkdown, parsePageMarkdown } from './pageMarkdown';
 
 describe('page Markdown frontmatter serialization', () => {
+  it('normalizes icon whitespace', () => {
+    expect(normalizePageIcon('  pin  ')).toBe('pin');
+    expect(normalizePageIcon('   ')).toBeNull();
+  });
+
   it('is canonical across object insertion orders', () => {
     expect(composePageMarkdown('Body', { z: { b: 2, a: 1 }, a: true }, null)).toBe(
       composePageMarkdown('Body', { a: true, z: { a: 1, b: 2 } }, null),

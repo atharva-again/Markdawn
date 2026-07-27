@@ -13,6 +13,7 @@ import {
   parseMarkdownFrontmatter,
   UnsupportedMarkdownFrontmatterError,
 } from './markdownFrontmatter.js';
+import { normalizePageIcon } from './pageIcon.js';
 import { validatePageProperties } from './pageProperties.js';
 
 export type ParsedPageMarkdown = {
@@ -71,7 +72,7 @@ export function parsePageMarkdown(markdown: string): ParsedPageMarkdown {
   return {
     body: parsed.body,
     properties: propertyValue,
-    icon: typeof rawIcon === 'string' && rawIcon.trim() ? rawIcon.trim() : null,
+    icon: normalizePageIcon(typeof rawIcon === 'string' ? rawIcon : null),
   };
 }
 

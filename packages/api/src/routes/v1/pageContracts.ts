@@ -18,6 +18,7 @@ const uuid = z
 export const createPageRequestSchema = z.object({
   title: z.string({ error: 'title must be a string' }).optional(),
   parentId: uuid.nullable().optional(),
+  icon: z.string({ error: 'icon must be a string' }).nullable().optional(),
   markdown: z.string({ error: 'markdown must be a string' }).optional(),
 });
 

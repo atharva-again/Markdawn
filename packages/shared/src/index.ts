@@ -22,6 +22,7 @@ export * from './utils/guestIdentity.js';
 export * from './utils/importPayload.js';
 export * from './utils/markdownFrontmatter.js';
 export * from './utils/pageConnections.js';
+export * from './utils/pageIcon.js';
 export * from './utils/pageMarkdown.js';
 export * from './utils/pageProperties.js';
 export * from './utils/position.js';

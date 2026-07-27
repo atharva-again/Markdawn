@@ -2,6 +2,7 @@ import {
   type AccountPagePayload,
   deriveCapabilities,
   MAX_WIKI_LINK_PRESENTATION_REQUESTS,
+  normalizePageIcon,
   normalizeWikiLinkLookupKey,
   type PublicPagePayload,
   validatePageProperties,
@@ -83,6 +84,13 @@ const isLocalWikiLinkHeading = (value: string): boolean => {
 
 const pagesRoute = new Hono();
 const pagesPublicRoute = new Hono();
+
+function parsePageIcon(value: unknown): string | null {
+  if (value !== null && typeof value !== 'string') {
+    throw new HTTPException(400, { message: 'icon must be a string or null' });
+  }
+  return normalizePageIcon(value);
+}
 
 const deletedPageOwnerSql = sql`coalesce(
   (
@@ -316,7 +324,7 @@ pagesPublicRoute.post(
       actor,
       parentId: parentId ?? null,
       title: pageTitle,
-      icon: typeof icon === 'string' && icon.trim() ? icon.trim() : null,
+      icon: icon === undefined ? null : parsePageIcon(icon),
     });
     const created = normalizePageRow(createdResult.page, createdResult.ownerId);
     return c.json(toPageResponse(created), 201);
@@ -461,15 +469,7 @@ pagesPublicRoute.patch(
               throw new HTTPException(400, { message: 'title must be a string' });
             })()
         : page.title;
-      const nextIcon = hasIcon
-        ? typeof icon === 'string' && icon.trim().length > 0
-          ? icon.trim()
-          : icon === null || icon === ''
-            ? null
-            : (() => {
-                throw new HTTPException(400, { message: 'icon must be a string or null' });
-              })()
-        : page.icon;
+      const nextIcon = hasIcon ? parsePageIcon(icon) : page.icon;
       const normalizeOptionalText = (value: unknown, field: string): string | null => {
         if (value === null || value === '') return null;
         if (typeof value !== 'string') {
@@ -979,6 +979,7 @@ pagesRoute.patch(':id', async (c) => {
 
   const hasParentId = Object.hasOwn(body, 'parentId');
   const hasPosition = Object.hasOwn(body, 'position');
+  const hasIcon = Object.hasOwn(body, 'icon');
   const hasCoverType = Object.hasOwn(body, 'coverType');
   const hasCoverValue = Object.hasOwn(body, 'coverValue');
   const hasProperties = Object.hasOwn(body, 'properties');
@@ -1004,14 +1005,7 @@ pagesRoute.patch(':id', async (c) => {
     }
 
     const nextTitle = normalizedRequestedTitle ?? currentPage.title;
-    const nextIcon =
-      typeof icon === 'string'
-        ? icon.trim().length > 0
-          ? icon.trim()
-          : null
-        : icon === null
-          ? null
-          : currentPage.icon;
+    const nextIcon = hasIcon ? parsePageIcon(icon) : currentPage.icon;
     const nextPosition = normalizePosition(position, currentPage.position);
     const nextCoverType = hasCoverType
       ? typeof coverType === 'string' && coverType.trim().length > 0
