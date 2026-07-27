@@ -18,13 +18,31 @@ type PageViewCmd struct {
 }
 
 type PageCreateCmd struct {
-	Title  string `help:"Page title; defaults to Untitled." placeholder:"TITLE"`
-	Parent string `help:"Parent folder ID." placeholder:"FOLDER_ID"`
-	File   string `short:"f" help:"Read initial Markdown from a file, or - for stdin." placeholder:"FILE"`
+	Title       string `help:"Page title; defaults to Untitled." placeholder:"TITLE"`
+	Parent      string `help:"Parent folder ID." placeholder:"FOLDER_ID"`
+	Icon        string `help:"Set the page icon." placeholder:"ICON"`
+	ContentFile string `name:"content-file" short:"f" help:"Read initial Markdown from a file, or - for stdin." placeholder:"FILE"`
 }
 
 type PageEditCmd struct {
+	Interactive PageEditInteractiveCmd `cmd:"" default:"withargs" hidden:""`
+	Exact       PageEditExactCmd       `cmd:"" help:"Apply an exact authored-Markdown edit."`
+}
+
+type PageEditInteractiveCmd struct {
 	Reference string `arg:"" name:"page" help:"Page ID or exact title."`
+	Editor    string `help:"Use this editor command instead of configured editor variables." placeholder:"COMMAND"`
+}
+
+type PageEditExactCmd struct {
+	Reference      string  `arg:"" name:"page" help:"Page ID or exact title."`
+	OldText        *string `help:"Exact current passage to replace." placeholder:"TEXT"`
+	NewText        *string `help:"Replacement text; an empty value deletes the passage." placeholder:"TEXT"`
+	OldFile        string  `help:"File containing the exact current passage, or - for stdin." placeholder:"FILE"`
+	NewFile        string  `help:"File containing replacement text; an empty file deletes the passage." placeholder:"FILE"`
+	ExpectEmpty    bool    `help:"Require the authored Markdown to be empty before writing the replacement."`
+	EditID         string  `name:"id" help:"Caller-defined edit identifier." placeholder:"ID"`
+	IdempotencyKey string  `help:"Safe-retry key for this request." placeholder:"KEY"`
 }
 
 type PageUpdateCmd struct {
@@ -32,16 +50,6 @@ type PageUpdateCmd struct {
 	Title     string `help:"Set the page title." placeholder:"TITLE"`
 	Icon      string `help:"Set the page icon." placeholder:"ICON"`
 	ClearIcon bool   `help:"Remove the page icon."`
-}
-
-type PageReplaceCmd struct {
-	Reference      string  `arg:"" name:"page" help:"Page ID or exact title."`
-	OldText        *string `help:"Exact current passage to replace." placeholder:"TEXT"`
-	NewText        *string `help:"Replacement text; an empty value deletes the passage." placeholder:"TEXT"`
-	OldFile        string  `help:"File containing the exact current passage, or - for stdin." placeholder:"FILE"`
-	NewFile        string  `help:"File containing replacement text; an empty file deletes the passage." placeholder:"FILE"`
-	EditID         string  `name:"id" help:"Caller-defined edit identifier." placeholder:"ID"`
-	IdempotencyKey string  `help:"Safe-retry key for this request." placeholder:"KEY"`
 }
 
 type uncertainEditDetails struct {
@@ -141,8 +149,11 @@ func (cmd *PageCreateCmd) Run(r *runtimeState) error {
 	if cmd.Parent != "" {
 		request.ParentID = &cmd.Parent
 	}
-	if cmd.File != "" {
-		content, err := readContentFile(cmd.File, r.stdin)
+	if cmd.Icon != "" {
+		request.Icon = &cmd.Icon
+	}
+	if cmd.ContentFile != "" {
+		content, err := readContentFile(cmd.ContentFile, r.stdin)
 		if err != nil {
 			return err
 		}
@@ -169,7 +180,7 @@ func (cmd *PageCreateCmd) Run(r *runtimeState) error {
 	return err
 }
 
-func (cmd *PageEditCmd) Run(r *runtimeState) error {
+func (cmd *PageEditInteractiveCmd) Run(r *runtimeState) error {
 	selected, err := r.resolvePage(cmd.Reference)
 	if err != nil {
 		return err
@@ -182,7 +193,7 @@ func (cmd *PageEditCmd) Run(r *runtimeState) error {
 	if err != nil {
 		return err
 	}
-	updated, changed, err := editPageInEditor(r, selected.Title, content)
+	updated, changed, err := editPageInEditor(r, selected.Title, content, cmd.Editor)
 	if err != nil {
 		return err
 	}
@@ -248,20 +259,28 @@ func (cmd *PageUpdateCmd) Run(r *runtimeState) error {
 	return err
 }
 
-func (cmd *PageReplaceCmd) Run(r *runtimeState) error {
+func (cmd *PageEditExactCmd) Run(r *runtimeState) error {
 	if cmd.OldFile == "-" && cmd.NewFile == "-" {
 		return usageError("only one replacement file may read from stdin")
 	}
-	oldText, err := replacementInput(cmd.OldText, cmd.OldFile, r.stdin, "old")
-	if err != nil {
-		return err
+	var oldText []byte
+	var err error
+	if cmd.ExpectEmpty {
+		if cmd.OldText != nil || cmd.OldFile != "" {
+			return usageError("--expect-empty cannot be used with --old-text or --old-file")
+		}
+	} else {
+		oldText, err = replacementInput(cmd.OldText, cmd.OldFile, r.stdin, "old")
+		if err != nil {
+			return err
+		}
+		if len(oldText) == 0 {
+			return usageError("empty old content requires --expect-empty")
+		}
 	}
 	newText, err := replacementInput(cmd.NewText, cmd.NewFile, r.stdin, "new")
 	if err != nil {
 		return err
-	}
-	if len(oldText) == 0 {
-		return usageError("old text cannot be empty")
 	}
 	editID := cmd.EditID
 	if editID == "" {

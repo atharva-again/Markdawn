@@ -78,6 +78,7 @@ func (c *client) resolvePagesByTitle(title string) ([]pageResolutionItem, error)
 type createPageRequest struct {
 	Title    *string `json:"title,omitempty"`
 	ParentID *string `json:"parentId,omitempty"`
+	Icon     *string `json:"icon,omitempty"`
 	Markdown *string `json:"markdown,omitempty"`
 }
 

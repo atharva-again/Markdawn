@@ -46,41 +46,40 @@ markdawn help [command...]
 
 markdawn page list [--parent FOLDER_ID] [--limit N]
 markdawn page view <page-id-or-title> [--raw]
-markdawn page create [--title TITLE] [--parent FOLDER_ID] [--file FILE]
-markdawn page edit <page-id-or-title>
+markdawn page create [--title TITLE] [--parent FOLDER_ID] [--icon ICON] [--content-file FILE]
+markdawn page edit <page-id-or-title> [--editor COMMAND]
+markdawn page edit exact <page-id-or-title> {--old-text OLD | --old-file OLD} {--new-text NEW | --new-file NEW}
+markdawn page edit exact <page-id-or-title> --expect-empty {--new-text NEW | --new-file NEW}
 markdawn page update <page-id-or-title> [--title TITLE] [--icon ICON | --clear-icon]
-markdawn page replace <page-id-or-title> {--old-text OLD | --old-file OLD} {--new-text NEW | --new-file NEW}
 
 markdawn folder list
 markdawn completion {bash|zsh|fish}
 ```
 
-`page show` is retained as an alias for `page view`, and `me` is an alias for `whoami`.
-
 ### Create from a file or stdin
 
 ```sh
-markdawn page create --title "Project plan" --file plan.md
-printf '# Notes\n\nCreated in CI.\n' | markdawn page create --title Notes --file -
+markdawn page create --title "Project plan" --content-file plan.md
+printf '# Notes\n\nCreated in CI.\n' | markdawn page create --title Notes --content-file -
 ```
 
 The title is page metadata. Initial Markdown is the authored body; the CLI does not synthesize a title heading.
 
-### Edit safely
+### Edit in an editor
 
 ```sh
-export EDITOR="code --wait"
 markdawn page edit "Project plan"
+markdawn page edit "Project plan" --editor "code --wait"
 ```
 
-The CLI downloads the current Markdown and ETag, opens `MARKDAWN_EDITOR`, `VISUAL`, or `EDITOR`, then performs an `If-Match` guarded upload. If the page changed while the editor was open, the upload fails instead of overwriting newer work.
+`page edit` downloads the current Markdown and ETag, opens `MARKDAWN_EDITOR`, `VISUAL`, or `EDITOR`, then performs an `If-Match` guarded upload. `--editor COMMAND` overrides those variables for one invocation. If the page changed while the editor was open, the upload fails instead of overwriting newer work.
 
-### Apply an exact replacement
+### Apply an exact edit
 
 For a short agent or shell edit, pass strings directly:
 
 ```sh
-markdawn page replace "Project plan" \
+markdawn page edit exact "Project plan" \
   --old-text "Draft" \
   --new-text "Approved"
 ```
@@ -88,14 +87,22 @@ markdawn page replace "Project plan" \
 For multiline Markdown, use files or stdin:
 
 ```sh
-markdawn page replace "Project plan" \
+markdawn page edit exact "Project plan" \
   --old-file current-passage.md \
   --new-file revised-passage.md
 ```
 
 Provide exactly one old source (`--old-text` or `--old-file`) and one new source (`--new-text` or `--new-file`). The old passage must occur exactly once after CRLF-to-LF normalization. The CLI generates an edit ID and idempotency key unless explicitly supplied. If a generated-key request times out with an uncertain outcome, the error reports that key; retry with `--idempotency-key KEY` to retrieve the committed result without applying the edit again. Use `--new-text ""` or an empty replacement file for deletion.
 
-### Update metadata
+To initialize a blank page without an ambiguous empty-text match, use `--expect-empty`:
+
+```sh
+markdawn page edit exact "Project plan" --expect-empty --new-file initial.md
+```
+
+It applies only if the page is still empty; otherwise it returns a conflict.
+
+### Update title or icon
 
 ```sh
 markdawn page update "Project plan" --title "Project Plan"
@@ -103,7 +110,7 @@ markdawn page update "Project Plan" --icon "📋"
 markdawn page update "Project Plan" --clear-icon
 ```
 
-`page update` changes page metadata only. Its title is independent of Markdown frontmatter; `title:` frontmatter is preserved as authored frontmatter and does not rename the page. An icon may be changed with `--icon` or by editing the `icon:` frontmatter field as part of a Markdown edit.
+`page update` changes page metadata only. Its title is independent of Markdown frontmatter; `title:` frontmatter is preserved as authored frontmatter and does not rename the page. Markdown frontmatter/properties and the body are edited through `page edit`; an `icon:` frontmatter field is persisted as the page icon.
 
 ## Page references
 
@@ -148,7 +155,7 @@ markdawn completion fish | source
 | --- | --- |
 | `MARKDAWN_TOKEN` | Bearer token; overrides the saved token. |
 | `MARKDAWN_URL` | Server URL; overrides the saved URL. |
-| `MARKDAWN_EDITOR` | Preferred command for `page edit`. |
+| `MARKDAWN_EDITOR` | Preferred command for editor-mode `page edit`. |
 | `VISUAL`, `EDITOR` | Editor fallbacks, in that order. |
 | `MARKDAWN_CONFIG_DIR` | Override the config directory. |
 | `NO_COLOR` | Disable color output. |

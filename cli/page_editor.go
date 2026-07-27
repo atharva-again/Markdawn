@@ -11,7 +11,10 @@ import (
 	"github.com/mattn/go-shellwords"
 )
 
-func preferredEditor() string {
+func preferredEditor(override string) string {
+	if value := strings.TrimSpace(override); value != "" {
+		return value
+	}
 	for _, name := range []string{"MARKDAWN_EDITOR", "VISUAL", "EDITOR"} {
 		if value := strings.TrimSpace(os.Getenv(name)); value != "" {
 			return value
@@ -20,7 +23,12 @@ func preferredEditor() string {
 	return ""
 }
 
-func editPageInEditor(r *runtimeState, title string, content []byte) ([]byte, bool, error) {
+func editPageInEditor(
+	r *runtimeState,
+	title string,
+	content []byte,
+	editorOverride string,
+) ([]byte, bool, error) {
 	dir, err := os.MkdirTemp("", "markdawn-edit-*")
 	if err != nil {
 		return nil, false, err
@@ -31,9 +39,9 @@ func editPageInEditor(r *runtimeState, title string, content []byte) ([]byte, bo
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		return nil, false, err
 	}
-	editor := preferredEditor()
+	editor := preferredEditor(editorOverride)
 	if editor == "" {
-		return nil, false, usageError("set MARKDAWN_EDITOR, VISUAL, or EDITOR before using page edit")
+		return nil, false, usageError("set MARKDAWN_EDITOR, VISUAL, or EDITOR, or pass --editor")
 	}
 	parts, err := shellwords.Parse(editor)
 	if err != nil || len(parts) == 0 {

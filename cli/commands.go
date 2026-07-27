@@ -25,7 +25,7 @@ type CLI struct {
 
 	Login      LoginCmd      `cmd:"" help:"Authenticate with a named API token."`
 	Logout     LogoutCmd     `cmd:"" help:"Remove the locally stored API token."`
-	Whoami     WhoamiCmd     `cmd:"" aliases:"me" help:"Show the authenticated user."`
+	Whoami     WhoamiCmd     `cmd:"" help:"Show the authenticated user."`
 	Page       PageCmd       `cmd:"" help:"Read and edit pages."`
 	Folder     FolderCmd     `cmd:"" help:"Discover accessible folders."`
 	Completion CompletionCmd `cmd:"" help:"Generate a shell completion script."`
@@ -37,12 +37,11 @@ type LogoutCmd struct{}
 type WhoamiCmd struct{}
 
 type PageCmd struct {
-	List    PageListCmd    `cmd:"" help:"List accessible pages."`
-	View    PageViewCmd    `cmd:"" aliases:"show" help:"View a page's Markdown."`
-	Create  PageCreateCmd  `cmd:"" help:"Create a page."`
-	Edit    PageEditCmd    `cmd:"" help:"Edit a page in your preferred editor."`
-	Update  PageUpdateCmd  `cmd:"" help:"Update a page's title or icon."`
-	Replace PageReplaceCmd `cmd:"" help:"Apply an exact Markdown replacement."`
+	List   PageListCmd   `cmd:"" help:"List accessible pages."`
+	View   PageViewCmd   `cmd:"" help:"View a page's Markdown."`
+	Create PageCreateCmd `cmd:"" help:"Create a page."`
+	Edit   PageEditCmd   `cmd:"" help:"Edit a page's authored Markdown."`
+	Update PageUpdateCmd `cmd:"" help:"Update a page's title or icon."`
 }
 
 type FolderCmd struct {

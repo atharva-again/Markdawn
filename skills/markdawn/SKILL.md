@@ -33,8 +33,8 @@ Page IDs are canonical. A title is only a convenience for interactive lookup. If
 ## Create pages
 
 ```bash
-markdawn --json page create --title "Research notes" --file /tmp/initial.md
-markdawn --json page create --parent FOLDER_ID --title "Research notes" --file /tmp/initial.md
+markdawn --json page create --title "Research notes" --content-file /tmp/initial.md
+markdawn --json page create --parent FOLDER_ID --title "Research notes" --content-file /tmp/initial.md
 ```
 
 Omitting `--title` creates an `Untitled` page. Frontmatter stores page properties, tags, and icon. The page title is separate metadata and is not a generated H1.
@@ -47,22 +47,20 @@ Always read immediately before editing:
 markdawn --json page view PAGE_ID
 ```
 
-Prefer exact replacement over whole-page replacement. For short edits, pass the exact unique passage and replacement directly:
+Use exact edit mode for targeted changes. For short edits, pass the exact unique passage and replacement directly:
 
 ```bash
-markdawn --json page replace \
+markdawn --json page edit exact PAGE_ID \
   --old-text "Current sentence." \
-  --new-text "Revised sentence." \
-  PAGE_ID
+  --new-text "Revised sentence."
 ```
 
 For multiline Markdown, use temporary files:
 
 ```bash
-markdawn --json page replace \
+markdawn --json page edit exact PAGE_ID \
   --old-file /tmp/markdawn-old.txt \
-  --new-file /tmp/markdawn-new.txt \
-  PAGE_ID
+  --new-file /tmp/markdawn-new.txt
 ```
 
 Provide exactly one old source (`--old-text` or `--old-file`) and one new source (`--new-text` or `--new-file`). The old passage must occur exactly once. Include enough surrounding text to make repeated wording unique.
@@ -73,11 +71,11 @@ Exact replacement covers all normal edits:
 - Replace: change the matched passage.
 - Delete: use `--new-text ""` or make the new file empty.
 
-Do not use an empty old passage, occurrence numbers, fuzzy matching, or broad replace-all behavior. Markdawn normalizes CRLF to LF but otherwise matches exactly.
+Do not use occurrence numbers, fuzzy matching, or broad replace-all behavior. To initialize a blank page, use `--expect-empty` with a replacement source; it fails if the page is no longer empty. Markdawn normalizes CRLF to LF but otherwise matches exactly.
 
 If a result is `conflict`, reread the page, reason about the current content, and prepare a new exact replacement. Never retry stale text blindly. Unrelated human edits do not prevent a still-valid exact replacement.
 
-For deliberate whole-page editing by a human, use:
+For deliberate whole-page editing by a human, use editor mode:
 
 ```bash
 markdawn page edit PAGE_ID
@@ -85,7 +83,7 @@ markdawn page edit PAGE_ID
 
 This opens `$MARKDAWN_EDITOR`, `$VISUAL`, or `$EDITOR` and uploads the complete Markdown only if the page-wide revision still matches. It is appropriate for a human deliberately revising an entire page.
 
-`page replace` is the preferred automation path: it applies an exact, uniquely matched passage replacement and leaves unrelated concurrent changes intact. Do not use `page edit` for agent-authored whole-document rewrites unless the user specifically asks for that behavior.
+`page edit exact` is the preferred automation path: it applies an exact, uniquely matched passage replacement and leaves unrelated concurrent changes intact. `page edit PAGE_ID` opens the configured editor for a deliberate whole-document rewrite.
 
 ## Update page metadata
 

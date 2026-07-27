@@ -82,14 +82,14 @@ func TestPageCreateSendsInitialMarkdown(t *testing.T) {
 		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 			t.Fatal(err)
 		}
-		if body["title"] != "Notes" || body["markdown"] != "# Authored heading\n" {
+		if body["title"] != "Notes" || body["markdown"] != "# Authored heading\n" || body["icon"] != "📝" {
 			t.Fatalf("unexpected body %#v", body)
 		}
 		response.WriteHeader(http.StatusCreated)
 		fmt.Fprint(response, `{"id":"5d418de1-6b6f-4bb3-a35c-bc0c134b48dd","title":"Notes"}`)
 	}), true)
 
-	cmd := PageCreateCmd{Title: "Notes", File: markdownFile.Name()}
+	cmd := PageCreateCmd{Title: "Notes", Icon: "📝", ContentFile: markdownFile.Name()}
 	if err := cmd.Run(runtime); err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,46 @@ func TestPageUpdateUsesMetadataEndpoint(t *testing.T) {
 	}
 }
 
-func TestPageReplaceReturnsConflictWhenTargetDoesNotApply(t *testing.T) {
+func TestPageEditUsesRequestedEditorAndETag(t *testing.T) {
+	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
+	editor := t.TempDir() + "/editor"
+	if err := os.WriteFile(editor, []byte("#!/bin/sh\nprintf 'Edited' > \"$1\"\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	runtime, output := testRuntime(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch {
+		case request.Method == http.MethodGet && request.URL.Path == "/api/v1/pages/"+pageID:
+			fmt.Fprintf(response, `{"id":%q,"title":"Page"}`, pageID)
+		case request.Method == http.MethodGet && request.URL.Path == "/api/v1/pages/"+pageID+"/content":
+			response.Header().Set("ETag", `"revision"`)
+			fmt.Fprint(response, "Before")
+		case request.Method == http.MethodPut && request.URL.Path == "/api/v1/pages/"+pageID+"/content":
+			if request.Header.Get("If-Match") != `"revision"` {
+				t.Fatalf("unexpected If-Match %q", request.Header.Get("If-Match"))
+			}
+			body, err := io.ReadAll(request.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(body) != "Edited" {
+				t.Fatalf("unexpected content %q", body)
+			}
+			response.Header().Set("ETag", `"updated"`)
+			response.WriteHeader(http.StatusNoContent)
+		default:
+			t.Fatalf("unexpected request %s %s", request.Method, request.URL.Path)
+		}
+	}), true)
+
+	if err := (&PageEditInteractiveCmd{Reference: pageID, Editor: editor}).Run(runtime); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(output.Bytes(), []byte(`"changed": true`)) {
+		t.Fatalf("unexpected output %s", output.String())
+	}
+}
+
+func TestPageEditReturnsConflictWhenTargetDoesNotApply(t *testing.T) {
 	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
 	oldFile := t.TempDir() + "/old.txt"
 	newFile := t.TempDir() + "/new.txt"
@@ -146,13 +185,13 @@ func TestPageReplaceReturnsConflictWhenTargetDoesNotApply(t *testing.T) {
 		}
 	}), true)
 
-	err := (&PageReplaceCmd{Reference: pageID, OldFile: oldFile, NewFile: newFile, EditID: "edit"}).Run(runtime)
+	err := (&PageEditExactCmd{Reference: pageID, OldFile: oldFile, NewFile: newFile, EditID: "edit"}).Run(runtime)
 	if exitCode(err) != exitConflict {
 		t.Fatalf("expected conflict exit, got %v", err)
 	}
 }
 
-func TestPageReplaceAcceptsStringInputsIncludingEmptyReplacement(t *testing.T) {
+func TestPageEditAcceptsStringInputsIncludingEmptyReplacement(t *testing.T) {
 	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
 	oldText := "remove me"
 	newText := ""
@@ -179,7 +218,7 @@ func TestPageReplaceAcceptsStringInputsIncludingEmptyReplacement(t *testing.T) {
 		}
 	}), true)
 
-	if err := (&PageReplaceCmd{Reference: pageID, OldText: &oldText, NewText: &newText, EditID: "edit"}).Run(runtime); err != nil {
+	if err := (&PageEditExactCmd{Reference: pageID, OldText: &oldText, NewText: &newText, EditID: "edit"}).Run(runtime); err != nil {
 		t.Fatal(err)
 	}
 	if !bytes.Contains(output.Bytes(), []byte(`"status": "applied"`)) {
@@ -187,7 +226,65 @@ func TestPageReplaceAcceptsStringInputsIncludingEmptyReplacement(t *testing.T) {
 	}
 }
 
-func TestPageReplaceReportsGeneratedKeyForUncertainCommitAndSupportsReplay(t *testing.T) {
+func TestPageEditExpectEmptySendsEmptyPrecondition(t *testing.T) {
+	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
+	newText := "# Initial content"
+	runtime, _ := testRuntime(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch request.Method {
+		case http.MethodGet:
+			fmt.Fprintf(response, `{"id":%q,"title":"Page"}`, pageID)
+		case http.MethodPost:
+			var body struct {
+				Edits []exactEdit `json:"edits"`
+			}
+			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			if len(body.Edits) != 1 || body.Edits[0].OldText != "" || body.Edits[0].NewText != newText {
+				t.Fatalf("unexpected edit %#v", body.Edits)
+			}
+			fmt.Fprint(response, `{"results":[{"id":"edit","status":"applied"}],"etag":"etag"}`)
+		default:
+			t.Fatalf("unexpected request %s", request.Method)
+		}
+	}), true)
+
+	if err := (&PageEditExactCmd{Reference: pageID, ExpectEmpty: true, NewText: &newText, EditID: "edit"}).Run(runtime); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPageEditExactRejectsEmptyOldInputWithoutExpectEmpty(t *testing.T) {
+	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
+	requests := 0
+	runtime, _ := testRuntime(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		requests++
+		response.WriteHeader(http.StatusInternalServerError)
+	}), true)
+
+	empty := ""
+	err := (&PageEditExactCmd{Reference: pageID, OldText: &empty, NewText: &empty}).Run(runtime)
+	if exitCode(err) != exitUsage {
+		t.Fatalf("expected usage error for empty old text, got %v", err)
+	}
+	if requests != 0 {
+		t.Fatalf("made %d requests for empty old text", requests)
+	}
+
+	emptyFile := t.TempDir() + "/empty.txt"
+	if err := os.WriteFile(emptyFile, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err = (&PageEditExactCmd{Reference: pageID, OldFile: emptyFile, NewText: &empty}).Run(runtime)
+	if exitCode(err) != exitUsage {
+		t.Fatalf("expected usage error for empty old file, got %v", err)
+	}
+	if requests != 0 {
+		t.Fatalf("made %d requests for empty old file", requests)
+	}
+}
+
+func TestPageEditReportsGeneratedKeyForUncertainCommitAndSupportsReplay(t *testing.T) {
 	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
 	oldText := "anchor"
 	newText := "inserted"
@@ -218,7 +315,7 @@ func TestPageReplaceReportsGeneratedKeyForUncertainCommitAndSupportsReplay(t *te
 	runtime.clientValue.timeout = 100 * time.Millisecond
 	runtime.clientValue.http.Timeout = 100 * time.Millisecond
 
-	first := &PageReplaceCmd{
+	first := &PageEditExactCmd{
 		Reference: pageID,
 		OldText:   &oldText,
 		NewText:   &newText,
@@ -251,7 +348,7 @@ func TestPageReplaceReportsGeneratedKeyForUncertainCommitAndSupportsReplay(t *te
 
 	runtime.clientValue.timeout = time.Second
 	runtime.clientValue.http.Timeout = time.Second
-	replay := &PageReplaceCmd{
+	replay := &PageEditExactCmd{
 		Reference:      pageID,
 		OldText:        &oldText,
 		NewText:        &newText,
@@ -315,7 +412,7 @@ func TestOversizedStdinFailsBeforeAPIRequest(t *testing.T) {
 	}), true)
 	runtime.stdin = bytes.NewReader(bytes.Repeat([]byte("x"), maxContentInputBytes+1))
 
-	err := (&PageCreateCmd{Title: "Too large", File: "-"}).Run(runtime)
+	err := (&PageCreateCmd{Title: "Too large", ContentFile: "-"}).Run(runtime)
 	if errorCode(err) != "payload_too_large" {
 		t.Fatalf("expected payload_too_large, got %v", err)
 	}

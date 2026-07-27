@@ -36,6 +36,7 @@ The CLI does not introduce a full-screen workspace browser. Markdawn remains API
 - Tokens are never accepted as command-line flags.
 - Config files use mode `0600`; environment tokens override stored credentials.
 - API tokens are REST credentials, not direct Yjs or collaboration WebSocket credentials.
-- Whole-page edits use ETags and never force through a conflict.
-- Exact replacements use idempotency keys and fail when the target is absent, repeated, or overlapping. `--old-text` and `--new-text` are the normal path for short agent edits; file/stdin sources remain available for multiline Markdown.
+- `page update` only changes title and icon metadata. `page edit` changes authored Markdown, including frontmatter/properties and body text.
+- Editor-mode `page edit` uses ETags and never forces through a conflict. It resolves its editor from `--editor`, `MARKDAWN_EDITOR`, `VISUAL`, then `EDITOR`.
+- Exact `page edit exact` calls use idempotency keys and fail when the target is absent, repeated, or overlapping. `--old-text` and `--new-text` are the normal path for short agent edits; file/stdin sources remain available for multiline Markdown. `--expect-empty` initializes only a still-empty page.
 - Write operations never gain sharing, deletion, folder-management, or token-management authority.
