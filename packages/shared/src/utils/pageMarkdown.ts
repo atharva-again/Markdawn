@@ -132,7 +132,11 @@ export function applyExactEdits(markdown: string, edits: readonly RequestedExact
   const results = new Map<string, ExactEditCommandResult>();
   for (const edit of edits) {
     if (!edit.oldText) {
-      results.set(edit.id, { id: edit.id, status: 'invalid', reason: 'old_text_empty' });
+      if (markdown !== '') {
+        results.set(edit.id, { id: edit.id, status: 'conflict', reason: 'page_not_empty' });
+        continue;
+      }
+      positions.set(edit.id, { start: 0, end: 0, edit });
       continue;
     }
     const start = markdown.indexOf(edit.oldText);
@@ -153,7 +157,10 @@ export function applyExactEdits(markdown: string, edits: readonly RequestedExact
     if (!a) continue;
     for (let right = left + 1; right < candidates.length; right += 1) {
       const b = candidates[right];
-      if (!b || a.end <= b.start || b.end <= a.start) continue;
+      if (!b) continue;
+      if (a.edit.oldText && b.edit.oldText && (a.end <= b.start || b.end <= a.start)) {
+        continue;
+      }
       results.set(a.edit.id, { id: a.edit.id, status: 'conflict', reason: 'overlapping_edit' });
       results.set(b.edit.id, { id: b.edit.id, status: 'conflict', reason: 'overlapping_edit' });
     }

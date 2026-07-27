@@ -42,6 +42,30 @@ describe('applyExactEdits', () => {
     expect(result.markdown).toBe('## Notes\n\nAdded.\n\n');
   });
 
+  it('initializes an empty document with an empty-text precondition', () => {
+    const applied = applyExactEdits('', [{ id: 'initialize', oldText: '', newText: '# Notes' }]);
+    expect(applied.markdown).toBe('# Notes');
+    expect(applied.results).toEqual([{ id: 'initialize', status: 'applied' }]);
+
+    const conflict = applyExactEdits('Already written', [
+      { id: 'initialize', oldText: '', newText: '# Notes' },
+    ]);
+    expect(conflict.markdown).toBe('Already written');
+    expect(conflict.results).toEqual([
+      { id: 'initialize', status: 'conflict', reason: 'page_not_empty' },
+    ]);
+
+    const ambiguous = applyExactEdits('', [
+      { id: 'first', oldText: '', newText: 'First' },
+      { id: 'second', oldText: '', newText: 'Second' },
+    ]);
+    expect(ambiguous.markdown).toBe('');
+    expect(ambiguous.results).toEqual([
+      { id: 'first', status: 'conflict', reason: 'overlapping_edit' },
+      { id: 'second', status: 'conflict', reason: 'overlapping_edit' },
+    ]);
+  });
+
   it('does not accept an invalid edit only because another edit repairs it', () => {
     const result = applyExactEdits('---\ntags: blue\n---\n\nBody', [
       { id: 'open-array', oldText: 'tags:', newText: 'tags: [' },

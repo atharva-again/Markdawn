@@ -48,7 +48,7 @@ Use `POST /api/v1/pages/:id/edits` for normal agent changes:
 }
 ```
 
-`oldText` must be non-empty and occur exactly once. Line endings are normalized to LF; all other characters match exactly. Non-overlapping edits are independent. A missing, repeated, or overlapping target returns a per-edit conflict and does not make the server guess.
+Non-empty `oldText` must occur exactly once. Line endings are normalized to LF; all other characters match exactly. An empty `oldText` is an explicit empty-document precondition: it applies only when the current Markdown is empty, allowing a client to initialize a blank page without an ambiguous zero-length match. Non-overlapping edits are independent. A missing, repeated, overlapping, or non-empty-page target returns a per-edit conflict and does not make the server guess.
 
 Requests support up to 100 edits for small pages. The server reduces that limit for large pages so independent validation remains within a fixed work budget; `edit_work_limit` means the edits must be split across multiple requests.
 
