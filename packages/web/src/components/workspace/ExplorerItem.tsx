@@ -9,8 +9,9 @@ import clsx from 'clsx';
 import { Check, FileText, Folder } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { formatDate } from '../../utils/date';
 import { PageContextMenu } from '../ui/PageContextMenu';
-import { CollaboratorAvatars, formatItemDate } from './CollaboratorAvatars';
+import { CollaboratorAvatars } from './CollaboratorAvatars';
 
 export type ExplorerItemType = 'page' | 'folder';
 
@@ -180,7 +181,7 @@ export function ExplorerItem({
         </div>
 
         <span className="text-xs text-zinc-400 dark:text-zinc-500 hidden md:block w-36 shrink-0">
-          {formatItemDate(updatedDate)}
+          {formatDate(updatedDate)}
         </span>
 
         {showContextMenu && (
@@ -296,7 +297,7 @@ export function ExplorerItem({
           )}
           <div className="flex items-center gap-2 mt-0.5">
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              {item.type === 'folder' ? 'Folder' : `Edited ${formatItemDate(updatedDate)}`}
+              {item.type === 'folder' ? 'Folder' : `Edited ${formatDate(updatedDate)}`}
             </p>
           </div>
         </div>

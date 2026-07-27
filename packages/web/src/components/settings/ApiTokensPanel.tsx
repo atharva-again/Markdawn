@@ -6,11 +6,13 @@ import {
   useCreateApiToken,
   useRevokeApiToken,
 } from '../../hooks/useApiTokens';
+import { formatDate } from '../../utils/date';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
+import { Dropdown } from '../ui/FormControls';
 
 export function ApiTokensPanel() {
   const [name, setName] = useState('');
-  const [canWrite, setCanWrite] = useState(false);
+  const [access, setAccess] = useState<'read' | 'write'>('read');
   const [expiryDays, setExpiryDays] = useState('');
   const [createdSecret, setCreatedSecret] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -24,7 +26,7 @@ export function ApiTokensPanel() {
     createMutation.mutate(
       {
         name: name.trim(),
-        canWrite,
+        canWrite: access === 'write',
         expiresAt: expiryDays
           ? new Date(Date.now() + Number(expiryDays) * 24 * 60 * 60 * 1000).toISOString()
           : null,
@@ -32,7 +34,7 @@ export function ApiTokensPanel() {
       {
         onSuccess: () => {
           setName('');
-          setCanWrite(false);
+          setAccess('read');
           setExpiryDays('');
         },
         onError: (error) => showErrorToast(error.message),
@@ -96,7 +98,7 @@ export function ApiTokensPanel() {
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_9rem_8rem_auto] sm:items-end">
         <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
           Token name
           <input
@@ -104,43 +106,49 @@ export function ApiTokensPanel() {
             maxLength={100}
             onChange={(event) => setName(event.target.value)}
             placeholder="Personal terminal"
-            className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+            className="mt-1 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-[15px] text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
           />
         </label>
+        <div className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          Access
+          <Dropdown
+            value={access}
+            onChange={setAccess}
+            ariaLabel="Token access"
+            options={[
+              { value: 'read', label: 'Read only' },
+              { value: 'write', label: 'Read and write' },
+            ]}
+            className="mt-1 w-full"
+            triggerClassName="h-10 w-full px-3 text-[15px]"
+          />
+        </div>
+        <div className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          Expiry
+          <Dropdown
+            value={expiryDays}
+            onChange={setExpiryDays}
+            ariaLabel="Expiry"
+            options={[
+              { value: '', label: 'No expiry' },
+              { value: '7', label: '7 days' },
+              { value: '30', label: '30 days' },
+              { value: '90', label: '90 days' },
+              { value: '365', label: '1 year' },
+            ]}
+            className="mt-1 w-full"
+            triggerClassName="h-10 w-full px-3 text-[15px]"
+          />
+        </div>
         <button
           type="button"
           disabled={!name.trim() || createMutation.isPending}
           onClick={createToken}
-          className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-700 dark:hover:bg-zinc-600"
+          className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-zinc-900 px-4 py-2 text-[15px] font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-700 dark:hover:bg-zinc-600"
         >
           <KeyRound size={16} />
           {createMutation.isPending ? 'Creating…' : 'Create token'}
         </button>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-          <input
-            type="checkbox"
-            checked={canWrite}
-            onChange={(event) => setCanWrite(event.target.checked)}
-            className="size-4"
-          />
-          Allow this token to create and edit pages
-        </label>
-        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-          Expiry
-          <select
-            value={expiryDays}
-            onChange={(event) => setExpiryDays(event.target.value)}
-            className="mt-1 block w-full cursor-pointer rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-          >
-            <option value="">No expiry</option>
-            <option value="7">7 days</option>
-            <option value="30">30 days</option>
-            <option value="90">90 days</option>
-            <option value="365">1 year</option>
-          </select>
-        </label>
       </div>
 
       <div className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
@@ -159,12 +167,8 @@ export function ApiTokensPanel() {
               </p>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 {token.scopes.includes('pages:write') ? 'Read and write' : 'Read only'} ·{' '}
-                {token.lastUsedAt
-                  ? `Last used ${new Date(token.lastUsedAt).toLocaleDateString()}`
-                  : 'Never used'}
-                {token.expiresAt
-                  ? ` · Expires ${new Date(token.expiresAt).toLocaleDateString()}`
-                  : ' · No expiry'}
+                {token.lastUsedAt ? `Last used ${formatDate(token.lastUsedAt)}` : 'Never used'}
+                {token.expiresAt ? ` · Expires ${formatDate(token.expiresAt)}` : ' · No expiry'}
               </p>
             </div>
             <button

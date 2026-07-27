@@ -16,14 +16,6 @@ function formatCollabLabel(collab: CollaboratorDisplay): string {
   return `${name} (${role})`;
 }
 
-export function formatItemDate(date: string | Date): string {
-  return new Date(date).toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-}
-
 interface CollaboratorAvatarsProps {
   collaborators: CollaboratorDisplay[];
   max?: number;
