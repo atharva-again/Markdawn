@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
@@ -21,7 +20,7 @@ func replaceUpdatedBinary(destination, staged string) (bool, error) {
 	if err := os.WriteFile(helper, []byte(script), 0o600); err != nil {
 		return false, err
 	}
-	if err := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", helper).Start(); err != nil {
+	if err := powershellCommand("-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", helper).Start(); err != nil {
 		return false, err
 	}
 	return true, nil

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -27,7 +26,7 @@ func removeStandaloneBinary(binaryPath, receiptPath, pathFile, installDir, confi
 	if err := os.WriteFile(helperPath, []byte(script), 0o600); err != nil {
 		return false, fmt.Errorf("write uninstall helper: %w", err)
 	}
-	command := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", helperPath)
+	command := powershellCommand("-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", helperPath)
 	if err := command.Start(); err != nil {
 		return false, fmt.Errorf("start uninstall helper: %w", err)
 	}

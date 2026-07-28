@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 )
 
 func preparePrivateFileReplacement(path, temporaryPath string) error {
@@ -24,7 +23,7 @@ func preparePrivateFileReplacement(path, temporaryPath string) error {
 $acl = Get-Acl -LiteralPath '%s'
 Set-Acl -LiteralPath '%s' -AclObject $acl
 `, powershellLiteral(path), powershellLiteral(temporaryPath))
-	output, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script).CombinedOutput()
+	output, err := powershellCommand("-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("copy private file ACL: %w: %s", err, output)
 	}

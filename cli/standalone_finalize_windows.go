@@ -5,7 +5,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
@@ -42,7 +41,7 @@ try {
   if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue }
 }
 `, powershellLiteral(path), powershellLiteral(contentsPath))
-	output, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script).CombinedOutput()
+	output, err := powershellCommand("-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("replace PowerShell profile: %w: %s", err, output)
 	}
