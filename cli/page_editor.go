@@ -7,8 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"github.com/mattn/go-shellwords"
 )
 
 func preferredEditor(override string) string {
@@ -43,7 +41,7 @@ func editPageInEditor(
 	if editor == "" {
 		return nil, false, usageError("set MARKDAWN_EDITOR, VISUAL, or EDITOR, or pass --editor")
 	}
-	parts, err := shellwords.Parse(editor)
+	parts, err := parseEditorCommand(editor)
 	if err != nil || len(parts) == 0 {
 		return nil, false, usageError("invalid editor command %q", editor)
 	}

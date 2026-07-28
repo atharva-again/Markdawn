@@ -129,10 +129,7 @@ func TestPageUpdateUsesMetadataEndpoint(t *testing.T) {
 
 func TestPageEditUsesRequestedEditorAndETag(t *testing.T) {
 	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
-	editor := t.TempDir() + "/editor"
-	if err := os.WriteFile(editor, []byte("#!/bin/sh\nprintf 'Edited' > \"$1\"\n"), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	editor := testEditorCommand(t)
 	runtime, output := testRuntime(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		switch {
 		case request.Method == http.MethodGet && request.URL.Path == "/api/v1/pages/"+pageID:
