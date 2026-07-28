@@ -152,7 +152,7 @@ mkdir -p "$relative_cwd"
   cd "$relative_cwd"
   run_installer bin "$test_dir/state-relative"
 )
-expected_relative_dir="$relative_cwd/bin"
+expected_relative_dir="$(cd "$relative_cwd" && pwd -P)/bin"
 grep -F "\"installDir\": \"$expected_relative_dir\"" "$test_dir/state-relative/install.json" >/dev/null || fail "relative install directory was not made absolute"
 
 shared_dir="$test_dir/shared"
