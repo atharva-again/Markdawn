@@ -22,7 +22,7 @@ function Download-ReleaseAsset([string]$Uri, [string]$Path, [long]$MaximumBytes,
   $response = $null
   try {
     $response = $client.GetAsync($Uri, [Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
-    if (-not $response.IsSuccessStatusCode) { Fail "could not download $Label: unexpected HTTP status $($response.StatusCode)" }
+    if (-not $response.IsSuccessStatusCode) { Fail "could not download ${Label}: unexpected HTTP status $($response.StatusCode)" }
     $contentLength = $response.Content.Headers.ContentLength
     if ($null -ne $contentLength -and $contentLength -gt $MaximumBytes) { Fail "$Label exceeds $MaximumBytes bytes" }
     $source = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
