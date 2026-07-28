@@ -1,4 +1,4 @@
-import { normalizeWikiLinkLookupKey } from '@markdawn/shared';
+import { buildWikiLinkResolution } from '@markdawn/shared';
 import { sql } from 'drizzle-orm';
 import { db } from '../db/connection';
 import { executeQuery, type QueryExecutor } from '../db/query';
@@ -62,23 +62,11 @@ export async function getUniqueWorkspacePageLookup(
        and p.id in (select page_id from accessible_pages)`,
   );
 
-  const candidates = new Map<string, Set<string>>();
-  for (const row of result.rows) {
-    for (const value of [row.title, row.page_path]) {
-      if (!value) continue;
-      const key = normalizeWikiLinkLookupKey(value);
-      if (!key) continue;
-      const ids = candidates.get(key) ?? new Set<string>();
-      ids.add(row.page_id);
-      candidates.set(key, ids);
-    }
-  }
-
-  const unique = new Map<string, string>();
-  for (const [key, ids] of candidates) {
-    if (ids.size !== 1) continue;
-    const pageId = ids.values().next().value;
-    if (pageId) unique.set(key, pageId);
-  }
-  return unique;
+  return buildWikiLinkResolution(
+    result.rows.map((row) => ({
+      pageId: row.page_id,
+      title: row.title,
+      pagePath: row.page_path,
+    })),
+  ).pageLookup;
 }

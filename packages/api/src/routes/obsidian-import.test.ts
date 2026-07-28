@@ -262,8 +262,8 @@ describe('obsidian import API', () => {
         headers: { Cookie: session.Cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           files: [
-            { path: 'page-a.md', content: '# Page A\n\nSee [[Page B]] for details' },
-            { path: 'page-b.md', content: '# Page B\n\nBacklink target' },
+            { path: 'Page A.md', content: '# Page A\n\nSee [[Page B]] for details' },
+            { path: 'Page B.md', content: '# Page B\n\nBacklink target' },
           ],
         }),
       });
@@ -323,8 +323,8 @@ describe('obsidian import API', () => {
           headers: { Cookie: session.Cookie, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             files: [
-              { path: 'source.md', content: '# Source\n\nSee [[Target]]' },
-              { path: 'target.md', content: '# Target' },
+              { path: 'Source.md', content: '# Source\n\nSee [[Target]]' },
+              { path: 'Target.md', content: '# Target' },
             ],
           }),
         });

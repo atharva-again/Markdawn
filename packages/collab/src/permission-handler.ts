@@ -9,11 +9,12 @@ import { COLLAB_TERMINAL_REASONS, getPageMetaRoomName, isPageMetaRoomName } from
 import type { Pool } from 'pg';
 import {
   type CollabSession,
-  getSessionToken,
+  getAuthenticatedCredential,
   getSessionUser,
   isAnonymousSession,
   isCollabSession,
 } from './collabSession';
+import { credentialStateKey, queryCredentialStates } from './credentialQueries';
 import type { WorkspaceEventPayload } from './notificationPayloads';
 import {
   type PrincipalPagePermissionCandidate,
@@ -21,7 +22,6 @@ import {
   queryPrincipalPagePermissions,
 } from './permissionQueries';
 import { applyPagePermissionTransition, applyPermissionSnapshot } from './permissionState';
-import { querySessionStates, sessionKey } from './sessionQueries';
 
 type ConnectionContext = CollabSession;
 
@@ -236,10 +236,10 @@ export async function revalidateActivePageConnections(
             connection,
             ctx,
             principal: {
-              kind: 'session',
+              kind: 'authenticated',
               pageId: documentName,
               userId: user.id,
-              sessionToken: getSessionToken(ctx),
+              credential: getAuthenticatedCredential(ctx),
             },
           });
         }
@@ -250,18 +250,21 @@ export async function revalidateActivePageConnections(
   }
   if (pageCandidates.length === 0 && metaCandidates.length === 0) return 0;
 
-  const metaSessions = new Map<string, { userId: string; sessionToken: string }>();
+  const metaCredentials = new Map<
+    string,
+    { userId: string; credential: ReturnType<typeof getAuthenticatedCredential> }
+  >();
   for (const { ctx } of metaCandidates) {
     const userId = getSessionUser(ctx).id;
-    const sessionToken = getSessionToken(ctx);
-    metaSessions.set(`${userId}:${sessionToken}`, { userId, sessionToken });
+    const credential = getAuthenticatedCredential(ctx);
+    metaCredentials.set(`${userId}:${credential.kind}:${credential.raw}`, { userId, credential });
   }
-  const sessionRequests = Array.from(metaSessions.values());
+  const credentialRequests = Array.from(metaCredentials.values());
   const [pageResult, metaSessionResult] = await Promise.allSettled([
     revalidatePageCandidates(pool, pageCandidates, logger, {
       logScope: 'access',
     }),
-    querySessionStates(pool, sessionRequests),
+    queryCredentialStates(pool, credentialRequests),
   ]);
   let affectedCount = pageResult.status === 'fulfilled' ? pageResult.value : 0;
   if (pageResult.status === 'rejected') {
@@ -287,7 +290,7 @@ export async function revalidateActivePageConnections(
       continue;
     }
     const sessionState = metaSessionResult.value.get(
-      sessionKey({ userId, sessionToken: getSessionToken(ctx) }),
+      credentialStateKey({ userId, credential: getAuthenticatedCredential(ctx) }),
     );
     if (!sessionState) {
       connection.close({

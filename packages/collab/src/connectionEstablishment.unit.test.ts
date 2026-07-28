@@ -15,7 +15,7 @@ function createSession() {
         name: 'User',
         avatarUrl: null,
       },
-      sessionToken: 'session-token',
+      credential: { kind: 'session', raw: 'session-token' },
     },
     permission: 'view',
     accessRevision: '1',

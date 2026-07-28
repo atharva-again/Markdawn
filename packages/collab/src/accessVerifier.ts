@@ -1,11 +1,12 @@
 import type { Logger } from '@logtape/logtape';
 import type { Pool } from 'pg';
+import type { AuthenticatedCredential } from './authenticatedCredential';
 import { CollabAccessError, CollabVerificationError } from './collabErrors';
 import type { CollabSession } from './collabSession';
 import {
+  credentialPagePermissionKey,
   queryAnonymousPagePermissions,
-  querySessionPagePermissions,
-  sessionPagePermissionKey,
+  queryCredentialPagePermissions,
 } from './permissionQueries';
 import type { GrantedPermissionState } from './permissionState';
 
@@ -35,14 +36,14 @@ export function createAccessVerifier(pool: Pool, logger: Logger) {
   async function assertPageAccess(
     documentName: string,
     userId: string,
-    sessionToken: string,
+    credential: AuthenticatedCredential,
     executor: PermissionQueryExecutor = pool,
   ): Promise<GrantedPermissionState> {
-    const candidate = { pageId: documentName, userId, sessionToken };
+    const candidate = { pageId: documentName, userId, credential };
     const states = await runPermissionQuery(() =>
-      querySessionPagePermissions(executor, [candidate]),
+      queryCredentialPagePermissions(executor, [candidate]),
     );
-    const access = states.get(sessionPagePermissionKey(candidate));
+    const access = states.get(credentialPagePermissionKey(candidate));
     if (!access) throw new CollabVerificationError('Missing access row');
     const permission = access.permission;
     if (permission !== 'view' && permission !== 'edit' && permission !== 'admin') {

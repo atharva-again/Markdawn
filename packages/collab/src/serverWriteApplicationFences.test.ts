@@ -24,6 +24,7 @@ describe('collab server write application fences', () => {
   beforeAll(async () => {
     server = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger,
       debounceMs: 50,
@@ -467,6 +468,7 @@ describe('collab server write application fences', () => {
     it('rolls back a timed-out application fence and rejects the late physical apply', async () => {
       const timeoutServer = createCollabServer({
         port: 0,
+        internalSecret: 'test-collaboration-internal-secret',
         pool,
         logger: mockLogger(),
         permissionRevalidationMs: 0,

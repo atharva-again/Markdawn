@@ -3,6 +3,7 @@ import { Download, FolderOpen } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ObsidianImportDialog } from '../components/import/ObsidianImportDialog';
+import { ApiTokensPanel } from '../components/settings/ApiTokensPanel';
 import { WorkspaceMembersPanel } from '../components/workspace/WorkspaceMembersPanel';
 import { useIdentityLifecycle } from '../contexts/IdentityLifecycleContext';
 import { showErrorToast, showSuccessToast } from '../utils/toast';
@@ -67,6 +68,10 @@ export default function Settings() {
         </div>
 
         <WorkspaceMembersPanel />
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-6">
+        <ApiTokensPanel />
       </section>
 
       <section className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-6 space-y-4">

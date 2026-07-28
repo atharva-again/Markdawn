@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { serializeFrontmatter } from '@markdawn/shared';
 import { type MarkdownRenderOptions, yDocToMarkdown } from '@markdawn/shared/yjs-helpers';
+
+export { serializeFrontmatter } from '@markdawn/shared';
 
 /**
  * Matches markdown image syntax: ![alt](src) with optional title.
@@ -211,102 +214,16 @@ export async function extractImages(
 }
 
 /**
- * Converts properties + icon to a YAML frontmatter string.
- * Returns empty string if there's nothing to put in frontmatter.
- */
-export function serializeFrontmatter(
-  properties: Record<string, unknown> | null,
-  icon: string | null,
-): string {
-  const data: Record<string, unknown> = {};
-
-  if (icon) {
-    data.icon = icon;
-  }
-
-  if (properties && typeof properties === 'object') {
-    for (const [key, value] of Object.entries(properties)) {
-      if (value !== null && value !== undefined) {
-        data[key] = value;
-      }
-    }
-  }
-
-  if (Object.keys(data).length === 0) return '';
-
-  const lines: string[] = ['---'];
-  for (const [key, value] of Object.entries(data)) {
-    const keyStr = yamlScalar(key);
-    if (Array.isArray(value)) {
-      if (value.length > 0) {
-        lines.push(`${keyStr}:`);
-        for (const item of value) {
-          lines.push(`  - ${yamlScalar(item)}`);
-        }
-      } else {
-        lines.push(`${keyStr}: []`);
-      }
-    } else if (typeof value === 'object' && value !== null) {
-      lines.push(`${keyStr}: ${JSON.stringify(value)}`);
-    } else {
-      lines.push(`${keyStr}: ${yamlScalar(value)}`);
-    }
-  }
-  lines.push('---');
-  lines.push('');
-
-  return lines.join('\n');
-}
-
-function yamlScalar(value: unknown): string {
-  if (typeof value === 'string') {
-    const needsQuotes =
-      value === '' ||
-      value === 'true' ||
-      value === 'false' ||
-      value === 'null' ||
-      value === '~' ||
-      value === 'yes' ||
-      value === 'no' ||
-      value === 'on' ||
-      value === 'off' ||
-      /^[0-9]/.test(value) ||
-      /[:#]/.test(value) ||
-      /^[!&*?'"|>{%[]/.test(value) ||
-      value.includes("'") ||
-      value.includes('"') ||
-      value.includes('\n') ||
-      value.includes('\r') ||
-      value.includes('\t');
-    if (needsQuotes) {
-      const escaped = value
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"')
-        .replace(/\n/g, '\\n')
-        .replace(/\r/g, '\\r')
-        .replace(/\t/g, '\\t');
-      return `"${escaped}"`;
-    }
-    return value;
-  }
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
-  if (value === null || value === undefined) {
-    return '~';
-  }
-  return String(value);
-}
-
-/**
- * Converts a page's Yjs binary content to a full markdown document
- * including YAML frontmatter (properties + icon) and a title heading.
+ * Converts a page's Yjs binary content to a full markdown document.
+ *
+ * The page title is deliberately not included. Markdown exports carry their
+ * title in the filename, while API responses expose it as page metadata. An
+ * H1 in the returned body is therefore always content authored by the user.
  */
 export function pageToMarkdown(
   ydoc: Buffer | Uint8Array | null,
   properties: Record<string, unknown> | null,
   icon: string | null,
-  title?: string,
   markdownOptions?: MarkdownRenderOptions,
 ): string {
   let body = '';
@@ -315,8 +232,5 @@ export function pageToMarkdown(
   }
 
   const frontmatter = serializeFrontmatter(properties, icon);
-
-  const heading = title ? `# ${title}\n\n` : '';
-
-  return frontmatter + heading + body;
+  return frontmatter + body;
 }

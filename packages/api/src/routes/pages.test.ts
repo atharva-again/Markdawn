@@ -1648,9 +1648,10 @@ describe('pages API', () => {
       });
       expect(res.status).toBe(200);
       expect(res.headers.get('Content-Type')).toBe('text/markdown');
-      expect(res.headers.get('Content-Disposition')).toContain('export.md');
+      expect(res.headers.get('Content-Disposition')).toContain('Export.md');
       const body = await res.text();
       expect(typeof body).toBe('string');
+      expect(body).not.toContain('# Export');
     });
 
     it('allows signed-in viewers to export a shared page', async () => {
@@ -2114,8 +2115,12 @@ describe('pages API', () => {
       });
 
       expect(response.status).toBe(201);
-      const copied = (await response.json()) as { id: string; ydoc: number[] };
-      expect(Buffer.from(copied.ydoc).includes(Buffer.from(target.id))).toBe(true);
+      const copied = (await response.json()) as { id: string };
+      expect(copied).not.toHaveProperty('ydoc');
+      const copiedContent = await query<{ ydoc: Buffer }>('select ydoc from pages where id = $1', [
+        copied.id,
+      ]);
+      expect(copiedContent.rows[0]?.ydoc.includes(Buffer.from(target.id))).toBe(true);
       const copiedConnections = await query<{ count: string }>(
         `select count(*)::text as count from connections
          where source_id = $1 and target_type = 'page'`,

@@ -1,8 +1,10 @@
 import type { Connection, connectedPayload } from '@hocuspocus/server';
 import { COLLAB_TERMINAL_REASONS } from '@markdawn/shared';
 import { withSerializedPermissionCheck } from './accessVerifier';
+import type { AuthenticatedCredential } from './authenticatedCredential';
 import { CollabAccessError } from './collabErrors';
-import { getSessionToken, getSessionUser, isCollabSession } from './collabSession';
+import { getAuthenticatedCredential, getSessionUser, isCollabSession } from './collabSession';
+import type { CredentialState } from './credentialQueries';
 import {
   rejectConnectionTraffic,
   releaseConnectionTraffic,
@@ -14,16 +16,15 @@ import {
   getCurrentPermission,
   sendPermissionSnapshot,
 } from './permissionState';
-import type { SessionState } from './sessionQueries';
 
 export function createConnectionEstablishmentHook(options: {
   isMetaRoom(documentName: string): boolean;
-  getSessionState(userId: string, sessionToken: string): Promise<SessionState>;
+  getSessionState(userId: string, credential: AuthenticatedCredential): Promise<CredentialState>;
   assertAnonymousPageAccess(documentName: string): Promise<GrantedPermissionState>;
   assertPageAccess(
     documentName: string,
     userId: string,
-    sessionToken: string,
+    credential: AuthenticatedCredential,
   ): Promise<GrantedPermissionState>;
 }) {
   return async ({ connection, context, documentName }: connectedPayload): Promise<void> => {
@@ -40,7 +41,8 @@ export function createConnectionEstablishmentHook(options: {
       try {
         if (options.isMetaRoom(documentName)) {
           const user = getSessionUser(session);
-          const state = await options.getSessionState(user.id, getSessionToken(session));
+          if (session.principal.kind !== 'account') return;
+          const state = await options.getSessionState(user.id, getAuthenticatedCredential(session));
           applyPermissionState(connection, session, {
             permission: null,
             accessRevision: state.accessRevision,
@@ -62,7 +64,7 @@ export function createConnectionEstablishmentHook(options: {
             : await options.assertPageAccess(
                 documentName,
                 getSessionUser(session).id,
-                session.principal.sessionToken,
+                getAuthenticatedCredential(session),
               );
         applyPermissionState(connection, session, access);
         const permission = getCurrentPermission(session);

@@ -19,6 +19,11 @@ markdawn.space {
     handle {
         root * /var/www/markdawn/packages/web/dist
 
+        @installScripts {
+            path /install.sh /install.ps1
+        }
+        header @installScripts Cache-Control "no-store"
+
         # Cache hashed assets for 1 year
         @hashedAssets {
             path_regexp hashed ^/assets/.*-[a-zA-Z0-9]{8,}\.(js|css|woff2?|ttf|png|jpg|jpeg|gif|webp|svg|ico)$

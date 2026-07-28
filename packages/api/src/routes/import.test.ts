@@ -45,7 +45,7 @@ describe('markdown import API', () => {
 
       expect(res.status).toBe(201);
       const body = await res.json();
-      expect(body.page).toEqual({ id: expect.any(String), title: 'Hello World' });
+      expect(body.page).toEqual({ id: expect.any(String), title: 'note' });
       expect(body.warnings).toEqual([]);
     });
 
@@ -72,7 +72,12 @@ Body text`;
 
       expect(res.status).toBe(201);
       const body = await res.json();
-      expect(body.page.title).toBe('Frontmatter Title');
+      expect(body.page.title).toBe('note');
+      const persisted = await query<{ properties: unknown }>(
+        'select properties from pages where id = $1',
+        [body.page.id],
+      );
+      expect(persisted.rows[0]?.properties).toEqual({ title: 'Frontmatter Title' });
     });
 
     it('preserves nested JSON-compatible frontmatter properties', async () => {
@@ -110,10 +115,7 @@ Body text`;
       const session = await createTestSession(user.id);
       const title = 'x'.repeat(MAX_PAGE_TITLE_LENGTH + 1);
       const formData = new FormData();
-      formData.append(
-        'file',
-        new File([`---\ntitle: ${title}\n---\n\nBody`], 'note.md', { type: 'text/markdown' }),
-      );
+      formData.append('file', new File(['Body'], `${title}.md`, { type: 'text/markdown' }));
 
       const res = await app.request('/api/import/markdown', {
         method: 'POST',

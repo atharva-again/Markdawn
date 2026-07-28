@@ -2,11 +2,12 @@ import type { onAuthenticatePayload } from '@hocuspocus/server';
 import type { Logger } from '@logtape/logtape';
 import { getAnonymousName, parsePageMetaRoomName } from '@markdawn/shared';
 import type { Pool } from 'pg';
+import type { AuthenticatedCredential } from './authenticatedCredential';
 import { CollabAccessError, CollabGuestIdentityExpiredError } from './collabErrors';
 import { type CollabSession, createCollabSession } from './collabSession';
+import { queryAuthenticatedSession } from './credentialQueries';
 import { createConnectionLifecycle } from './hocuspocusV3Adapter';
 import type { GrantedPermissionState } from './permissionState';
-import { queryAuthenticatedSession } from './sessionQueries';
 import { isUuid, parseCookies } from './utils';
 
 type SessionAuthenticatorOptions = {
@@ -18,7 +19,7 @@ type SessionAuthenticatorOptions = {
   assertPageAccess(
     documentName: string,
     userId: string,
-    sessionToken: string,
+    credential: AuthenticatedCredential,
   ): Promise<GrantedPermissionState>;
   assertMetaRoomAccess(userId: string, roomUserId: string): Promise<void>;
 };
@@ -101,7 +102,7 @@ export function createSessionAuthenticator(options: SessionAuthenticatorOptions)
       connectionConfig.readOnly = true;
     } else {
       if (!isUuid(documentName)) throw new CollabAccessError(accessRevision);
-      const access = await assertPageAccess(documentName, user.id, sessionToken);
+      const access = await assertPageAccess(documentName, user.id, authenticated.credential);
       permission = access.permission;
       accessRevision = access.accessRevision;
       if (permission === 'view') connectionConfig.readOnly = true;
@@ -109,7 +110,7 @@ export function createSessionAuthenticator(options: SessionAuthenticatorOptions)
 
     logger.info(`[auth] authenticated user=${user.id} (${user.email}) permission=${permission}`);
     return createCollabSession({
-      principal: { kind: 'account', user, sessionToken },
+      principal: { kind: 'account', user, credential: authenticated.credential },
       permission,
       accessRevision,
       lifecycle: createConnectionLifecycle(),

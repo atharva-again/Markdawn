@@ -128,7 +128,6 @@ function pageResponse(permission: 'view' | 'edit') {
     coverType: null,
     coverValue: null,
     position: 'a0',
-    ydoc: null,
     properties: null,
     createdBy: 'owner-1',
     ownerId: 'owner-1',

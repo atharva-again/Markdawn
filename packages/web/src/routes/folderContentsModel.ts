@@ -25,7 +25,6 @@ function toPublicPage(page: FolderPageDto, folderId: string): PageTreeNode {
     coverType: null,
     coverValue: null,
     position: '0',
-    ydoc: null,
     properties: null,
     createdBy: page.accessScope === 'account' ? page.createdBy : null,
     ownerId: page.accessScope === 'account' ? page.ownerId : null,

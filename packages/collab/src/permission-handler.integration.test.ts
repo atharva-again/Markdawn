@@ -29,7 +29,7 @@ function accountContext(options: {
         name: options.user.name ?? 'Test User',
         avatarUrl: options.user.image ?? null,
       },
-      sessionToken: options.sessionToken,
+      credential: { kind: 'session', raw: options.sessionToken },
     },
     permission: options.permission,
     accessRevision: options.accessRevision ?? '0',
@@ -44,6 +44,7 @@ describe('active permission revalidation', () => {
   beforeAll(() => {
     server = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger,
       permissionRevalidationMs: 0,
@@ -60,6 +61,7 @@ describe('active permission revalidation', () => {
     const page = await createTestPage(pool, owner.id, 'Persisted old title');
     const periodicServer = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger,
       permissionRevalidationMs: 10,

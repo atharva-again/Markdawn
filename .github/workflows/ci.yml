@@ -8,6 +8,7 @@ on:
 
 env:
   NODE_VERSION: "22"
+  GO_VERSION: "1.24.x"
 
 jobs:
   lint:
@@ -47,6 +48,84 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+  cli:
+    name: CLI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: cli/go.sum
+
+      - name: Test
+        working-directory: cli
+        run: |
+          go test -race ./...
+          bash ../scripts/install-cli.test.sh
+          sh ../scripts/standalone-cli.e2e.sh
+
+      - name: Vet
+        working-directory: cli
+        run: go vet ./...
+
+      - name: Build
+        working-directory: cli
+        run: go build -trimpath ./...
+
+  cli-macos:
+    name: CLI (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: cli/go.sum
+      - name: Test CLI and bootstrap installer
+        working-directory: cli
+        run: |
+          go test -race ./...
+          bash ../scripts/install-cli.test.sh
+          sh ../scripts/standalone-cli.e2e.sh
+      - name: Vet
+        working-directory: cli
+        run: go vet ./...
+      - name: Build
+        working-directory: cli
+        run: go build -trimpath ./...
+
+  cli-windows:
+    name: CLI (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: cli/go.sum
+      - name: Test CLI
+        working-directory: cli
+        run: go test ./...
+      - name: Vet
+        working-directory: cli
+        run: go vet ./...
+      - name: Build
+        working-directory: cli
+        run: go build -trimpath ./...
+      - name: Parse PowerShell bootstrap installer
+        shell: pwsh
+        run: |
+          $errors = $null
+          [Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'scripts/install-cli.ps1'), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+      - name: Test PowerShell bootstrap installer
+        shell: pwsh
+        run: |
+          ./scripts/install-cli.ps1.test.ps1
+          ./scripts/standalone-cli.e2e.ps1
 
   test:
     name: Test
@@ -97,7 +176,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test]
+    needs: [lint, typecheck, test, cli, cli-macos, cli-windows]
     steps:
       - uses: actions/checkout@v4
 

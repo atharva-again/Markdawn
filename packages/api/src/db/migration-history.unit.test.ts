@@ -59,6 +59,28 @@ describe('Drizzle v1 migration history', () => {
     }
   });
 
+  it('backfills page timestamps before enforcing non-null constraints', () => {
+    const migration = readMigrationSql('20260726075157_api_v1_foundation');
+    const backfill = migration.indexOf('UPDATE "pages"');
+    const createdConstraint = migration.indexOf('"created_at" SET NOT NULL');
+    const updatedConstraint = migration.indexOf('"updated_at" SET NOT NULL');
+
+    expect(backfill).toBeGreaterThan(-1);
+    expect(createdConstraint).toBeGreaterThan(backfill);
+    expect(updatedConstraint).toBeGreaterThan(createdConstraint);
+  });
+
+  it('consolidates API v1 persistence and indexes scheduled retention scans', () => {
+    const migrationDirs = listMigrationDirs().filter((name) => name.startsWith('20260725'));
+    expect(migrationDirs).toEqual([]);
+    const migration = readMigrationSql('20260726075157_api_v1_foundation');
+    expect(migration).toContain('api_idempotency_records_expires_at_idx');
+    expect(migration).toContain('api_token_audit_events_created_at_idx');
+    expect(migration).toContain('api_token_audit_events_owner_idx');
+    expect(migration).toContain('api_token_audit_events_page_idx');
+    expect(migration).not.toContain('CREATE TRIGGER');
+  });
+
   it('checks migration compatibility before modifying deployment artifacts', () => {
     const deployScript = readFileSync(deployScriptPath, 'utf8');
     const compatibilityCheck = deployScript.indexOf('MIGRATION_BASELINE');

@@ -19,8 +19,8 @@ export type PageDatabaseRow = {
   created_by: string | null;
   public_permission: 'view' | 'edit' | null;
   inheritance_policy: 'inherit' | 'restricted';
-  created_at: Date | null;
-  updated_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
   is_deleted: boolean | null;
   deleted_at: Date | null;
   deletion_batch_id: string | null;
@@ -51,5 +51,30 @@ export function normalizePageRow(row: PageDatabaseRow, ownerId: string | null): 
     deletedAt: row.deleted_at,
     deletionBatchId: row.deletion_batch_id,
     ownerId,
+  };
+}
+
+export function toPageResponse(page: NormalizedPageRow): Omit<NormalizedPageRow, 'ydoc'> {
+  return {
+    id: page.id,
+    parentId: page.parentId,
+    title: page.title,
+    titleRevision: page.titleRevision,
+    titleSearch: page.titleSearch,
+    contentSearch: page.contentSearch,
+    icon: page.icon,
+    coverType: page.coverType,
+    coverValue: page.coverValue,
+    position: page.position,
+    properties: page.properties,
+    createdBy: page.createdBy,
+    publicPermission: page.publicPermission,
+    inheritancePolicy: page.inheritancePolicy,
+    createdAt: page.createdAt,
+    updatedAt: page.updatedAt,
+    isDeleted: page.isDeleted,
+    deletedAt: page.deletedAt,
+    deletionBatchId: page.deletionBatchId,
+    ownerId: page.ownerId,
   };
 }

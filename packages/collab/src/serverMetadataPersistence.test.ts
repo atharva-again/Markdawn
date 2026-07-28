@@ -17,6 +17,7 @@ describe('collab server metadata persistence', () => {
   beforeAll(async () => {
     server = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger,
       debounceMs: 50,
@@ -130,6 +131,7 @@ describe('collab server metadata persistence', () => {
     } as unknown as typeof pool;
     const postCommitServer = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool: postCommitPool,
       logger: postCommitLogger,
       permissionRevalidationMs: 0,

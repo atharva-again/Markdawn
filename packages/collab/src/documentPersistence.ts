@@ -4,6 +4,11 @@ import type { Pool, PoolClient } from 'pg';
 import * as Y from 'yjs';
 import { sanitizeCanonicalYjsUpdate } from './collaborationProtocol';
 import { type ConnectionResolutionPrincipal, updateConnections } from './connectionIndex';
+import {
+  type DocumentPersistenceMutation,
+  matchesContentMetadataRevision,
+  persistContentCommandEffects,
+} from './contentMutationPersistence';
 import { getDocumentContentHash } from './documentContentHash';
 import { DocumentSizeLimitError } from './documentSizeError';
 import {
@@ -17,7 +22,13 @@ import { broadcastWikiLinkPresentationInvalidation } from './wikiLinkInvalidatio
 
 export type PersistDocumentResult =
   | { committed: false; staleContent?: boolean }
-  | { committed: true; canonicalTitle: string; contentHash: string; stateSize: number };
+  | {
+      committed: true;
+      canonicalTitle: string;
+      contentHash: string;
+      state: Uint8Array;
+      stateSize: number;
+    };
 
 export type PersistDocumentOptions = {
   pool: Pool;
@@ -32,7 +43,9 @@ export type PersistDocumentOptions = {
   logger: Logger;
   authorizePersistence?: (client: PoolClient) => Promise<boolean>;
   expectedContentHash: string | undefined;
+  mutation?: DocumentPersistenceMutation;
 };
+export type { DocumentPersistenceMutation } from './contentMutationPersistence';
 
 function extractTitle(document: Y.Doc): string {
   return document.getText('title').toString() || 'Untitled';
@@ -55,11 +68,13 @@ export async function persistDocument(
     logger,
     authorizePersistence,
     expectedContentHash,
+    mutation,
   } = options;
   const client = await pool.connect();
   let targetPageIds: string[] = [];
   let pageMeta: PageMeta | undefined;
   let committedStateSize = 0;
+  let committedState: Uint8Array = new Uint8Array();
   let committedContentHash = getDocumentContentHash(null);
   let committedTitle = lastCanonicalTitle ?? 'Untitled';
   let committedWhileDeleted = false;
@@ -75,10 +90,12 @@ export async function persistDocument(
     const currentResult = await client.query<{
       ydoc: Buffer | null;
       title: string;
+      icon: string | null;
+      properties: Record<string, unknown> | null;
       is_deleted: boolean;
       title_revision: string;
     }>(
-      `select ydoc, title, is_deleted, title_revision::text as title_revision
+      `select ydoc, title, icon, properties, is_deleted, title_revision::text as title_revision
        from pages where id = $1 for update`,
       [documentName],
     );
@@ -91,6 +108,16 @@ export async function persistDocument(
       expectedContentHash !== undefined &&
       getDocumentContentHash(current.ydoc ? new Uint8Array(current.ydoc) : null) !==
         expectedContentHash
+    ) {
+      await client.query('ROLLBACK');
+      return { committed: false, staleContent: true };
+    }
+    if (
+      mutation &&
+      !matchesContentMetadataRevision(
+        { properties: current.properties, icon: current.icon },
+        mutation,
+      )
     ) {
       await client.query('ROLLBACK');
       return { committed: false, staleContent: true };
@@ -122,12 +149,12 @@ export async function persistDocument(
       });
     }
 
-    const state = Y.encodeStateAsUpdate(document);
-    if (state.length > maxDocumentBytes) throw new DocumentSizeLimitError();
     const persistedTitle = {
       fieldExisted: document.share.has('title'),
       value: extractTitle(document),
     };
+    const state = Y.encodeStateAsUpdate(document);
+    if (state.length > maxDocumentBytes) throw new DocumentSizeLimitError();
 
     if (current.is_deleted) {
       const hasMeaningfulTitle = persistedTitle.fieldExisted && persistedTitle.value !== 'Untitled';
@@ -172,6 +199,11 @@ export async function persistDocument(
       ]);
     }
 
+    if (!committedWhileDeleted && mutation) {
+      mutation.prepareCommittedState?.(state);
+      await persistContentCommandEffects(client, documentName, mutation);
+    }
+
     if (!committedWhileDeleted) {
       targetPageIds = await updateConnections(
         client,
@@ -188,6 +220,7 @@ export async function persistDocument(
     }
 
     await client.query('COMMIT');
+    committedState = state;
     committedStateSize = state.length;
     committedContentHash = getDocumentContentHash(state);
     committedTitle = pageMeta?.title ?? committedTitle ?? current.title;
@@ -211,6 +244,7 @@ export async function persistDocument(
       committed: true,
       canonicalTitle: committedTitle,
       contentHash: committedContentHash,
+      state: committedState,
       stateSize: committedStateSize,
     };
   }
@@ -232,6 +266,7 @@ export async function persistDocument(
       committed: true,
       canonicalTitle: committedTitle,
       contentHash: committedContentHash,
+      state: committedState,
       stateSize: committedStateSize,
     };
   }
@@ -268,6 +303,7 @@ export async function persistDocument(
     committed: true,
     canonicalTitle: committedTitle,
     contentHash: committedContentHash,
+    state: committedState,
     stateSize: committedStateSize,
   };
 }

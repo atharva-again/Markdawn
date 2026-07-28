@@ -1,6 +1,10 @@
+import {
+  bindWikiLinkTargets,
+  markdownToYjsState,
+  stripLeadingH1,
+} from '@markdawn/shared/markdown-yjs';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { bindWikiLinkTargets, markdownToYjsState, stripLeadingH1 } from './markdown-to-yjs';
 
 function toFragment(md: string): Y.XmlFragment {
   const state = markdownToYjsState(md);

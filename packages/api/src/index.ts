@@ -2,6 +2,11 @@ import './env';
 import { serve } from '@hono/node-server';
 import { getApiLogger } from '@markdawn/shared';
 import { createApp } from './app';
+import { requireCollaborationInternalSecret } from './env';
+import {
+  drainOperationalRetention,
+  OPERATIONAL_RETENTION_INTERVAL_MS,
+} from './utils/dataRetention';
 import { drainExpiredGuestIdentities } from './utils/guestIdentityCleanup';
 import { processUploadDeletionQueue } from './utils/uploadCleanup';
 
@@ -9,6 +14,29 @@ async function main() {
   const app = await createApp();
 
   await processUploadDeletionQueue();
+  let retentionTask: Promise<void> | null = null;
+  const runRetention = () => {
+    if (retentionTask) return;
+    retentionTask = drainOperationalRetention()
+      .then(({ idempotencyRecords, tokenAuditEvents }) => {
+        if (idempotencyRecords > 0 || tokenAuditEvents > 0) {
+          getApiLogger().info('Operational retention cleanup completed', {
+            idempotencyRecords,
+            tokenAuditEvents,
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        // Scheduled maintenance is an explicit background boundary. Report
+        // the failed run and allow the next interval to retry from the DB.
+        getApiLogger().error('Operational retention cleanup failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      })
+      .finally(() => {
+        retentionTask = null;
+      });
+  };
   let guestCleanupTask: Promise<void> | null = null;
   const runGuestCleanup = () => {
     if (guestCleanupTask) return;
@@ -37,6 +65,11 @@ async function main() {
 
   const guestCleanupTimer = setInterval(runGuestCleanup, 24 * 60 * 60 * 1000);
   guestCleanupTimer.unref();
+  // Each bounded run can remove 100,000 expired rows per table. Running once
+  // per minute keeps cleanup capacity well above expected API ingestion while
+  // retaining a hard per-run query bound.
+  const retentionTimer = setInterval(runRetention, OPERATIONAL_RETENTION_INTERVAL_MS);
+  retentionTimer.unref();
 
   const port = Number(process.env.PORT ?? 3001);
 
@@ -47,8 +80,13 @@ async function main() {
 
   const initialGuestCleanup = setTimeout(runGuestCleanup, 0);
   initialGuestCleanup.unref();
+  const initialRetention = setTimeout(runRetention, 0);
+  initialRetention.unref();
 }
 
+// Validate the private API-to-collaboration trust boundary before the API
+// opens its listening socket or reports healthy.
+requireCollaborationInternalSecret();
 main();
 
 export type { AppType } from './app';

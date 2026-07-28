@@ -24,6 +24,7 @@ describe('collab server database event publication', () => {
   beforeAll(async () => {
     server = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger,
       debounceMs: 50,
@@ -79,6 +80,7 @@ describe('collab server database event publication', () => {
       const eventInfo = eventLogger.info as unknown as ReturnType<typeof vi.fn>;
       const eventServer = createCollabServer({
         port: 0,
+        internalSecret: 'test-collaboration-internal-secret',
         pool: gatedPool,
         logger: eventLogger,
         databaseUrl,
@@ -255,6 +257,7 @@ describe('collab server database event publication', () => {
       const eventLogger = mockLogger();
       const eventServer = createCollabServer({
         port: 0,
+        internalSecret: 'test-collaboration-internal-secret',
         pool,
         logger: eventLogger,
         databaseUrl,

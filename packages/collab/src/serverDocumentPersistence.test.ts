@@ -30,6 +30,7 @@ describe('collab server document persistence', () => {
   beforeAll(async () => {
     server = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger,
       debounceMs: 50,
@@ -222,6 +223,7 @@ describe('collab server document persistence', () => {
     } as unknown as typeof pool;
     const verificationServer = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool: verificationPool,
       logger: verificationLogger,
       permissionRevalidationMs: 0,
@@ -286,6 +288,7 @@ describe('collab server document persistence', () => {
     const unexpectedLogger = mockLogger();
     const unexpectedServer = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger: unexpectedLogger,
       permissionRevalidationMs: 0,
@@ -345,6 +348,7 @@ describe('collab server document persistence', () => {
     } as unknown as typeof pool;
     const failingServer = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool: failingPool,
       logger: failingLogger,
       debounceMs: 50,
@@ -403,6 +407,7 @@ describe('collab server document persistence', () => {
     } as unknown as typeof pool;
     const lockedServer = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool: persistencePool,
       logger: mockLogger(),
       permissionRevalidationMs: 0,
@@ -785,6 +790,7 @@ describe('collab server document persistence', () => {
     const sizeLogger = mockLogger();
     const sizeLimitedServer = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger: sizeLogger,
       permissionRevalidationMs: 0,

@@ -20,6 +20,7 @@ describe('collab server disconnect persistence', () => {
   beforeAll(async () => {
     server = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool,
       logger,
       debounceMs: 50,
@@ -61,6 +62,7 @@ describe('collab server disconnect persistence', () => {
     } as unknown as typeof pool;
     const isolatedServer = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool: isolatedPool,
       logger: createMockLogger(),
       permissionRevalidationMs: 0,
@@ -116,6 +118,7 @@ describe('collab server disconnect persistence', () => {
     } as unknown as typeof pool;
     const failingServer = createCollabServer({
       port: 0,
+      internalSecret: 'test-collaboration-internal-secret',
       pool: failingPool,
       logger: failingLogger,
       debounceMs: 50,

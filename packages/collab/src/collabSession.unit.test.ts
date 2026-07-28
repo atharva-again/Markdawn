@@ -12,7 +12,7 @@ function accountSession() {
         name: 'User One',
         avatarUrl: null,
       },
-      sessionToken: 'session-1',
+      credential: { kind: 'session', raw: 'session-1' },
     },
     permission: 'edit',
     accessRevision: '1',

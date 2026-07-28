@@ -1,4 +1,5 @@
 import { Connection, type Document, type HocuspocusLifecycleHooks } from '@hocuspocus/server';
+import { getYjsWriteUpdate } from './collaborationProtocol';
 
 export type WriteAdmission = {
   accessRevision: string;
@@ -132,6 +133,7 @@ export function sendDeferredInitialAwareness(connection: Connection): void {
  */
 export function createHocuspocusV3LifecycleHooks(options: {
   rememberOutboundAwarenessEntries(context: DeferredAwarenessContext, message: unknown): void;
+  isRestMutationActive(documentName: string): boolean;
 }): HocuspocusLifecycleHooks {
   return {
     deferInitialAwareness(connection) {
@@ -185,6 +187,20 @@ export function createHocuspocusV3LifecycleHooks(options: {
         throw new Error('Write application fence expired');
       }
       const fence = applicationFencesByMessage.get(rawMessage);
+      if (getYjsWriteUpdate(rawMessage) && options.isRestMutationActive(document.name)) {
+        // Hocuspocus applies messages synchronously, while a REST command can
+        // hold the document across asynchronous persistence. Do not merge a
+        // live write into that guarded REST mutation: roll back its admission
+        // and force the client to resync from the committed document.
+        void fence?.complete(false).catch(() => {
+          connection?.close({ code: 4500, reason: 'Write application rollback failed' });
+        });
+        connection?.close({
+          code: 4500,
+          reason: 'Content changed by a REST request; reconnect to resync',
+        });
+        throw new Error('Live write rejected while a REST content mutation is in progress');
+      }
       if (!fence) {
         apply();
         return;

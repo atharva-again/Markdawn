@@ -4,7 +4,6 @@ export interface MarkdownFrontmatterResult {
   frontmatter: Record<string, unknown>;
   body: string;
   tags: string[];
-  title: string;
 }
 
 export class UnsupportedMarkdownFrontmatterError extends Error {
@@ -118,26 +117,15 @@ export function parseMarkdownFrontmatter(content: string): MarkdownFrontmatterRe
     if (/^---\r?\n/.test(content)) {
       throw new UnsupportedMarkdownFrontmatterError(1, 'closing --- delimiter is missing');
     }
-    const h1Match = content.match(/^#\s+(.+)$/m);
     return {
       frontmatter: {},
       body: content,
       tags: [],
-      title: h1Match?.[1]?.trim() ?? '',
     };
   }
 
   const source = match[1] ?? '';
   const frontmatter = parseFrontmatterMapping(source);
-  if (Object.hasOwn(frontmatter, 'title') && typeof frontmatter.title !== 'string') {
-    throw new UnsupportedMarkdownFrontmatterError(
-      sourceLineForKey(source, 'title'),
-      'title must be a string',
-    );
-  }
-  const title = typeof frontmatter.title === 'string' ? frontmatter.title : '';
-  delete frontmatter.title;
-
   const tags = [
     ...readTagValues(frontmatter.tags, 'tags', source),
     ...readTagValues(frontmatter.tag, 'tag', source),
@@ -154,7 +142,6 @@ export function parseMarkdownFrontmatter(content: string): MarkdownFrontmatterRe
     frontmatter,
     body: content.slice(match[0].length),
     tags: uniqueTags,
-    title,
   };
 }
 

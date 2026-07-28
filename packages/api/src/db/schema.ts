@@ -1,3 +1,4 @@
+import type { ApiTokenAuditOperation, ApiTokenAuditResult } from '@markdawn/shared';
 import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
@@ -91,6 +92,28 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
+
+export const apiTokens = pgTable(
+  'api_tokens',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    scopes: text('scopes').array().notNull().default(sql`array['pages:read']::text[]`),
+    expiresAt: timestamp('expires_at'),
+    lastUsedAt: timestamp('last_used_at'),
+    revokedAt: timestamp('revoked_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index('api_tokens_user_idx').on(table.userId),
+    tokenHashUnique: unique('api_tokens_token_hash_unique').on(table.tokenHash),
+    nameLength: check('api_tokens_name_length_check', sql`char_length(${table.name}) <= 100`),
+  }),
+);
 
 export const workspaceAccessVersions = pgTable('workspace_access_versions', {
   workspaceOwnerId: uuid('workspace_owner_id')
@@ -257,9 +280,9 @@ export const pages = pgTable(
       .default('inherit')
       .$type<'inherit' | 'restricted'>(),
 
-    createdAt: timestamp('created_at').defaultNow(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
 
-    updatedAt: timestamp('updated_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
 
     isDeleted: boolean('is_deleted').default(false),
 
@@ -268,6 +291,7 @@ export const pages = pgTable(
     deletionBatchId: uuid('deletion_batch_id'),
   },
   (table) => ({
+    titleExactIdx: index('pages_title_exact_idx').on(sql`lower(${table.title})`),
     titleSearchIdx: index('pages_title_search_idx').using('gin', table.titleSearch),
     titleLength: check('pages_title_length_check', sql`char_length(${table.title}) <= 250`),
     positionNumeric: check(
@@ -278,6 +302,57 @@ export const pages = pgTable(
       'pages_public_permission_check',
       sql`${table.publicPermission} is null or ${table.publicPermission} in ('view', 'edit')`,
     ),
+  }),
+);
+
+export const apiTokenAuditEvents = pgTable(
+  'api_token_audit_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tokenId: uuid('token_id').references(() => apiTokens.id, { onDelete: 'set null' }),
+    ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
+    pageId: uuid('page_id').references(() => pages.id, { onDelete: 'set null' }),
+    operation: text('operation').notNull().$type<ApiTokenAuditOperation>(),
+    result: text('result').notNull().$type<ApiTokenAuditResult>(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    createdAtIdx: index('api_token_audit_events_created_at_idx').on(table.createdAt),
+    tokenCreatedIdx: index('api_token_audit_events_token_created_idx').on(
+      table.tokenId,
+      table.createdAt,
+    ),
+    ownerIdx: index('api_token_audit_events_owner_idx').on(table.ownerId),
+    pageIdx: index('api_token_audit_events_page_idx').on(table.pageId),
+  }),
+);
+
+export const apiIdempotencyRecords = pgTable(
+  'api_idempotency_records',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    principalKey: text('principal_key').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    requestHash: text('request_hash').notNull(),
+    response: customType<{ data: Record<string, unknown>; notNull: false; default: false }>({
+      dataType() {
+        return 'jsonb';
+      },
+    })('response'),
+    etag: text('etag'),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    principalKeyUnique: unique('api_idempotency_records_principal_key_unique').on(
+      table.principalKey,
+      table.idempotencyKey,
+    ),
+    keyLength: check(
+      'api_idempotency_records_key_length_check',
+      sql`char_length(${table.idempotencyKey}) between 1 and 200`,
+    ),
+    expiryIdx: index('api_idempotency_records_expires_at_idx').on(table.expiresAt),
   }),
 );
 

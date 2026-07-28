@@ -6,7 +6,7 @@ import { query } from '../db/query';
 import { uploadsDir } from '../env';
 import { requireAuth } from '../middleware/auth';
 import { extractImages, pageToMarkdown } from '../utils/export-helpers';
-import { slugifyFilename } from '../utils/filename';
+import { allocateFilename } from '../utils/filename';
 
 type PageExportRow = {
   id: string;
@@ -71,7 +71,7 @@ exportRoute.get('/export', async (c) => {
     for (const target of targets.rows) exportTargets.set(target.id, target);
   }
   const zip = new JSZip();
-  const usedNames = new Map<string, number>();
+  const usedNames = new Set<string>();
   const allAssets = new Map<string, Buffer>();
 
   for (let i = 0; i < pages.length; i++) {
@@ -81,13 +81,9 @@ exportRoute.get('/export', async (c) => {
       typeof page.title === 'string' && page.title.trim().length > 0
         ? page.title.trim()
         : 'Untitled';
-    const baseSlug = slugifyFilename(title);
-    const baseName = baseSlug.length > 0 ? baseSlug : `page-${i + 1}`;
-    const seenCount = usedNames.get(baseName) ?? 0;
-    usedNames.set(baseName, seenCount + 1);
-    const filename = seenCount > 0 ? `${baseName}-${seenCount + 1}.md` : `${baseName}.md`;
+    const filename = allocateFilename(title, '.md', usedNames, `Untitled ${i + 1}`);
 
-    let content = pageToMarkdown(page.ydoc, page.properties, page.icon, title, {
+    let content = pageToMarkdown(page.ydoc, page.properties, page.icon, {
       resolveWikiLinkTarget: (targetId) => {
         const target = exportTargets.get(targetId.toLowerCase());
         return target?.ownerId === page.ownerId ? { title: target.title } : null;

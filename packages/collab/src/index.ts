@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getCollabLogger, setupLogger } from '@markdawn/shared';
+import { getCollabLogger, requireCollaborationInternalSecret, setupLogger } from '@markdawn/shared';
 import { config } from 'dotenv';
 import { createCollabServer } from './server';
 import { getDbHostname } from './utils';
@@ -28,11 +28,11 @@ async function main() {
 
   const port = Number(process.env.COLLAB_PORT ?? '1234');
   const databaseUrl = process.env.DATABASE_URL;
+  const internalSecret = requireCollaborationInternalSecret(process.env.COLLAB_INTERNAL_SECRET);
 
   if (!databaseUrl) {
     throw new Error('DATABASE_URL is required for collab server');
   }
-
   const { Pool } = await import('pg');
 
   const dbHostname = getDbHostname(databaseUrl);
@@ -50,7 +50,7 @@ async function main() {
     logger.error(`Database pool error: ${err.message}`);
   });
 
-  const server = createCollabServer({ port, pool, logger, databaseUrl });
+  const server = createCollabServer({ port, pool, logger, databaseUrl, internalSecret });
   server.listen();
 }
 

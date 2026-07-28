@@ -4,7 +4,7 @@ import { COLLAB_DOCUMENT_RELOAD_REASONS } from '@markdawn/shared';
 import type { Pool, PoolClient } from 'pg';
 import * as Y from 'yjs';
 import type { CollabSession } from './collabSession';
-import { persistDocument } from './documentPersistence';
+import { type DocumentPersistenceMutation, persistDocument } from './documentPersistence';
 import { DocumentSizeLimitError } from './documentSizeError';
 import type { PageTitleRuntime } from './pageTitleRuntime';
 
@@ -35,15 +35,24 @@ type DocumentFlusherOptions = {
   blockOversizedDocument(documentName: string, size: number): void;
 };
 
+export type DocumentFlushResult =
+  | { status: 'persisted'; state: Uint8Array }
+  | { status: 'stale' }
+  | { status: 'skipped'; reason: 'invalid_title' | 'unauthorized' | 'empty' | 'oversized' };
+
 export function createDocumentFlusher(options: DocumentFlusherOptions) {
   return async function flushDocument(
     documentName: string,
     document: Y.Doc,
     fallbackContext: CollabSession | undefined,
     source: 'persist' | 'disconnect',
-  ): Promise<void> {
-    await options.withDocumentContentLock(documentName, async () => {
-      if (!options.titles.ensureWithinLimit(documentName, document)) return;
+    mutation?: DocumentPersistenceMutation,
+    contentLockAlreadyHeld = false,
+  ): Promise<DocumentFlushResult> {
+    const flush = async (): Promise<DocumentFlushResult> => {
+      if (!options.titles.ensureWithinLimit(documentName, document)) {
+        return { status: 'skipped', reason: 'invalid_title' };
+      }
       const writerVersion = options.getDocumentChangeVersion(documentName);
       const principals = options.getConnectionResolutionPrincipals(
         documentName,
@@ -59,12 +68,12 @@ export function createDocumentFlusher(options: DocumentFlusherOptions) {
           writerVersion,
         ))
       ) {
-        return;
+        return { status: 'skipped', reason: 'unauthorized' };
       }
-      if (state.length === 0) return;
+      if (state.length === 0) return { status: 'skipped', reason: 'empty' };
       if (state.length > options.maxDocumentBytes) {
         options.blockOversizedDocument(documentName, state.length);
-        return;
+        return { status: 'skipped', reason: 'oversized' };
       }
       options.logger.info(`[${source}] saving: ${documentName}, size: ${state.length} bytes`);
       try {
@@ -82,6 +91,7 @@ export function createDocumentFlusher(options: DocumentFlusherOptions) {
           expectedContentHash: options.getDocumentContentHash(documentName),
           authorizePersistence: (client) =>
             options.canPersistPendingDocument(documentName, fallbackContext, client, writerVersion),
+          ...(mutation ? { mutation } : {}),
         });
         if (!persisted.committed) {
           if (persisted.staleContent) {
@@ -91,20 +101,24 @@ export function createDocumentFlusher(options: DocumentFlusherOptions) {
               COLLAB_DOCUMENT_RELOAD_REASONS.CONTENT_REPLACED,
             );
           }
-          return;
+          return persisted.staleContent
+            ? { status: 'stale' }
+            : { status: 'skipped', reason: 'unauthorized' };
         }
         options.clearPersistedWriters(documentName, writerVersion);
         options.titles.rememberPersisted(documentName, persisted.canonicalTitle);
         options.setDocumentContentHash(documentName, persisted.contentHash);
         options.setDocumentSizeEstimate(documentName, persisted.stateSize);
         options.logger.debug(`[${source}] saved: ${documentName}`);
+        return { status: 'persisted', state: persisted.state };
       } catch (error) {
         if (error instanceof DocumentSizeLimitError) {
           options.blockOversizedDocument(documentName, Y.encodeStateAsUpdate(document).length);
-          return;
+          return { status: 'skipped', reason: 'oversized' };
         }
         throw error;
       }
-    });
+    };
+    return contentLockAlreadyHeld ? flush() : options.withDocumentContentLock(documentName, flush);
   };
 }

@@ -76,7 +76,7 @@ export function createConnection(overrides?: {
               name: user.id,
               avatarUrl: null,
             },
-            sessionToken: input.sessionToken ?? `session:${user.id}`,
+            credential: { kind: 'session', raw: input.sessionToken ?? `session:${user.id}` },
           },
           permission,
           accessRevision: input.accessRevision ?? '1',

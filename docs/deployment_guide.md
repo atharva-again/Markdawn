@@ -77,6 +77,10 @@ COLLAB_PORT=1234
 VITE_API_URL=https://markdawn.space
 ```
 
+`setup.sh` creates a unique `COLLAB_INTERNAL_SECRET` automatically. If configuring an
+existing `.env` manually, append one with `printf '\nCOLLAB_INTERNAL_SECRET=%s\n'
+"$(openssl rand -hex 32)" >> .env`. It must be unique and at least 32 characters.
+
 ### 4. Configure OAuth Providers
 
 Register these redirect URLs in your OAuth provider dashboards:
@@ -147,9 +151,10 @@ The script will:
 3. Build the shared and web packages
 4. Update Podman Quadlet units
 5. Rebuild the API and collaboration container images
-6. Stop the application services
-7. Apply pending database migrations
-8. Restart the application services and verify API health
+6. Stop the services and recreate the pod so published-port changes take effect
+7. Restart PostgreSQL and wait for it to become ready
+8. Apply pending database migrations
+9. Start the application services and verify API health
 
 The current Drizzle v1 baseline is not compatible with databases created from the removed legacy migration history. `deploy.sh` detects those databases before pulling code or replacing deployment artifacts and exits without resetting them.
 
@@ -202,7 +207,8 @@ Vultr VPS (Fedora, 4GB RAM)
 ```
 
 All containers run inside a single Podman pod sharing the `localhost` network namespace.
-PostgreSQL port 5432 is bound to `127.0.0.1` only (localhost), not exposed externally.
+PostgreSQL port 5432 and the collaboration service port 1234 are bound to `127.0.0.1`
+only, not exposed externally.
 
 ## Troubleshooting
 

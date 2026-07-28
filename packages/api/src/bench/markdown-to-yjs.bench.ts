@@ -1,5 +1,5 @@
+import { markdownToYjsState } from '@markdawn/shared/markdown-yjs';
 import { bench, describe } from 'vitest';
-import { markdownToYjsState } from '../utils/markdown-to-yjs';
 
 describe('markdownToYjsState benchmarks', () => {
   const smallMd = '# Hello\n\nThis is a small markdown document.';

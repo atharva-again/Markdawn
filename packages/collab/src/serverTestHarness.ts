@@ -42,7 +42,7 @@ export function createUnverifiedAccountHookContext(
         name: 'Test User',
         avatarUrl: null,
       },
-      sessionToken,
+      credential: { kind: 'session', raw: sessionToken },
     },
     permission,
     accessRevision: '0',

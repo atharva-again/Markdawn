@@ -2,12 +2,15 @@ import {
   type AccountPagePayload,
   deriveCapabilities,
   MAX_WIKI_LINK_PRESENTATION_REQUESTS,
+  normalizePageIcon,
   normalizeWikiLinkLookupKey,
   type PublicPagePayload,
+  validatePageProperties,
   type WikiLinkPresentation,
   type WikiLinkPresentationRequest,
   type WikiLinkPresentationResponse,
 } from '@markdawn/shared';
+import { bindWikiLinkTargets, createYjsDocWithTitle } from '@markdawn/shared/markdown-yjs';
 import { extractWikiLinkTargetIds } from '@markdawn/shared/yjs-helpers';
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -20,12 +23,11 @@ import { db } from '../db/connection';
 import { executeQuery, type QueryExecutor, query } from '../db/query';
 import { uploadsDir } from '../env';
 import { requireAuth } from '../middleware/auth';
-import { getDestinationOwnerId } from '../utils/destinationOwner';
 import { ensureDocumentInputSize, ensureYdocSize } from '../utils/documentSize';
 import { purgeEntityAccessMetadata } from '../utils/entityCleanup';
 import { movePageToTrash, removePageFromView } from '../utils/entityRemoval';
 import { extractImages, pageToMarkdown } from '../utils/export-helpers';
-import { slugifyFilename } from '../utils/filename';
+import { allocateFilename, attachmentContentDisposition } from '../utils/filename';
 import { getEnumerableFolderIds, redactParentId } from '../utils/folderEnumeration';
 import {
   ensureActorCanCreateInFolder,
@@ -34,21 +36,19 @@ import {
   persistGuestIdentity,
 } from '../utils/guestAccess';
 import {
-  bindWikiLinkTargets,
-  createEmptyYjsDoc,
-  createYjsDocWithTitle,
-} from '../utils/markdown-to-yjs';
-import {
   replacePageConnectionIndex,
   replacePageTagConnectionIndex,
 } from '../utils/pageConnectionIndex';
 import { copyPageContent } from '../utils/pageCopy';
-import { validatePageProperties } from '../utils/pageProperties';
+import { createPageForActor } from '../utils/pageCreation';
+import { notifyPageRename, replacePageRecordFields } from '../utils/pageMutation';
+import { getPageById, getPageByIdForUpdate } from '../utils/pageRepository';
 import {
   type NormalizedPageRow,
   normalizePageRow,
   type PageDatabaseRow,
   type PageDatabaseRowWithOwner,
+  toPageResponse,
 } from '../utils/pageRows';
 import { normalizePageTitle } from '../utils/pageTitle';
 import { getNextPosition, normalizePosition } from '../utils/position';
@@ -63,7 +63,6 @@ import {
   ensurePageAccess,
   ensureWorkspaceAdmin,
   lockEntityAccess,
-  lockEntityAccessMutation,
   lockEntityAccessMutations,
   lockWorkspaceAccessMutation,
   type SharePermission,
@@ -85,6 +84,13 @@ const isLocalWikiLinkHeading = (value: string): boolean => {
 
 const pagesRoute = new Hono();
 const pagesPublicRoute = new Hono();
+
+function parsePageIcon(value: unknown): string | null {
+  if (value !== null && typeof value !== 'string') {
+    throw new HTTPException(400, { message: 'icon must be a string or null' });
+  }
+  return normalizePageIcon(value);
+}
 
 const deletedPageOwnerSql = sql`coalesce(
   (
@@ -117,31 +123,6 @@ const isValidMarkdown = (markdown: string): boolean => {
   } catch {
     return false;
   }
-};
-
-const getPageById = async (pageId: string, executor?: QueryExecutor) => {
-  const statement = sql`select p.*, coalesce(get_root_folder_owner(p.parent_id), p.created_by) as owner_id from pages p where p.id = ${pageId} and p.is_deleted = false limit 1`;
-  const result = executor
-    ? await executeQuery<PageDatabaseRowWithOwner>(executor, statement)
-    : await query<PageDatabaseRowWithOwner>(statement);
-  const row = result.rows[0] ?? null;
-  return row ? normalizePageRow(row, row.owner_id) : null;
-};
-
-const getPageByIdForUpdate = async (
-  pageId: string,
-  executor: QueryExecutor,
-): Promise<NormalizedPageRow | null> => {
-  const result = await executeQuery<PageDatabaseRowWithOwner>(
-    executor,
-    sql`select p.*, coalesce(get_root_folder_owner(p.parent_id), p.created_by) as owner_id
-     from pages p
-     where p.id = ${pageId} and p.is_deleted = false
-     limit 1
-     for update of p`,
-  );
-  const row = result.rows[0] ?? null;
-  return row ? normalizePageRow(row, row.owner_id) : null;
 };
 
 const ensurePageOrganizationAccess = async (
@@ -339,54 +320,14 @@ pagesPublicRoute.post(
     }
 
     const pageTitle = typeof title === 'string' ? normalizePageTitle(title) : 'Untitled';
-    const ydocBuffer = Buffer.from(createEmptyYjsDoc(pageTitle));
-    ensureYdocSize(ydocBuffer);
-
-    const insertResult = await db.transaction(async (tx) => {
-      if (parentId) {
-        await lockEntityAccessMutation(tx, 'folder', parentId);
-        await ensureActorCanCreateInFolder(actor, parentId, tx);
-      } else {
-        await lockWorkspaceAccessMutation(tx, actor.id);
-      }
-      await persistGuestIdentity(actor, tx);
-
-      const ownerId = await getDestinationOwnerId(
-        tx,
-        parentId ?? null,
-        actor.kind === 'user' ? actor.id : null,
-      );
-      if (!ownerId) throw new HTTPException(404, { message: 'Parent folder not found' });
-
-      const nextPosition = await getNextPosition('pages', parentId ?? null, actor.id, tx);
-      const result = await executeQuery<PageDatabaseRow>(
-        tx,
-        sql`insert into pages (parent_id, title, title_search, icon, position, created_by, ydoc) values (${parentId ?? null}, ${pageTitle}, to_tsvector('english', ${pageTitle}), ${typeof icon === 'string' && icon.trim().length > 0 ? icon.trim() : null}, ${nextPosition}, ${actor.kind === 'user' ? actor.id : null}, ${ydocBuffer}) returning *`,
-      );
-      const createdPageId = result.rows[0]?.id;
-      if (createdPageId) {
-        const metaUserIds = await getEntityMetaUserIds(tx, 'page', createdPageId);
-        await notifyShareRecompute(
-          {
-            entityType: 'page',
-            entityId: createdPageId,
-            metaUserIds,
-            metaOnly: true,
-          },
-          tx,
-        );
-      }
-      return { result, ownerId };
+    const createdResult = await createPageForActor({
+      actor,
+      parentId: parentId ?? null,
+      title: pageTitle,
+      icon: icon === undefined ? null : parsePageIcon(icon),
     });
-
-    if (insertResult.result.rowCount === 0) {
-      throw new HTTPException(500, { message: 'Failed to create page' });
-    }
-
-    const createdRow = insertResult.result.rows[0];
-    if (!createdRow) throw new HTTPException(500, { message: 'Failed to create page' });
-    const created = normalizePageRow(createdRow, insertResult.ownerId);
-    return c.json({ ...created, ydoc: created.ydoc ? Array.from(created.ydoc) : null }, 201);
+    const created = normalizePageRow(createdResult.page, createdResult.ownerId);
+    return c.json(toPageResponse(created), 201);
   },
 );
 
@@ -403,7 +344,7 @@ pagesRoute.get('/trash', async (c) => {
      order by p.deleted_at desc nulls last, p.position::numeric asc`,
   );
 
-  return c.json(result.rows.map((row) => normalizePageRow(row, row.owner_id)));
+  return c.json(result.rows.map((row) => toPageResponse(normalizePageRow(row, row.owner_id))));
 });
 
 pagesRoute.delete('/trash/empty-all', async (c) => {
@@ -528,15 +469,7 @@ pagesPublicRoute.patch(
               throw new HTTPException(400, { message: 'title must be a string' });
             })()
         : page.title;
-      const nextIcon = hasIcon
-        ? typeof icon === 'string' && icon.trim().length > 0
-          ? icon.trim()
-          : icon === null || icon === ''
-            ? null
-            : (() => {
-                throw new HTTPException(400, { message: 'icon must be a string or null' });
-              })()
-        : page.icon;
+      const nextIcon = hasIcon ? parsePageIcon(icon) : page.icon;
       const normalizeOptionalText = (value: unknown, field: string): string | null => {
         if (value === null || value === '') return null;
         if (typeof value !== 'string') {
@@ -1007,7 +940,7 @@ pagesRoute.patch(':id/restore', async (c) => {
   const updatedRow = updateResult.result.rows[0];
   if (!updatedRow) throw new HTTPException(500, { message: 'Failed to restore page' });
   const updated = normalizePageRow(updatedRow, updateResult.ownerId);
-  return c.json({ ...updated, ydoc: updated.ydoc ? Array.from(updated.ydoc) : null });
+  return c.json(toPageResponse(updated));
 });
 
 pagesRoute.patch(':id', async (c) => {
@@ -1046,6 +979,7 @@ pagesRoute.patch(':id', async (c) => {
 
   const hasParentId = Object.hasOwn(body, 'parentId');
   const hasPosition = Object.hasOwn(body, 'position');
+  const hasIcon = Object.hasOwn(body, 'icon');
   const hasCoverType = Object.hasOwn(body, 'coverType');
   const hasCoverValue = Object.hasOwn(body, 'coverValue');
   const hasProperties = Object.hasOwn(body, 'properties');
@@ -1058,7 +992,7 @@ pagesRoute.patch(':id', async (c) => {
 
   const updateResult = await db.transaction(async (tx) => {
     const workspaceOwnerId = await lockEntityAccess(tx, 'page', pageId);
-    const currentPage = await getPageById(pageId, tx);
+    const currentPage = await getPageByIdForUpdate(pageId, tx);
     if (!currentPage) {
       throw new HTTPException(404, { message: 'Page not found' });
     }
@@ -1071,14 +1005,7 @@ pagesRoute.patch(':id', async (c) => {
     }
 
     const nextTitle = normalizedRequestedTitle ?? currentPage.title;
-    const nextIcon =
-      typeof icon === 'string'
-        ? icon.trim().length > 0
-          ? icon.trim()
-          : null
-        : icon === null
-          ? null
-          : currentPage.icon;
+    const nextIcon = hasIcon ? parsePageIcon(icon) : currentPage.icon;
     const nextPosition = normalizePosition(position, currentPage.position);
     const nextCoverType = hasCoverType
       ? typeof coverType === 'string' && coverType.trim().length > 0
@@ -1090,38 +1017,24 @@ pagesRoute.patch(':id', async (c) => {
         ? coverValue.trim()
         : null
       : currentPage.coverValue;
-    const nextProperties = hasProperties
-      ? properties && typeof properties === 'object'
-        ? JSON.stringify(properties)
-        : null
-      : currentPage.properties;
     const accessChanged = hasParentId && nextParent !== currentPage.parentId;
     if (accessChanged) {
       await lockWorkspaceAccessMutation(tx, workspaceOwnerId);
     }
     const affectedBefore = accessChanged ? await getEntityMetaUserIds(tx, 'page', pageId) : [];
 
-    const result = hasProperties
-      ? await executeQuery<PageDatabaseRow>(
-          tx,
-          sql`update pages
-           set title_revision = title_revision + case when title is distinct from ${nextTitle} then 1 else 0 end,
-               title = ${nextTitle}, title_search = to_tsvector('english', ${nextTitle}), icon = ${nextIcon},
-               parent_id = ${nextParent}, position = ${nextPosition}, cover_type = ${nextCoverType}, cover_value = ${nextCoverValue},
-               properties = ${nextProperties}, updated_at = now()
-           where id = ${pageId} returning *`,
-        )
-      : await executeQuery<PageDatabaseRow>(
-          tx,
-          sql`update pages
-           set title_revision = title_revision + case when title is distinct from ${nextTitle} then 1 else 0 end,
-               title = ${nextTitle}, title_search = to_tsvector('english', ${nextTitle}), icon = ${nextIcon},
-               parent_id = ${nextParent}, position = ${nextPosition}, cover_type = ${nextCoverType}, cover_value = ${nextCoverValue},
-               updated_at = now()
-           where id = ${pageId} returning *`,
-        );
-
-    const updatedPage = result.rows[0];
+    const updatedPage = await replacePageRecordFields(tx, {
+      pageId,
+      title: nextTitle,
+      icon: nextIcon,
+      parentId: nextParent,
+      position: nextPosition,
+      coverType: nextCoverType,
+      coverValue: nextCoverValue,
+      properties: hasProperties
+        ? { kind: 'replace', value: properties ?? null }
+        : { kind: 'preserve' },
+    });
     if (!updatedPage) {
       throw new HTTPException(500, { message: 'Failed to update page' });
     }
@@ -1132,10 +1045,7 @@ pagesRoute.patch(':id', async (c) => {
     // Keep the payload bounded; the collaboration server reloads the title
     // from PostgreSQL after this transaction commits.
     if (currentPage.title !== nextTitle) {
-      await executeQuery(
-        tx,
-        sql`select pg_notify(${'page_renamed'}, ${JSON.stringify({ pageId })})`,
-      );
+      await notifyPageRename(tx, pageId);
     }
     if (accessChanged) {
       const affectedAfter = await getEntityMetaUserIds(tx, 'page', pageId);
@@ -1149,7 +1059,7 @@ pagesRoute.patch(':id', async (c) => {
       );
     }
     return {
-      result,
+      result: { rows: [updatedPage] },
       ownerId: currentPage.ownerId,
       enumerableFolderIds: await getEnumerableFolderIds(user.id, tx),
     };
@@ -1287,8 +1197,8 @@ pagesRoute.get(':id/export/markdown', async (c) => {
   });
 
   const { page, authorizedUploadFilenames, wikiLinkTargets } = snapshot;
-  const baseFilename = slugifyFilename(page.title || 'Untitled') || 'untitled';
-  const markdown = pageToMarkdown(page.ydoc, page.properties, page.icon, page.title || undefined, {
+  const markdownFilename = allocateFilename(page.title || 'Untitled', '.md', new Set());
+  const markdown = pageToMarkdown(page.ydoc, page.properties, page.icon, {
     resolveWikiLinkTarget: (targetId) => {
       const title = wikiLinkTargets.get(targetId.toLowerCase());
       return title ? { title } : null;
@@ -1299,12 +1209,12 @@ pagesRoute.get(':id/export/markdown', async (c) => {
 
   if (extracted.assets.size === 0) {
     c.header('Content-Type', 'text/markdown');
-    c.header('Content-Disposition', `attachment; filename="${baseFilename}.md"`);
+    c.header('Content-Disposition', attachmentContentDisposition(markdownFilename));
     return c.body(extracted.markdown);
   }
 
   const zip = new JSZip();
-  zip.file(`${baseFilename}.md`, extracted.markdown);
+  zip.file(markdownFilename, extracted.markdown);
   for (const [assetName, assetBuffer] of extracted.assets) {
     zip.file(`assets/${assetName}`, assetBuffer);
   }
@@ -1315,7 +1225,8 @@ pagesRoute.get(':id/export/markdown', async (c) => {
     buffer.byteOffset + buffer.byteLength,
   ) as ArrayBuffer;
   c.header('Content-Type', 'application/zip');
-  c.header('Content-Disposition', `attachment; filename="${baseFilename}.zip"`);
+  const zipFilename = allocateFilename(page.title || 'Untitled', '.zip', new Set());
+  c.header('Content-Disposition', attachmentContentDisposition(zipFilename));
   return c.newResponse(arrayBuffer, 200);
 });
 
@@ -1477,7 +1388,7 @@ pagesPublicRoute.post(
     });
 
     const created = normalizePageRow(copiedPage, copiedPage.owner_id);
-    return c.json({ ...created, ydoc: created.ydoc ? Array.from(created.ydoc) : null }, 201);
+    return c.json(toPageResponse(created), 201);
   },
 );
 
