@@ -2,6 +2,7 @@ import type { MarkType, NodeType, Node as ProseNode } from '@milkdown/kit/prose/
 import { Fragment } from '@milkdown/kit/prose/model';
 import type { EditorState, Transaction } from '@milkdown/kit/prose/state';
 import type { EditorView } from '@milkdown/kit/prose/view';
+import { getHttpUrlRangesInTextRun, type TextRunSegment } from './textRunUrls';
 
 type TaskRepair = {
   itemPos: number;
@@ -13,7 +14,6 @@ type TaskRepair = {
 
 const WIKI_PATTERN = /\[\[([^\]|#]*)(?:#([^\]|]+))?(?:\|(.+?))?\]\]/g;
 const TAG_PATTERN = /(^|\s)#([A-Za-z0-9_-]+)(?=$|\s)/g;
-const URL_PATTERN = /https?:\/\/[^\s]+/g;
 const TASK_PREFIX_PATTERN = /^\[( |x|X)\]\s/;
 
 function buildWikiNode(wikiLinkType: NodeType, source: string): ProseNode {
@@ -199,27 +199,39 @@ function repairAutoLinks(state: EditorState): Transaction | null {
 
   const markRanges: Array<{ from: number; to: number; href: string }> = [];
 
-  state.doc.descendants((node, pos, parent) => {
-    if (!node.isText || !node.text) return true;
-    if (parent?.type.spec.code) return true;
+  state.doc.descendants((node, pos) => {
+    if (!node.isTextblock || node.type.spec.code) return true;
 
-    const text = node.text;
-    const regex = new RegExp(URL_PATTERN.source, 'g');
-    let match = regex.exec(text);
-
-    while (match) {
-      const url = match[0];
-      const from = pos + match.index;
-      const to = from + url.length;
-
-      if (!state.doc.rangeHasMark(from, to, linkMarkType)) {
-        markRanges.push({ from, to, href: url });
+    let textRun: TextRunSegment[] = [];
+    let textRunContext = '';
+    const flushTextRun = () => {
+      for (const range of getHttpUrlRangesInTextRun(textRun, textRunContext)) {
+        if (!state.doc.rangeHasMark(range.from, range.to, linkMarkType)) {
+          markRanges.push(range);
+        }
       }
+      textRun = [];
+      textRunContext = '';
+    };
 
-      match = regex.exec(text);
-    }
-
-    return true;
+    node.forEach((child, offset) => {
+      if (
+        child.isText &&
+        child.text &&
+        !child.marks.some((mark) => mark.type.spec.code || mark.type === linkMarkType)
+      ) {
+        textRun.push({ from: pos + 1 + offset, node: child });
+        return;
+      }
+      flushTextRun();
+      if (child.isText && child.marks.some((mark) => mark.type === linkMarkType)) {
+        textRunContext += child.text ?? '';
+        return;
+      }
+      textRunContext = '';
+    });
+    flushTextRun();
+    return false;
   });
 
   if (markRanges.length === 0) return null;

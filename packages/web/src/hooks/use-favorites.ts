@@ -12,6 +12,7 @@ export interface Favorite {
   title: string;
   icon: string | null;
   ownerId?: string | null;
+  shareSource?: 'direct' | 'public' | 'workspace';
   createdAt: string | null;
 }
 

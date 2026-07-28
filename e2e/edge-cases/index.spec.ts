@@ -36,4 +36,24 @@ test.describe('Edge cases', () => {
     await page.keyboard.press('Enter');
     await expect(page.locator('.ProseMirror pre')).toBeVisible({ timeout: 5000 });
   });
+
+  test('Enter twice exits a code block', async ({ page }) => {
+    await createNewPage(page);
+    await focusEditor(page);
+    await page.keyboard.type('```');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('const first = 1;');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('const second = 2;');
+    await page.keyboard.press('Enter');
+
+    const codeBlock = page.locator('.ProseMirror pre');
+    await expect.poll(() => codeBlock.textContent()).toBe('const first = 1;\nconst second = 2;\n');
+
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Outside the code block');
+
+    await expect.poll(() => codeBlock.textContent()).toBe('const first = 1;\nconst second = 2;');
+    await expect(page.locator('.ProseMirror > p')).toHaveText('Outside the code block');
+  });
 });

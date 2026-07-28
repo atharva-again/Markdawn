@@ -12,6 +12,7 @@ type FavoriteRow = {
   title: string;
   icon: string | null;
   owner_id: string | null;
+  share_source: 'direct' | 'public' | 'workspace' | null;
   created_at: Date | null;
 };
 
@@ -51,6 +52,39 @@ favoritesRoute.get('/', async (c) => {
          when uf.entity_type = 'folder' then get_root_folder_owner(f.id)
          else coalesce(get_root_folder_owner(p.parent_id), p.created_by)
        end as owner_id,
+       case
+         when uf.entity_type = 'page' and exists (
+           select 1 from workspace_members member
+           where member.workspace_owner_id = coalesce(get_root_folder_owner(p.parent_id), p.created_by)
+             and member.member_id = ${user.id}
+             and not is_page_path_restricted(p.id)
+         ) then 'workspace'
+         when uf.entity_type = 'folder' and exists (
+           select 1 from workspace_members member
+           where member.workspace_owner_id = get_root_folder_owner(f.id)
+             and member.member_id = ${user.id}
+             and not is_folder_path_restricted(f.id)
+         ) then 'workspace'
+         when exists (
+           select 1 from shares share
+           where share.entity_type = uf.entity_type
+             and share.entity_id = uf.entity_id
+             and share.recipient_user_id = ${user.id}
+         ) then 'direct'
+         when uf.entity_type = 'page'
+           and get_public_page_permission(p.id) is not null
+           and exists (
+             select 1 from page_public_access_visits visit
+             where visit.page_id = p.id and visit.user_id = ${user.id}
+           ) then 'public'
+         when uf.entity_type = 'folder'
+           and get_public_folder_permission(f.id) is not null
+           and exists (
+             select 1 from folder_public_access_visits visit
+             where visit.folder_id = f.id and visit.user_id = ${user.id}
+           ) then 'public'
+         else null
+       end as share_source,
        uf.created_at
      from user_favorites uf
      left join pages p on p.id = uf.entity_id and uf.entity_type = 'page' and p.is_deleted = false
@@ -75,6 +109,7 @@ favoritesRoute.get('/', async (c) => {
     title: row.title,
     icon: row.icon,
     ownerId: row.owner_id,
+    ...(row.share_source ? { shareSource: row.share_source } : {}),
     createdAt: row.created_at,
   }));
 

@@ -1,3 +1,5 @@
+import { find } from 'linkifyjs';
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function extractUuidFromSlug(slug: string): string | undefined {
@@ -35,12 +37,64 @@ export function buildEntityPath(
 
 const SAFE_LINK_SCHEMES = new Set(['http', 'https', 'mailto', 'tel', 'sms', 'fax']);
 const URL_SCHEME_REGEX = /^([a-zA-Z][a-zA-Z0-9+.-]*):/;
+const HTTP_URL_REGEX = /^https?:\/\/[^\s]+$/i;
+
+export interface HttpUrlMatch {
+  from: number;
+  to: number;
+  href: string;
+}
 
 const hasControlCharacter = (value: string) =>
   Array.from(value).some((character) => {
     const code = character.charCodeAt(0);
     return code <= 31 || code === 127;
   });
+
+const isTokenCharacter = (character: string | undefined) =>
+  character !== undefined && /[\p{L}\p{N}_@-]/u.test(character);
+
+function hasEmbeddedSchemePrefix(value: string, candidateStart: number): boolean {
+  const prefix = value.slice(0, candidateStart);
+  const scheme = prefix.match(/https?:\/\/$/i)?.[0];
+  return Boolean(scheme && isTokenCharacter(prefix[prefix.length - scheme.length - 1]));
+}
+
+function getHttpUrlFromLinkifyMatch(value: string, href: string): string | undefined {
+  if (/\s/.test(value) || hasControlCharacter(value) || !HTTP_URL_REGEX.test(href)) {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(href);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function findHttpUrls(value: string): HttpUrlMatch[] {
+  return find(value, { defaultProtocol: 'https' }).flatMap((candidate) => {
+    if (candidate.type !== 'url') return [];
+    if (
+      isTokenCharacter(value[candidate.start - 1]) ||
+      isTokenCharacter(value[candidate.end]) ||
+      hasEmbeddedSchemePrefix(value, candidate.start)
+    ) {
+      return [];
+    }
+    const href = getHttpUrlFromLinkifyMatch(candidate.value, candidate.href);
+    return href ? [{ from: candidate.start, to: candidate.end, href }] : [];
+  });
+}
+
+/**
+ * Returns an absolute HTTP(S) URL when direct editor input is valid for
+ * autolinking. Bare domains receive the default HTTPS protocol.
+ */
+export function getHttpUrl(value: string): string | undefined {
+  return findHttpUrls(value).find((match) => match.from === 0 && match.to === value.length)?.href;
+}
 
 /**
  * Normalizes links entered in the editor and rejects executable or otherwise

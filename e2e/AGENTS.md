@@ -97,7 +97,7 @@ If you see `ENOENT: no such file or directory, open './playwright/.auth/user.jso
 
 | Aspect | CI | Local |
 |---|---|---|
-| PostgreSQL container | `markdawn-postgres-e2e` (fresh each run) | `markdawn-postgres-dev` (persistent) |
+| PostgreSQL | GitHub Actions `postgresql` service (pinned image, health checked, fresh per job) | `markdawn-postgres-dev` Podman container (persistent) |
 | Database state | Empty — migrations applied fresh | Has leftover test data |
 | Working directory | `e2e/` | Must be `e2e/` |
 | TEST_SETUP_TOKEN | Set to `e2e-test-setup-secret` | Required; must match the API process |

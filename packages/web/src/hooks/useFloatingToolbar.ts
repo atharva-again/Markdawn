@@ -2,49 +2,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface ToolbarState {
   visible: boolean;
-  position: { top: number; left: number };
+  position: Range | null;
 }
 
 export interface FloatingToolbarApi {
   visible: boolean;
-  position: { top: number; left: number };
+  position: Range | null;
   keepVisible: () => void;
   reposition: () => void;
-}
-
-function computePosition(): { top: number; left: number } {
-  const selection = window.getSelection();
-  if (!selection?.rangeCount) {
-    return { top: 0, left: 0 };
-  }
-  const range = selection.getRangeAt(0);
-  const rect = range.getBoundingClientRect();
-
-  // Position above the selection, clamped to stay within viewport
-  const toolbarHeight = 44;
-  const toolbarWidth = 400;
-  const margin = 8;
-
-  let top = rect.top - toolbarHeight;
-  if (top < margin) {
-    // Flip below the selection if there isn't room above
-    top = rect.bottom + margin;
-  }
-
-  // Center horizontally on the selection, clamped to viewport edges
-  const centerX = rect.left + rect.width / 2;
-  const left = Math.max(
-    toolbarWidth / 2 + margin,
-    Math.min(centerX, window.innerWidth - toolbarWidth / 2 - margin),
-  );
-
-  return { top, left };
 }
 
 export function useFloatingToolbar(): FloatingToolbarApi {
   const [toolbarState, setToolbarState] = useState<ToolbarState>({
     visible: false,
-    position: { top: 0, left: 0 },
+    position: null,
   });
 
   const keepVisibleRef = useRef(false);
@@ -68,7 +39,7 @@ export function useFloatingToolbar(): FloatingToolbarApi {
     }
     setToolbarState({
       visible: true,
-      position: computePosition(),
+      position: selection.getRangeAt(0).cloneRange(),
     });
   }, []);
 
@@ -81,7 +52,7 @@ export function useFloatingToolbar(): FloatingToolbarApi {
 
         const selection = window.getSelection();
         if (!selection || selection.isCollapsed || !selection.rangeCount) {
-          setToolbarState((prev) => ({ ...prev, visible: false }));
+          setToolbarState({ visible: false, position: null });
           return;
         }
 
@@ -89,13 +60,13 @@ export function useFloatingToolbar(): FloatingToolbarApi {
         const container = document.querySelector('.milkdown-editor');
 
         if (!container?.contains(range.commonAncestorContainer)) {
-          setToolbarState((prev) => ({ ...prev, visible: false }));
+          setToolbarState({ visible: false, position: null });
           return;
         }
 
         setToolbarState({
           visible: true,
-          position: computePosition(),
+          position: range.cloneRange(),
         });
       }, 100);
     };

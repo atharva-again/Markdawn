@@ -15,7 +15,9 @@ import { goToNextCell, isInTable } from 'prosemirror-tables';
 import { useEffect, useRef, useState } from 'react';
 import { linkEditor } from '../editor/components/LinkEditor';
 import { autolink } from '../editor/plugins/autolink';
+import { handleUrlPasteIntent } from '../editor/plugins/autolinkPaste';
 import { callout } from '../editor/plugins/callout';
+import { codeBlockExitShortcut } from '../editor/plugins/codeBlockExit';
 import {
   latexCodeBlockViewPlugin,
   mathBlockInputRule,
@@ -32,6 +34,7 @@ import { tag } from '../editor/plugins/tag';
 import { wikiLinkView } from '../editor/plugins/wikiLinkView';
 import { wikiLink } from '../editor/plugins/wikilink';
 import { repairDocument } from '../editor/utils/documentRepair';
+import { routeEditorPaste } from '../editor/utils/pasteRouter';
 import type { WikiLinkNavigationTarget } from '../editor/wikiLinkPresentations';
 import { ensureAbsoluteUrl } from '../utils/url';
 import 'katex/dist/katex.min.css';
@@ -415,28 +418,25 @@ export function useMilkdown({
               ...prev.markViews,
               link: createSafeLinkView,
             },
-            handlePaste: (_view, event) => {
+            handlePaste: (view, event) => {
               if (readOnly) return false;
-              const text = event.clipboardData?.getData('text/plain') ?? '';
-              if (!text) return false;
-
-              if (isLikelyTableData(text)) {
-                const markdown = convertDelimitedToMarkdown(text);
-                editorRef.current?.action(insert(markdown));
-                return true;
-              }
-
-              if (!isLikelyMarkdown(text)) {
-                return false;
-              }
-
-              editorRef.current?.action(insert(text));
-              return true;
+              return routeEditorPaste(event.clipboardData, {
+                handleUrl: (intent) => handleUrlPasteIntent(view, intent),
+                handleTable: (text) => {
+                  editorRef.current?.action(insert(convertDelimitedToMarkdown(text)));
+                },
+                handleMarkdown: (text) => {
+                  editorRef.current?.action(insert(text));
+                },
+                isLikelyMarkdown,
+                isLikelyTableData,
+              });
             },
             handleDOMEvents: {
               keydown: (view, event) => {
                 if (readOnly) return false;
                 const { state, dispatch } = view;
+
                 if (!isInTable(state)) return false;
 
                 if (event.key === 'Tab') {
@@ -624,6 +624,7 @@ export function useMilkdown({
         })
         .use(commonmark)
         .use(gfm)
+        .use(codeBlockExitShortcut)
         .use(wikiLink)
         .use(wikiLinkView)
         .use(callout)

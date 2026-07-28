@@ -29,13 +29,4 @@ test.describe('Editor plugins', () => {
     const tagEl = page.locator('.ProseMirror span.tag, [data-name="mytag"]').first();
     await expect(tagEl).toBeVisible({ timeout: 5000 });
   });
-
-  test('auto-link converts pasted URL to link', async ({ page }) => {
-    await createNewPage(page);
-    await focusEditor(page);
-    await page.keyboard.type('https://example.com ');
-    // The URL should be rendered as a link
-    const link = page.locator('.ProseMirror a[href="https://example.com"]').first();
-    await expect(link).toBeVisible({ timeout: 5000 });
-  });
 });

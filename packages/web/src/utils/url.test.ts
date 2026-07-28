@@ -1,5 +1,50 @@
 import { describe, expect, it } from 'vitest';
-import { ensureAbsoluteUrl, extractUuidFromSlug } from './url';
+import { ensureAbsoluteUrl, extractUuidFromSlug, findHttpUrls, getHttpUrl } from './url';
+
+describe('getHttpUrl', () => {
+  it.each([
+    'https://github.com/atharva-again/Markdawn/issues/104',
+    'http://example.com/path?query=value#section',
+    'HTTPS://EXAMPLE.COM/path',
+  ])('accepts valid direct HTTP(S) URLs: %s', (url) => {
+    expect(getHttpUrl(url)).toBe(url);
+  });
+
+  it.each([
+    ['example.com', 'https://example.com'],
+    ['hello.com/path', 'https://hello.com/path'],
+  ])('adds HTTPS to bare domains: %s', (value, expected) => {
+    expect(getHttpUrl(value)).toBe(expected);
+  });
+
+  it('accepts an IP address when it has an explicit HTTP scheme', () => {
+    expect(getHttpUrl('http://192.168.1.1')).toBe('http://192.168.1.1');
+  });
+
+  it('reports the URL range before terminal prose punctuation', () => {
+    expect(findHttpUrls('https://example.com/path.')).toEqual([
+      { from: 0, to: 24, href: 'https://example.com/path' },
+    ]);
+  });
+
+  it('rejects URL matches embedded in a malformed token prefix', () => {
+    expect(findHttpUrls('abchttps://example.com')).toEqual([]);
+  });
+
+  it.each([
+    'Visit https://example.com',
+    'ftp://example.com',
+    'https://example.com\n',
+    'https://',
+    '192.168.1.1',
+    'foo.invalidtld',
+    'https://example.com/\0hidden',
+    'https://example.com/\x1fhidden',
+    'https://example.com/\x7fhidden',
+  ])('rejects invalid direct HTTP(S) URLs: %s', (url) => {
+    expect(getHttpUrl(url)).toBeUndefined();
+  });
+});
 
 describe('ensureAbsoluteUrl', () => {
   // Bare domains

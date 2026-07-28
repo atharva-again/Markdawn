@@ -1,0 +1,239 @@
+name: E2E
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  authorize:
+    name: Authorize E2E request
+    if: >-
+      github.event.issue.pull_request &&
+      (github.event.comment.body == '/e2e chromium' ||
+      github.event.comment.body == '/e2e firefox' ||
+      github.event.comment.body == '/e2e all') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    outputs:
+      authorized: ${{ steps.request.outputs.authorized }}
+      browsers: ${{ steps.request.outputs.browsers }}
+      browser_label: ${{ steps.request.outputs.browser_label }}
+      pr_number: ${{ steps.request.outputs.pr_number }}
+      merge_sha: ${{ steps.request.outputs.merge_sha }}
+    steps:
+      - name: Authorize request and record PR revision
+        id: request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const browsersByCommand = {
+              '/e2e chromium': ['chromium'],
+              '/e2e firefox': ['firefox'],
+              '/e2e all': ['chromium', 'firefox'],
+            };
+            const browserLabels = {
+              chromium: 'Chromium',
+              firefox: 'Firefox',
+            };
+            const command = context.payload.comment.body;
+            const browsers = browsersByCommand[command];
+
+            function denyRequest() {
+              core.setOutput('authorized', 'false');
+              core.setOutput('browsers', '[]');
+            }
+
+            if (!browsers) {
+              denyRequest();
+              return;
+            }
+
+            let permission;
+            try {
+              ({ data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: context.payload.comment.user.login,
+              }));
+            } catch (error) {
+              if (
+                typeof error === 'object' &&
+                error !== null &&
+                'status' in error &&
+                error.status === 404
+              ) {
+                denyRequest();
+                return;
+              }
+              throw error;
+            }
+
+            if (!['maintain', 'admin'].includes(permission.permission)) {
+              denyRequest();
+              return;
+            }
+
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            if (pullRequest.state !== 'open' || pullRequest.base.ref !== 'master') {
+              denyRequest();
+              return;
+            }
+
+            const { data: mergeRef } = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `pull/${pullRequest.number}/merge`,
+            });
+
+            core.setOutput('authorized', 'true');
+            core.setOutput('browsers', JSON.stringify(browsers));
+            core.setOutput(
+              'browser_label',
+              browsers.map((browser) => browserLabels[browser]).join(' and '),
+            );
+            core.setOutput('pr_number', String(pullRequest.number));
+            core.setOutput('merge_sha', mergeRef.object.sha);
+
+      - name: Acknowledge authorized request
+        if: steps.request.outputs.authorized == 'true'
+        uses: actions/github-script@v7
+        env:
+          BROWSER_LABEL: ${{ steps.request.outputs.browser_label }}
+          MERGE_SHA: ${{ steps.request.outputs.merge_sha }}
+        with:
+          script: |
+            const browserLabel = process.env.BROWSER_LABEL;
+            const mergeSha = process.env.MERGE_SHA;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `Running ${browserLabel} E2E against merge commit \`${mergeSha.slice(0, 7)}\`: ${runUrl}`,
+            });
+
+  e2e:
+    name: E2E — ${{ matrix.browser }}
+    needs: authorize
+    if: needs.authorize.outputs.authorized == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: ${{ fromJSON(needs.authorize.outputs.browsers) }}
+    concurrency:
+      group: e2e-${{ needs.authorize.outputs.pr_number }}-${{ matrix.browser }}
+      cancel-in-progress: true
+    services:
+      postgresql:
+        image: docker.io/library/postgres@sha256:af194ccf3e2d7fe367012c7b88ce8b816c5c889b18a5b316799a1f0d7eac746a
+        env:
+          POSTGRES_USER: markdawn
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: markdawn
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U markdawn -d markdawn"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.authorize.outputs.merge_sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        run: pnpm --filter @markdawn/api db:migrate
+        env:
+          DATABASE_URL: postgresql://markdawn:password@localhost:5432/markdawn
+
+      - name: Build shared dependencies
+        run: pnpm --filter @markdawn/shared run build
+
+      - name: Start dev servers
+        run: |
+          pnpm dev > /tmp/dev-servers.log 2>&1 &
+          echo "Dev servers starting..."
+          # Wait for API (3001), collaboration (1234), and web (5173).
+          for i in $(seq 1 60); do
+            api_ready=0
+            collab_ready=0
+            web_ready=0
+            if curl -sf -o /dev/null http://localhost:3001/api/health 2>/dev/null; then
+              api_ready=1
+            fi
+            if curl -sf -o /dev/null http://localhost:1234/health 2>/dev/null; then
+              collab_ready=1
+            fi
+            if curl -sf -o /dev/null http://localhost:5173 2>/dev/null; then
+              web_ready=1
+            fi
+            if [ $api_ready -eq 1 ] && [ $collab_ready -eq 1 ] && [ $web_ready -eq 1 ]; then
+              echo "API, collaboration, and web servers are ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Servers failed to start within 120s"
+          cat /tmp/dev-servers.log
+          exit 1
+        env:
+          DATABASE_URL: postgresql://markdawn:password@localhost:5432/markdawn
+          BETTER_AUTH_SECRET: test-secret-that-is-at-least-32-characters-long
+          FRONTEND_URL: http://localhost:5173
+          PORT: 3001
+          NODE_ENV: development
+          TEST_SETUP_TOKEN: e2e-test-setup-secret
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install chromium "$BROWSER"
+        working-directory: e2e
+        env:
+          BROWSER: ${{ matrix.browser }}
+
+      - name: Run E2E tests
+        run: pnpm exec playwright test --project="$BROWSER"
+        working-directory: e2e
+        env:
+          BASE_URL: http://localhost:5173
+          TEST_SETUP_TOKEN: e2e-test-setup-secret
+          BROWSER: ${{ matrix.browser }}
+
+      - name: Upload failure artifacts
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-${{ matrix.browser }}-pr-${{ needs.authorize.outputs.pr_number }}
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+            /tmp/dev-servers.log
+          if-no-files-found: warn

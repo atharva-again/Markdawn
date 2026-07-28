@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { testQuery as query } from '../db/testQuery';
 import {
   createTestApp,
   createTestFolder,
   createTestPage,
   createTestSession,
   createTestUser,
+  createTestWorkspaceMember,
 } from '../test-utils';
 
 describe('favorites API', () => {
@@ -48,6 +50,133 @@ describe('favorites API', () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.favorites.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('preserves a direct source for a favorite page nested in a shared folder', async () => {
+      const app = await createTestApp();
+      const owner = await createTestUser();
+      const recipient = await createTestUser();
+      const recipientSession = await createTestSession(recipient.id);
+      const sharedFolder = await createTestFolder(owner.id);
+      const page = await createTestPage(owner.id, { parentId: sharedFolder.id });
+
+      await query(
+        `INSERT INTO shares (entity_type, entity_id, recipient_user_id, permission)
+         VALUES ('folder', $1, $2, 'view'), ('page', $3, $2, 'view')`,
+        [sharedFolder.id, recipient.id, page.id],
+      );
+
+      const addFavorite = await app.request('/api/favorites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: recipientSession.Cookie,
+          Origin: 'http://localhost:5173',
+        },
+        body: JSON.stringify({ entityType: 'page', entityId: page.id }),
+      });
+      expect(addFavorite.status).toBe(201);
+
+      const favorites = await app.request('/api/favorites', {
+        headers: { Cookie: recipientSession.Cookie },
+      });
+      expect(favorites.status).toBe(200);
+      const body = (await favorites.json()) as { favorites: Array<Record<string, unknown>> };
+      expect(body.favorites).toContainEqual(
+        expect.objectContaining({ entityId: page.id, shareSource: 'direct' }),
+      );
+    });
+
+    it('preserves a public source for a favorite nested page with a public visit', async () => {
+      const app = await createTestApp();
+      const owner = await createTestUser();
+      const visitor = await createTestUser();
+      const visitorSession = await createTestSession(visitor.id);
+      const publicFolder = await createTestFolder(owner.id);
+      const page = await createTestPage(owner.id, { parentId: publicFolder.id });
+
+      await query("UPDATE folders SET public_permission = 'view' WHERE id = $1", [publicFolder.id]);
+
+      const folderVisit = await app.request(`/api/folders/${publicFolder.id}`, {
+        headers: { Cookie: visitorSession.Cookie },
+      });
+      expect(folderVisit.status).toBe(200);
+
+      const pageVisit = await app.request(`/api/pages/${page.id}`, {
+        headers: { Cookie: visitorSession.Cookie },
+      });
+      expect(pageVisit.status).toBe(200);
+
+      const addFavorite = await app.request('/api/favorites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: visitorSession.Cookie,
+          Origin: 'http://localhost:5173',
+        },
+        body: JSON.stringify({ entityType: 'page', entityId: page.id }),
+      });
+      expect(addFavorite.status).toBe(201);
+
+      const favorites = await app.request('/api/favorites', {
+        headers: { Cookie: visitorSession.Cookie },
+      });
+      expect(favorites.status).toBe(200);
+      const body = (await favorites.json()) as { favorites: Array<Record<string, unknown>> };
+      expect(body.favorites).toContainEqual(
+        expect.objectContaining({ entityId: page.id, shareSource: 'public' }),
+      );
+
+      const removeFromView = await app.request('/api/bulk-removal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: visitorSession.Cookie,
+          Origin: 'http://localhost:5173',
+        },
+        body: JSON.stringify({
+          operations: [{ entityType: 'page', entityId: page.id, action: 'remove-from-view' }],
+        }),
+      });
+      expect(removeFromView.status).toBe(200);
+      expect(await removeFromView.json()).toMatchObject({
+        removedFromViewCount: 1,
+        failedItems: [],
+      });
+    });
+
+    it('returns workspace when workspace access supersedes a direct grant', async () => {
+      const app = await createTestApp();
+      const owner = await createTestUser();
+      const member = await createTestUser();
+      const memberSession = await createTestSession(member.id);
+      const page = await createTestPage(owner.id);
+      await createTestWorkspaceMember(owner.id, member.id, 'viewer');
+      await query(
+        `INSERT INTO shares (entity_type, entity_id, recipient_user_id, permission)
+         VALUES ('page', $1, $2, 'view')`,
+        [page.id, member.id],
+      );
+
+      const addFavorite = await app.request('/api/favorites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: memberSession.Cookie,
+          Origin: 'http://localhost:5173',
+        },
+        body: JSON.stringify({ entityType: 'page', entityId: page.id }),
+      });
+      expect(addFavorite.status).toBe(201);
+
+      const favorites = await app.request('/api/favorites', {
+        headers: { Cookie: memberSession.Cookie },
+      });
+      expect(favorites.status).toBe(200);
+      const body = (await favorites.json()) as { favorites: Array<Record<string, unknown>> };
+      expect(body.favorites).toContainEqual(
+        expect.objectContaining({ entityId: page.id, shareSource: 'workspace' }),
+      );
     });
   });
 

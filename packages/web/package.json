@@ -40,6 +40,7 @@
     "clsx": "^2.1.1",
     "fuse.js": "^7.3.0",
     "katex": "^0.16.45",
+    "linkifyjs": "^4.3.3",
     "lucide-react": "^0.575.0",
     "papaparse": "^5.5.3",
     "react": "^19.2.4",

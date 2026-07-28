@@ -237,6 +237,7 @@ export function MilkdownEditor({
           <FloatingToolbar
             visible={visible}
             position={position}
+            onInteractionStart={keepVisible}
             onBold={editorCommands.command('bold').execute}
             onItalic={editorCommands.command('italic').execute}
             onStrike={editorCommands.command('strikethrough').execute}

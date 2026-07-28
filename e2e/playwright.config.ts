@@ -9,7 +9,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: process.env.CI ? 'dot' : [['html', { outputFolder: 'playwright-report' }]],
+  reporter: process.env.CI
+    ? [['dot'], ['html', { open: 'never', outputFolder: 'playwright-report' }]]
+    : [['html', { outputFolder: 'playwright-report' }]],
   timeout: 30_000,
   expect: { timeout: 5_000 },
   use: {

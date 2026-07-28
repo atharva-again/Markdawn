@@ -92,6 +92,16 @@ non-development environment, generate and set a unique secret with `openssl rand
 
 ---
 
+## CI
+
+Maintainers can request E2E tests from a pull request comment:
+
+- `/e2e chromium`
+- `/e2e firefox`
+- `/e2e all`
+
+---
+
 ## Author
 
 Atharva Verma  

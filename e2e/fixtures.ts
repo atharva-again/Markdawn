@@ -54,3 +54,77 @@ export async function renamePageViaTitleInput(page: Page, newTitle: string): Pro
   await page.keyboard.press('Enter');
   await expect(titleInput).toHaveValue(newTitle, { timeout: 5000 });
 }
+
+export async function pasteClipboardText(
+  page: Page,
+  mimeType: string,
+  text: string,
+): Promise<void> {
+  await pasteClipboardData(page, { [mimeType]: text });
+}
+
+export async function pasteClipboardData(
+  page: Page,
+  values: Record<string, string>,
+): Promise<void> {
+  await page.locator('.ProseMirror').evaluate((editor, clipboard) => {
+    const clipboardData = new DataTransfer();
+    for (const [mimeType, text] of Object.entries(clipboard)) {
+      clipboardData.setData(mimeType, text);
+    }
+    editor.dispatchEvent(
+      new ClipboardEvent('paste', {
+        bubbles: true,
+        cancelable: true,
+        clipboardData,
+      }),
+    );
+  }, values);
+}
+
+export async function selectEditorContents(page: Page): Promise<void> {
+  await page.locator('.ProseMirror').evaluate((editor) => {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+  });
+  await page.waitForTimeout(50);
+}
+
+export async function copyEditorText(page: Page): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const text = await page.locator('.ProseMirror').evaluate(
+      (editor) =>
+        new Promise<string>((resolve, reject) => {
+          const handleCopy = (event: Event) => {
+            editor.removeEventListener('copy', handleCopy);
+            if (!(event instanceof ClipboardEvent)) {
+              reject(new Error('Browser emitted a non-clipboard copy event'));
+              return;
+            }
+            resolve(event.clipboardData?.getData('text/plain') ?? '');
+          };
+
+          editor.addEventListener('copy', handleCopy);
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(editor);
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+
+          requestAnimationFrame(() => {
+            if (!document.execCommand('copy')) {
+              editor.removeEventListener('copy', handleCopy);
+              reject(new Error('Browser refused to copy editor content'));
+            }
+          });
+        }),
+    );
+    if (text) return text;
+    await page.waitForTimeout(50);
+  }
+  throw new Error('Editor did not produce plain-text clipboard content');
+}

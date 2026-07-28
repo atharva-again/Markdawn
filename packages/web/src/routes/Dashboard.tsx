@@ -1,4 +1,4 @@
-import type { CollaboratorDisplay, FolderTreeNode, SharedWithMeItem } from '@markdawn/shared';
+import type { FolderTreeNode } from '@markdawn/shared';
 import {
   ChevronDown,
   ChevronRight,
@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ExplorerItem, type ExplorerItemData } from '../components/workspace/ExplorerItem';
+import { DashboardItemSections } from '../components/workspace/DashboardItemSections';
+import type { ExplorerItemData } from '../components/workspace/ExplorerItem';
 import { MoveDialog } from '../components/workspace/MoveDialog';
 import { SelectionToolbar } from '../components/workspace/SelectionToolbar';
 import { useClipboard } from '../contexts/ClipboardContext';
@@ -46,12 +47,19 @@ import { collectAllFolderIds, getRootPages } from '../utils/page-tree';
 import { hasInitialQueryError } from '../utils/queryState';
 import { showSuccessToast } from '../utils/toast';
 import { buildFolderPath, buildPagePath } from '../utils/url';
-
-type DashboardFilter = 'all' | 'owned-by-me' | 'shared-with-me';
-
-type DashboardItem = ExplorerItemData & {
-  activityAt?: string | Date;
-};
+import {
+  buildFavoriteDashboardItems,
+  type DashboardFilter,
+  type DashboardItem,
+  sharedItemToDashboardItem,
+  sortDashboardItemsByActivity,
+} from './dashboardItemsModel';
+import {
+  type DashboardSection,
+  type DashboardSelectionAnchor,
+  resolveDashboardShiftSelection,
+  retainVisibleDashboardSelection,
+} from './dashboardSelectionModel';
 
 const FILTERS: { value: DashboardFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -63,32 +71,6 @@ const normalizeFilter = (value: string | null): DashboardFilter => {
   if (value === 'owned-by-me' || value === 'shared-with-me') return value;
   return 'all';
 };
-
-const dateMs = (value: string | Date | null | undefined): number => {
-  if (!value) return 0;
-  const date = value instanceof Date ? value : new Date(value);
-  const time = date.getTime();
-  return Number.isNaN(time) ? 0 : time;
-};
-
-const sortByActivityDesc = (a: DashboardItem, b: DashboardItem): number => {
-  const aTime = Math.max(dateMs(a.activityAt), dateMs(a.updatedAt));
-  const bTime = Math.max(dateMs(b.activityAt), dateMs(b.updatedAt));
-  return bTime - aTime;
-};
-
-const sharedItemToExplorerItem = (item: SharedWithMeItem): DashboardItem => ({
-  id: item.entityId,
-  type: item.entityType,
-  title: item.title,
-  icon: item.icon,
-  ownerId: item.ownerId,
-  userPermission: item.permission,
-  shareSource: item.source,
-  canMove: false,
-  updatedAt: item.entityUpdatedAt ?? item.updatedAt ?? item.createdAt ?? item.sortAt ?? new Date(),
-  activityAt: item.sortAt ?? item.updatedAt ?? item.createdAt ?? item.entityUpdatedAt ?? new Date(),
-});
 
 export default function HomeView() {
   const navigate = useIdentityNavigate();
@@ -150,15 +132,6 @@ export default function HomeView() {
   const clipboard = useClipboard();
   const selection = useSelection();
 
-  const filterOutSelf = useMemo(
-    () =>
-      (collaborators: CollaboratorDisplay[]): CollaboratorDisplay[] =>
-        currentUserId
-          ? collaborators.filter((collaborator) => collaborator.userId !== currentUserId)
-          : collaborators,
-    [currentUserId],
-  );
-
   const [viewMode, setViewMode] = useState<'card' | 'list'>(() => {
     const saved = localStorage.getItem('markdawn:viewMode');
     return saved === 'list' ? 'list' : 'card';
@@ -167,9 +140,12 @@ export default function HomeView() {
   const [editingTarget, setEditingTarget] = useState<{
     kind: 'page' | 'folder';
     id: string;
+    section: DashboardSection;
     value: string;
   } | null>(null);
-  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+  const [lastSelectionAnchor, setLastSelectionAnchor] = useState<DashboardSelectionAnchor | null>(
+    null,
+  );
   const [removalFailure, setRemovalFailure] = useState<{
     message: string;
     canRetry: boolean;
@@ -182,7 +158,7 @@ export default function HomeView() {
   useEffect(() => {
     void activeFilter;
     selection.clear();
-    setLastSelectedIndex(null);
+    setLastSelectionAnchor(null);
   }, [selection.clear, activeFilter]);
 
   useEffect(() => {
@@ -328,7 +304,7 @@ export default function HomeView() {
   const sharedBaseItems = useMemo(
     () => [
       ...(sharedWithMe ?? []).map((item) => {
-        const explorerItem = sharedItemToExplorerItem(item);
+        const explorerItem = sharedItemToDashboardItem(item);
         const hasWorkspaceFallback =
           item.entityType === 'page'
             ? workspaceAccessiblePageIds.has(item.entityId)
@@ -355,18 +331,44 @@ export default function HomeView() {
       new Map(items.map((item) => [`${item.type}:${item.id}`, item])).values(),
     );
 
-    return uniqueItems.sort(sortByActivityDesc);
+    return uniqueItems.sort(sortDashboardItemsByActivity);
   }, [activeFilter, ownedBaseItems, sharedBaseItems]);
 
+  const favoritePageIds = useMemo(
+    () =>
+      (favorites ?? [])
+        .filter((favorite) => favorite.entityType === 'page')
+        .map((favorite) => favorite.entityId),
+    [favorites],
+  );
   const pageIds = useMemo(
-    () => filteredBaseItems.filter((item) => item.type === 'page').map((item) => item.id),
-    [filteredBaseItems],
+    () =>
+      Array.from(
+        new Set([
+          ...filteredBaseItems.filter((item) => item.type === 'page').map((item) => item.id),
+          ...favoritePageIds,
+        ]),
+      ),
+    [favoritePageIds, filteredBaseItems],
   );
   const { data: collaboratorsMap } = usePageCollaborators(pageIds);
 
+  const favoriteFolderIds = useMemo(
+    () =>
+      (favorites ?? [])
+        .filter((favorite) => favorite.entityType === 'folder')
+        .map((favorite) => favorite.entityId),
+    [favorites],
+  );
   const folderIds = useMemo(
-    () => filteredBaseItems.filter((item) => item.type === 'folder').map((item) => item.id),
-    [filteredBaseItems],
+    () =>
+      Array.from(
+        new Set([
+          ...filteredBaseItems.filter((item) => item.type === 'folder').map((item) => item.id),
+          ...favoriteFolderIds,
+        ]),
+      ),
+    [favoriteFolderIds, filteredBaseItems],
   );
   const { data: folderCollaboratorsMap } = useFolderCollaborators(folderIds);
 
@@ -384,20 +386,59 @@ export default function HomeView() {
     [filteredBaseItems, collaboratorsMap, folderCollaboratorsMap],
   );
   const allItems = useStableValueWhile(refreshedItems, bulkRemoveMutation.isPending);
+  const favoriteItems = useMemo(
+    () =>
+      buildFavoriteDashboardItems({
+        activeFilter,
+        allItems,
+        collaboratorsByFolderId: folderCollaboratorsMap,
+        collaboratorsByPageId: collaboratorsMap,
+        currentUserId,
+        favorites,
+        folders,
+        pages,
+        workspaceAdminOwnerIds,
+      }),
+    [
+      activeFilter,
+      allItems,
+      collaboratorsMap,
+      currentUserId,
+      favorites,
+      folderCollaboratorsMap,
+      folders,
+      pages,
+      workspaceAdminOwnerIds,
+    ],
+  );
+  const itemsByKey = useMemo(
+    () => new Map([...allItems, ...favoriteItems].map((item) => [`${item.type}:${item.id}`, item])),
+    [allItems, favoriteItems],
+  );
+  const selectionItems = useMemo(() => Array.from(itemsByKey.values()), [itemsByKey]);
+  const visibleItemKeys = useMemo(() => new Set(itemsByKey.keys()), [itemsByKey]);
   const editingItem = editingTarget
-    ? refreshedItems.find(
-        (item) => item.type === editingTarget.kind && item.id === editingTarget.id,
-      )
+    ? itemsByKey.get(`${editingTarget.kind}:${editingTarget.id}`)
     : undefined;
   const canRenameEditingTarget = editingItem ? canRenameEntity(editingItem, currentUserId) : false;
-  const renameCapabilityRef = useRef({ items: refreshedItems, currentUserId });
-  renameCapabilityRef.current = { items: refreshedItems, currentUserId };
+  const renameCapabilityRef = useRef({ itemsByKey, currentUserId });
+  renameCapabilityRef.current = { itemsByKey, currentUserId };
 
   useEffect(() => {
     if (editingTarget && editingItem && !canRenameEditingTarget) {
       setEditingTarget(null);
     }
   }, [canRenameEditingTarget, editingItem, editingTarget]);
+
+  useEffect(() => {
+    const visibleSelection = retainVisibleDashboardSelection(
+      selection.selectedItems,
+      visibleItemKeys,
+    );
+    if (visibleSelection.length !== selection.selectedItems.length) {
+      selection.selectAll(visibleSelection);
+    }
+  }, [selection.selectAll, selection.selectedItems, visibleItemKeys]);
 
   const hasSelection = selection.selectedCount > 0;
 
@@ -418,7 +459,7 @@ export default function HomeView() {
     try {
       const folder = await entityCreation.createFolder();
       if (!folder) return;
-      setEditingTarget({ kind: 'folder', id: folder.id, value: folder.name });
+      setEditingTarget({ kind: 'folder', id: folder.id, section: 'all-items', value: folder.name });
     } catch {
       // Error toast handled globally by MutationCache.onError
     }
@@ -428,15 +469,28 @@ export default function HomeView() {
     item: ExplorerItemData,
     index: number,
     e: React.MouseEvent | React.KeyboardEvent,
+    rangeItems: readonly ExplorerItemData[] = allItems,
+    section: DashboardSection = 'all-items',
   ) => {
     if (e.ctrlKey || e.metaKey) {
       selection.toggle({ id: item.id, type: item.type });
-      setLastSelectedIndex(index);
-    } else if (e.shiftKey && lastSelectedIndex !== null) {
-      const start = Math.min(lastSelectedIndex, index);
-      const end = Math.max(lastSelectedIndex, index);
-      const range = allItems.slice(start, end + 1).map((i) => ({ id: i.id, type: i.type }));
-      selection.selectAll(range);
+      setLastSelectionAnchor({ index, section });
+    } else if (e.shiftKey) {
+      const shiftSelection = resolveDashboardShiftSelection({
+        anchor: lastSelectionAnchor,
+        index,
+        items: rangeItems,
+        section,
+      });
+      if (shiftSelection.kind === 'range') {
+        selection.selectAll(shiftSelection.items);
+      } else if (shiftSelection.kind === 'select') {
+        selection.select({ id: item.id, type: item.type });
+      } else if (item.type === 'folder') {
+        navigate(buildFolderPath(item.title, item.id));
+      } else {
+        navigate(buildPagePath(item.title, item.id));
+      }
     } else {
       if (item.type === 'folder') {
         navigate(buildFolderPath(item.title, item.id));
@@ -446,21 +500,24 @@ export default function HomeView() {
     }
   };
 
-  const handleRenameItem = (item: ExplorerItemData) => {
-    const { items, currentUserId: latestUserId } = renameCapabilityRef.current;
-    const currentItem = items.find(
-      (candidate) => candidate.type === item.type && candidate.id === item.id,
-    );
+  const handleRenameItem = (item: ExplorerItemData, section: DashboardSection) => {
+    const { itemsByKey: currentItemsByKey, currentUserId: latestUserId } =
+      renameCapabilityRef.current;
+    const currentItem = currentItemsByKey.get(`${item.type}:${item.id}`);
     if (!currentItem || !canRenameEntity(currentItem, latestUserId)) return;
-    setEditingTarget({ kind: currentItem.type, id: currentItem.id, value: currentItem.title });
+    setEditingTarget({
+      kind: currentItem.type,
+      id: currentItem.id,
+      section,
+      value: currentItem.title,
+    });
   };
 
   const handleSaveRename = () => {
     if (!editingTarget) return;
-    const { items, currentUserId: latestUserId } = renameCapabilityRef.current;
-    const currentItem = items.find(
-      (item) => item.type === editingTarget.kind && item.id === editingTarget.id,
-    );
+    const { itemsByKey: currentItemsByKey, currentUserId: latestUserId } =
+      renameCapabilityRef.current;
+    const currentItem = currentItemsByKey.get(`${editingTarget.kind}:${editingTarget.id}`);
     if (!currentItem || !canRenameEntity(currentItem, latestUserId)) {
       setEditingTarget(null);
       return;
@@ -494,9 +551,7 @@ export default function HomeView() {
   const selectedItems = useMemo(
     () =>
       selection.selectedItems.map((selected) => {
-        const item = allItems.find(
-          (candidate) => candidate.id === selected.id && candidate.type === selected.type,
-        );
+        const item = itemsByKey.get(`${selected.type}:${selected.id}`);
         return {
           ...selected,
           ownerId: item?.ownerId ?? null,
@@ -506,7 +561,7 @@ export default function HomeView() {
           canMove: item?.canMove ?? false,
         };
       }),
-    [selection.selectedItems, allItems],
+    [selection.selectedItems, itemsByKey],
   );
 
   const selectedRemovalInput = useMemo(
@@ -808,101 +863,43 @@ export default function HomeView() {
             </div>
           ))}
         </div>
-      ) : allItems.length === 0 ? (
+      ) : allItems.length === 0 && favoriteItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <FileText size={48} className="text-zinc-300 dark:text-zinc-600 mb-4" />
           <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-50 mb-2">No items yet</h3>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-sm">{emptyMessage}</p>
         </div>
-      ) : viewMode === 'card' ? (
-        <div className="space-y-8 animate-fade-in">
-          <div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {allItems.map((item, index) => (
-                <ExplorerItem
-                  key={`${item.type}-${item.id}`}
-                  item={item}
-                  viewMode="card"
-                  isSelected={selection.isSelected(item.id)}
-                  isFavorite={isFavorite(item)}
-                  canSelect={!bulkRemoveMutation.isPending}
-                  onSelect={(e) => {
-                    e.stopPropagation();
-                    selection.toggle({ id: item.id, type: item.type });
-                  }}
-                  onNavigate={(e) => handleItemClick(item, index, e)}
-                  {...(canRenameEntity(item, currentUserId)
-                    ? { onRename: () => handleRenameItem(item) }
-                    : {})}
-                  isEditing={
-                    canRenameEditingTarget &&
-                    editingTarget?.kind === item.type &&
-                    editingTarget.id === item.id
-                  }
-                  editValue={editingTarget?.value ?? ''}
-                  onEditChange={(value) =>
-                    setEditingTarget((prev) => (prev ? { ...prev, value } : null))
-                  }
-                  onEditSave={handleSaveRename}
-                  onEditKeyDown={handleEditKeyDown}
-                  collaborators={filterOutSelf(item.collaborators ?? [])}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
       ) : (
-        <div className="space-y-8">
-          <div>
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-clip">
-              <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-3 px-4 py-2 text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-800">
-                <span className="w-8" />
-                <span className="-ml-10">Name</span>
-                <span className="hidden md:block w-28">Shared with</span>
-                <span className="hidden md:block w-36">Last edited</span>
-                <span className="w-8" />
-              </div>
-              <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {allItems.map((item, index) => (
-                  <ExplorerItem
-                    key={`${item.type}-${item.id}`}
-                    item={item}
-                    viewMode="list"
-                    isSelected={selection.isSelected(item.id)}
-                    isFavorite={isFavorite(item)}
-                    canSelect={!bulkRemoveMutation.isPending}
-                    onSelect={(e) => {
-                      e.stopPropagation();
-                      selection.toggle({ id: item.id, type: item.type });
-                    }}
-                    onNavigate={(e) => handleItemClick(item, index, e)}
-                    {...(canRenameEntity(item, currentUserId)
-                      ? { onRename: () => handleRenameItem(item) }
-                      : {})}
-                    isEditing={
-                      canRenameEditingTarget &&
-                      editingTarget?.kind === item.type &&
-                      editingTarget.id === item.id
-                    }
-                    editValue={editingTarget?.value ?? ''}
-                    onEditChange={(value) =>
-                      setEditingTarget((prev) => (prev ? { ...prev, value } : null))
-                    }
-                    onEditSave={handleSaveRename}
-                    onEditKeyDown={handleEditKeyDown}
-                    collaborators={filterOutSelf(item.collaborators ?? [])}
-                    showCheckboxes={hasSelection}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+        <DashboardItemSections
+          allItems={allItems}
+          favoriteItems={favoriteItems}
+          viewMode={viewMode}
+          currentUserId={currentUserId}
+          canSelect={!bulkRemoveMutation.isPending}
+          hasSelection={hasSelection}
+          isEditingAllowed={canRenameEditingTarget}
+          editingTarget={editingTarget}
+          isFavorite={isFavorite}
+          isSelected={selection.isSelected}
+          onSelect={(item, event) => {
+            event.stopPropagation();
+            selection.toggle({ id: item.id, type: item.type });
+          }}
+          onNavigate={(item, index, event, rangeItems, section) =>
+            handleItemClick(item, index, event, rangeItems, section)
+          }
+          onRename={handleRenameItem}
+          onEditChange={(value) =>
+            setEditingTarget((previous) => (previous ? { ...previous, value } : null))
+          }
+          onEditSave={handleSaveRename}
+          onEditKeyDown={handleEditKeyDown}
+        />
       )}
 
       <SelectionToolbar
         selectedCount={selection.selectedCount}
-        totalCount={allItems.length}
+        totalCount={selectionItems.length}
         clipboardCount={clipboard.state.items.length}
         onDelete={handleBulkDelete}
         onCopy={handleBulkCopy}
@@ -918,7 +915,9 @@ export default function HomeView() {
         canMove={canMoveSelection}
         isRemoving={bulkRemoveMutation.isPending}
         onPaste={() => void handlePaste()}
-        onSelectAll={() => selection.selectAll(allItems.map((i) => ({ id: i.id, type: i.type })))}
+        onSelectAll={() =>
+          selection.selectAll(selectionItems.map((i) => ({ id: i.id, type: i.type })))
+        }
         onClear={() => {
           selection.clear();
           clipboard.clear();
