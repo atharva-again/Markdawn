@@ -1,0 +1,274 @@
+#!/bin/sh
+set -eu
+
+repository="atharva-again/Markdawn"
+install_dir="${MARKDAWN_INSTALL_DIR:-$HOME/.markdawn/bin}"
+requested_version="${MARKDAWN_VERSION:-}"
+modify_path="${MARKDAWN_MODIFY_PATH:-0}"
+http_timeout="${MARKDAWN_HTTP_TIMEOUT_SECONDS:-}"
+max_release_archive_bytes=268435456
+max_release_archive_entries=1024
+path_block_start='# >>> markdawn >>>'
+path_block_end='# <<< markdawn <<<'
+
+fail() {
+  printf '%s\n' "markdawn installer: $*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "$1 is required"
+}
+
+for argument in "$@"; do
+  case "$argument" in
+    --modify-path) modify_path=1 ;;
+    --help)
+      cat <<'EOF'
+Usage: curl -fsSL https://markdawn.space/install.sh | sh
+
+Environment:
+  MARKDAWN_VERSION      Install a version such as v1.2.3.
+  MARKDAWN_INSTALL_DIR  Install into this directory.
+  MARKDAWN_MODIFY_PATH  Set to 1 to add the install directory to your shell PATH.
+  MARKDAWN_INSTALL_STATE_DIR  Override the standalone receipt directory.
+  MARKDAWN_HTTP_TIMEOUT_SECONDS  Set a positive download timeout in seconds.
+EOF
+      exit 0
+      ;;
+    *) fail "unknown argument: $argument" ;;
+  esac
+done
+
+require_command curl
+require_command tar
+require_command mktemp
+require_command grep
+require_command awk
+require_command mv
+require_command cp
+require_command sed
+require_command wc
+require_command head
+
+validate_json_string() {
+  value=$1
+  label=$2
+  case "$value" in
+    *'
+'*) fail "$label must not contain a newline" ;;
+  esac
+  if printf '%s' "$value" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+    fail "$label must not contain JSON control characters"
+  fi
+}
+
+if [ -n "$requested_version" ]; then
+  printf '%s' "$requested_version" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' || fail "MARKDAWN_VERSION must be a semantic version such as v1.2.3"
+fi
+if [ -n "$http_timeout" ]; then
+  printf '%s' "$http_timeout" | grep -Eq '^[1-9][0-9]*$' || fail "MARKDAWN_HTTP_TIMEOUT_SECONDS must be a positive integer"
+fi
+path_file=""
+path_style=""
+if [ "$modify_path" = 1 ]; then
+  case "$(basename "${SHELL:-sh}")" in
+    fish) path_file="${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish"; path_style=fish ;;
+    zsh) path_file="$HOME/.zshrc"; path_style=sh ;;
+    bash) path_file="$HOME/.bashrc"; path_style=sh ;;
+    *) fail "--modify-path supports bash, zsh, and fish" ;;
+  esac
+  validate_json_string "$path_file" "shell configuration path"
+  case "$path_file" in
+    /*) ;;
+    *) fail "shell configuration path must be absolute" ;;
+  esac
+  case "$path_file" in
+    *\\* | *\"*) fail "shell configuration path contains characters unsupported by the standalone install receipt" ;;
+  esac
+fi
+case "$install_dir" in
+  /*) ;;
+  *) install_dir="$(pwd -P)/$install_dir" ;;
+esac
+validate_json_string "$install_dir" "MARKDAWN_INSTALL_DIR"
+case "$install_dir" in
+  *\\* | *\"*) fail "MARKDAWN_INSTALL_DIR contains characters unsupported by the standalone install receipt" ;;
+esac
+if [ "$modify_path" = 1 ]; then
+  case "$install_dir" in
+    *[!A-Za-z0-9_@%+=,./-]*) fail "MARKDAWN_INSTALL_DIR contains characters unsupported by --modify-path" ;;
+  esac
+fi
+
+state_dir="${MARKDAWN_INSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/markdawn}"
+case "$state_dir" in
+  /*) ;;
+  *) state_dir="$(pwd -P)/$state_dir" ;;
+esac
+validate_json_string "$state_dir" "MARKDAWN_INSTALL_STATE_DIR"
+receipt_path="$state_dir/install.json"
+
+case "$(uname -s)" in
+  Linux) goos=linux ;;
+  Darwin) goos=darwin ;;
+  *) fail "unsupported operating system: $(uname -s)" ;;
+esac
+if [ "$goos" = linux ] && [ -r /proc/sys/kernel/osrelease ] && grep -qi microsoft /proc/sys/kernel/osrelease; then
+  case "$install_dir" in
+    /mnt/*) printf '%s\n' "markdawn installer: warning: installs under /mnt use Windows filesystem semantics; a path in the WSL Linux home directory is recommended" >&2 ;;
+  esac
+fi
+
+machine=$(uname -m)
+if [ "$goos" = darwin ] && [ "$machine" = x86_64 ] && [ "$(sysctl -n sysctl.proc_translated 2>/dev/null || true)" = 1 ]; then
+  machine=arm64
+fi
+case "$machine" in
+  x86_64 | amd64) goarch=amd64 ;;
+  aarch64 | arm64) goarch=arm64 ;;
+  *) fail "unsupported architecture: $machine" ;;
+esac
+
+if [ -n "$requested_version" ]; then
+  version=${requested_version#v}
+  archive="markdawn_${version}_${goos}_${goarch}.tar.gz"
+  download_base="https://github.com/$repository/releases/download/cli/v$version"
+else
+  archive="markdawn_${goos}_${goarch}.tar.gz"
+  download_base="https://github.com/$repository/releases/latest/download"
+fi
+
+temporary_dir=$(mktemp -d "${TMPDIR:-/tmp}/markdawn.XXXXXX")
+finalizer_binary=""
+cleanup() {
+	status=$?
+	cleanup_failed=0
+	set +e
+	if [ -n "$finalizer_binary" ]; then
+		rm -f "$finalizer_binary" || { printf '%s\n' "markdawn installer: could not remove temporary finalizer" >&2; cleanup_failed=1; }
+	fi
+	rm -rf "$temporary_dir" || { printf '%s\n' "markdawn installer: could not remove temporary download directory" >&2; cleanup_failed=1; }
+	trap - EXIT
+	if [ "$cleanup_failed" = 1 ]; then
+		exit 1
+	fi
+	exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+archive_path="$temporary_dir/$archive"
+checksums_path="$temporary_dir/checksums.txt"
+
+download_with_limit() {
+  destination=$1
+  url=$2
+  limit=$3
+  label=$4
+  status_path="$temporary_dir/download-status"
+  rm -f "$status_path"
+  if [ -n "$http_timeout" ]; then
+    if ! {
+      if curl --fail --location --silent --show-error --max-filesize "$limit" --connect-timeout "$http_timeout" --max-time "$http_timeout" "$url"; then download_status=0; else download_status=$?; fi
+      printf '%s\n' "$download_status" >"$status_path"
+    } | head -c "$((limit + 1))" >"$destination"; then
+      fail "could not download $label"
+    fi
+  else
+    if ! {
+      if curl --fail --location --silent --show-error --max-filesize "$limit" "$url"; then download_status=0; else download_status=$?; fi
+      printf '%s\n' "$download_status" >"$status_path"
+    } | head -c "$((limit + 1))" >"$destination"; then
+      fail "could not download $label"
+    fi
+  fi
+  [ -f "$status_path" ] || fail "could not download $label"
+  download_status=$(sed -n '1p' "$status_path")
+  rm -f "$status_path"
+  download_size=$(wc -c <"$destination")
+  if [ "$download_size" -gt "$limit" ]; then
+    fail "$label exceeds $limit bytes"
+  fi
+  if [ "$download_status" -ne 0 ]; then
+    fail "could not download $label"
+  fi
+}
+
+download_with_limit "$archive_path" "$download_base/$archive" "$max_release_archive_bytes" "$archive"
+download_with_limit "$checksums_path" "$download_base/checksums.txt" 1048576 "checksums.txt"
+
+checksum_line=$(grep -F "  $archive" "$checksums_path" || true)
+[ -n "$checksum_line" ] || fail "checksums.txt does not contain $archive"
+expected_checksum=${checksum_line%% *}
+printf '%s' "$expected_checksum" | grep -Eq '^[0-9a-f]{64}$' || fail "checksums.txt contains an invalid SHA-256 value for $archive"
+[ "$checksum_line" = "$expected_checksum  $archive" ] || fail "checksums.txt contains an invalid entry for $archive"
+if command -v sha256sum >/dev/null 2>&1; then
+  actual_checksum=$(sha256sum "$archive_path" | awk '{print $1}')
+elif command -v shasum >/dev/null 2>&1; then
+  actual_checksum=$(shasum -a 256 "$archive_path" | awk '{print $1}')
+else
+  fail "sha256sum or shasum is required"
+fi
+[ "$actual_checksum" = "$expected_checksum" ] || fail "SHA-256 verification failed for $archive"
+
+extract_dir="$temporary_dir/extract"
+mkdir -p "$extract_dir"
+if ! tar -tvzf "$archive_path" | awk -v max_entries="$max_release_archive_entries" -v max_bytes="$max_release_archive_bytes" '
+  {
+    entries++
+    if (entries > max_entries) exit 1
+    size_field = ($2 ~ /^[0-9][0-9]*$/) ? $5 : $3
+    if (size_field !~ /^[0-9][0-9]*$/) exit 1
+    total += size_field
+    if (total > max_bytes) exit 1
+  }
+  END { if (entries == 0) exit 1 }
+'; then
+  fail "release archive exceeds validation limits"
+fi
+binary_member=$(tar -tzf "$archive_path" | awk -v max_entries="$max_release_archive_entries" '
+  {
+    entries++
+    if (entries > max_entries) exit 1
+    if ($0 == "markdawn" || $0 == "./markdawn") {
+      matches++
+      member = $0
+    }
+  }
+  END {
+    if (entries == 0 || entries > max_entries || matches != 1) exit 1
+    print member
+  }
+') || fail "release archive must contain exactly one markdawn binary"
+tar -xzf "$archive_path" -C "$extract_dir" "$binary_member" || fail "could not extract markdawn from $archive"
+binary_path="$extract_dir/markdawn"
+[ -f "$binary_path" ] && [ ! -L "$binary_path" ] || fail "release archive does not contain a regular markdawn binary"
+[ "$(wc -c <"$binary_path")" -le 134217728 ] || fail "release binary exceeds 134217728 bytes"
+
+if [ -e "$install_dir" ]; then
+  [ -d "$install_dir" ] || fail "$install_dir exists and is not a directory"
+else
+  mkdir -p "$install_dir" || fail "could not create $install_dir"
+  chmod 700 "$install_dir" || fail "could not secure $install_dir"
+fi
+finalizer_binary=$(mktemp "$install_dir/.markdawn-finalize.XXXXXX") || fail "could not stage standalone finalizer"
+cp "$binary_path" "$finalizer_binary" || fail "could not stage standalone finalizer"
+chmod 700 "$finalizer_binary" || fail "could not prepare standalone finalizer"
+
+if [ "$modify_path" = 1 ]; then
+  MARKDAWN_INSTALL_STATE_DIR="$state_dir" "$finalizer_binary" standalone-finalize --install-dir "$install_dir" --path-file "$path_file" --path-style "$path_style" || fail "could not finalize standalone installation"
+else
+  MARKDAWN_INSTALL_STATE_DIR="$state_dir" "$finalizer_binary" standalone-finalize --install-dir "$install_dir" || fail "could not finalize standalone installation"
+fi
+rm -f "$finalizer_binary" || fail "could not remove standalone finalizer"
+finalizer_binary=""
+
+printf 'Markdawn installed to %s/markdawn\n' "$install_dir"
+if [ "$modify_path" = 1 ]; then
+  printf 'Updated PATH configuration in %s.\n' "$path_file"
+else
+  printf '\nAdd Markdawn to PATH:\n  export PATH="%s:$PATH"\n' "$install_dir"
+fi
+printf '\nThen sign in:\n  markdawn login\n'

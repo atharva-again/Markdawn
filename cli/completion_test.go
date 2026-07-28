@@ -11,7 +11,7 @@ func TestCompletionScriptsIncludePageCommands(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, command := range []string{"create", "edit", "update"} {
+		for _, command := range []string{"create", "edit", "update", "uninstall"} {
 			if !strings.Contains(script, command) {
 				t.Fatalf("%s completion missing %s", shell, command)
 			}

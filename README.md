@@ -44,6 +44,20 @@ Notion is a human tool with an API bolted on. Obsidian is a local vault you sync
 See the [API v1 guide](docs/api-v1.md), the live `/api/v1/openapi.json` contract,
 the [`cli/`](cli/) source, and [`skills/markdawn/SKILL.md`](skills/markdawn/SKILL.md).
 
+### CLI
+
+Install Markdawn for your terminal and agents:
+
+```sh
+curl -fsSL https://markdawn.space/install.sh | sh
+export PATH="$HOME/.markdawn/bin:$PATH"
+markdawn login
+```
+
+The official CLI supports safe Markdown edits, structured JSON output, shell completion, and
+scoped API tokens. It runs against `https://markdawn.space` by default and can target a
+self-hosted server with `MARKDAWN_URL` or `--url`. See the [CLI guide](cli/README.md).
+
 ---
 
 ## The Product Thesis

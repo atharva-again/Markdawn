@@ -23,18 +23,38 @@ type CLI struct {
 	Timeout time.Duration    `help:"HTTP request and retry timeout." default:"30s"`
 	Version kong.VersionFlag `name:"version" short:"v" help:"Print the version."`
 
-	Login      LoginCmd      `cmd:"" help:"Authenticate with a named API token."`
-	Logout     LogoutCmd     `cmd:"" help:"Remove the locally stored API token."`
-	Whoami     WhoamiCmd     `cmd:"" help:"Show the authenticated user."`
-	Page       PageCmd       `cmd:"" help:"Read and edit pages."`
-	Folder     FolderCmd     `cmd:"" help:"Discover accessible folders."`
-	Completion CompletionCmd `cmd:"" help:"Generate a shell completion script."`
+	Login      LoginCmd              `cmd:"" help:"Authenticate with a named API token."`
+	Logout     LogoutCmd             `cmd:"" help:"Remove the locally stored API token."`
+	Whoami     WhoamiCmd             `cmd:"" help:"Show the authenticated user."`
+	Page       PageCmd               `cmd:"" help:"Read and edit pages."`
+	Folder     FolderCmd             `cmd:"" help:"Discover accessible folders."`
+	Update     UpdateCmd             `cmd:"" help:"Update a standalone Markdawn installation."`
+	Uninstall  UninstallCmd          `cmd:"" help:"Remove a standalone Markdawn installation."`
+	Finalize   StandaloneFinalizeCmd `cmd:"" name:"standalone-finalize" hidden:""`
+	Completion CompletionCmd         `cmd:"" help:"Generate a shell completion script."`
 }
 
 type LoginCmd struct{}
 
 type LogoutCmd struct{}
 type WhoamiCmd struct{}
+
+type UpdateCmd struct {
+	Version string `arg:"" optional:"" help:"Install this release version instead of the latest stable release." placeholder:"VERSION"`
+}
+
+type UninstallCmd struct {
+	Purge      bool `help:"Also remove saved Markdawn configuration and credentials."`
+	RemovePath bool `help:"Remove the PATH block created by the standalone installer."`
+	DryRun     bool `help:"Show what would be removed without removing it."`
+	Yes        bool `help:"Skip the uninstall confirmation prompt."`
+}
+
+type StandaloneFinalizeCmd struct {
+	InstallDir string `required:""`
+	PathFile   string `optional:""`
+	PathStyle  string `optional:""`
+}
 
 type PageCmd struct {
 	List   PageListCmd   `cmd:"" help:"List accessible pages."`

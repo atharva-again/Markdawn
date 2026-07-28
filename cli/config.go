@@ -1,16 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
 )
 
-const defaultBaseURL = "http://localhost:3001"
+const defaultBaseURL = "https://markdawn.space"
 
 type config struct {
 	BaseURL string `json:"baseUrl"`
@@ -44,7 +46,16 @@ func loadConfig() (config, error) {
 	if !utf8.Valid(data) {
 		return result, fmt.Errorf("read config: invalid UTF-8")
 	}
-	if err := json.Unmarshal(data, &result); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&result); err != nil {
+		return result, fmt.Errorf("read config: %w", err)
+	}
+	var trailing struct{}
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return result, fmt.Errorf("read config: multiple JSON values")
+		}
 		return result, fmt.Errorf("read config: %w", err)
 	}
 	if result.BaseURL == "" {
@@ -66,16 +77,12 @@ func saveConfig(value config) error {
 	if err != nil {
 		return err
 	}
-	// WriteFile preserves the mode of an existing file. Restrict it before
-	// writing so a previously permissive config cannot expose the new token
-	// during the write or after a crash before a later chmod.
+	// Restrict an existing config before replacement so its old token is not
+	// exposed while the new private temporary file is prepared.
 	if err := os.Chmod(path, 0o600); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
-		return err
-	}
-	return nil
+	return writePrivateFileAtomically(path, append(data, '\n'))
 }
 
 func removeConfig() error {

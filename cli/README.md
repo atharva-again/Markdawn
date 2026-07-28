@@ -4,10 +4,50 @@ The official terminal client for Markdawn's versioned API. It is designed for bo
 
 ## Install
 
-From source:
+Linux and macOS:
 
 ```sh
-go install github.com/markdawn/markdawn/cli@latest
+curl -fsSL https://markdawn.space/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://markdawn.space/install.ps1 | iex
+```
+
+The standalone installer downloads the matching release archive, verifies its SHA-256
+checksum, and installs Markdawn to `~/.markdawn/bin` on Linux/macOS or
+`%LOCALAPPDATA%\Markdawn\bin` on Windows. It does not modify your PATH by default; follow the
+printed instruction, or opt in explicitly:
+
+```sh
+curl -fsSL https://markdawn.space/install.sh | MARKDAWN_MODIFY_PATH=1 sh
+```
+
+In PowerShell, run `$env:MARKDAWN_MODIFY_PATH = 1` before the installer command.
+
+To install a specific release, set `MARKDAWN_VERSION`, for example:
+
+```sh
+curl -fsSL https://markdawn.space/install.sh | MARKDAWN_VERSION=v1.2.3 sh
+```
+
+Installer configuration:
+
+| Variable | Purpose |
+| --- | --- |
+| `MARKDAWN_VERSION` | Install a semantic version such as `v1.2.3`; the default is the latest stable release. |
+| `MARKDAWN_INSTALL_DIR` | Override the platform-default binary directory. |
+| `MARKDAWN_INSTALL_STATE_DIR` | Override the directory containing the standalone install receipt. |
+| `MARKDAWN_MODIFY_PATH` | Set to `1` to add a marked PATH block to the detected shell profile. |
+| `MARKDAWN_PROFILE_PATH` | Override the PowerShell profile modified on Windows. |
+| `MARKDAWN_HTTP_TIMEOUT_SECONDS` | Set a positive timeout for each installer download. |
+
+Go users can also install from source:
+
+```sh
+go install github.com/atharva-again/Markdawn/cli@latest
 ```
 
 Release archives are built for Linux, macOS, and Windows on amd64 and arm64. Verify an installation with:
@@ -16,13 +56,23 @@ Release archives are built for Linux, macOS, and Windows on amd64 and arm64. Ver
 markdawn --version
 ```
 
+Release archives, checksum manifests, and installer scripts carry GitHub build-provenance
+attestations. To independently verify a downloaded file before using it:
+
+```sh
+gh attestation verify markdawn_1.2.3_linux_amd64.tar.gz --repo atharva-again/Markdawn
+```
+
 ## Authenticate
 
 Create a named token in **Markdawn Settings → API tokens**, then run:
 
 ```sh
-markdawn login --url https://markdawn.example.com
+markdawn login
 ```
+
+`markdawn login` defaults to `https://markdawn.space`. Pass `--url URL` or set `MARKDAWN_URL`
+for a self-hosted server.
 
 The token is validated before it is saved. The config directory is created with mode `0700` and the config file with mode `0600`.
 
@@ -42,6 +92,8 @@ Environment variables override saved configuration. Do not pass tokens as comman
 markdawn login [--url URL]
 markdawn logout
 markdawn whoami
+markdawn update [VERSION]
+markdawn uninstall [--purge] [--remove-path] [--dry-run] [--yes]
 markdawn help [command...]
 
 markdawn page list [--parent FOLDER_ID] [--limit N]
@@ -149,6 +201,32 @@ source <(markdawn completion zsh)
 markdawn completion fish | source
 ```
 
+## Update and uninstall
+
+`markdawn update` downloads a checksum-verified release archive and replaces the standalone binary.
+It only operates on a binary installed by the standalone installer; binaries installed with Go should be updated with `go install
+github.com/atharva-again/Markdawn/cli@latest` instead.
+
+```sh
+markdawn update
+markdawn update v1.2.3
+markdawn uninstall --dry-run
+markdawn uninstall --yes
+markdawn uninstall --purge --yes
+```
+
+## Standalone platform support
+
+The standalone installer supports Linux, macOS, and Windows. Linux and macOS use `install.sh`; Windows uses `install.ps1`.
+
+WSL2 is treated as a separate Linux environment: install Markdawn inside WSL with `install.sh` and configure the WSL shell PATH. It does not modify the Windows PATH or share the Windows standalone receipt. Install under the WSL Linux home directory rather than `/mnt/*`; Windows-mounted filesystems have different permission, locking, and atomic-rename behavior. The installer warns when a custom WSL install directory is under `/mnt`.
+
+If an install, update, or uninstall is interrupted, rerun the same command. Installer publication and PATH changes are rolled back when publication fails. Uninstall records completed PATH cleanup before continuing and preserves or restores its receipt while the binary remains. For a Windows deferred update or uninstall failure, the next invocation reports and clears the persisted failure; run the command once more to retry the operation.
+
+Uninstall preserves saved credentials and configuration unless `--purge` is supplied. If the
+installer was invoked with `MARKDAWN_MODIFY_PATH=1`, use `--remove-path` to remove its marked PATH
+block.
+
 ## Environment
 
 | Variable | Purpose |
@@ -177,4 +255,4 @@ Run `markdawn <command> --help` for complete command-specific flags.
 
 ## Maintainer releases
 
-Push a signed `cli/vX.Y.Z` tag. The release workflow runs race-enabled tests, cross-compiles six platform/architecture combinations, creates checksums, publishes build-provenance attestations, and attaches the archives to a GitHub release.
+Push a signed `cli/vX.Y.Z` tag. The release workflow runs native Linux, macOS, and Windows tests—including transactional installer and uninstall E2E coverage—then cross-compiles six platform/architecture combinations, creates deterministic versioned archives and latest-stable aliases, creates checksums, publishes build-provenance attestations, and attaches the archives and installers to a GitHub release.

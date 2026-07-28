@@ -1,4 +1,4 @@
-module github.com/markdawn/markdawn/cli
+module github.com/atharva-again/Markdawn/cli
 
 go 1.24.0
 

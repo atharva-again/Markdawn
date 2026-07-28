@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -17,7 +19,7 @@ func TestConfigRoundTripUsesRestrictedPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := info.Mode().Perm(); got != 0o600 {
+	if got := info.Mode().Perm(); runtime.GOOS != "windows" && got != 0o600 {
 		t.Fatalf("config permissions = %o", got)
 	}
 	got, err := loadConfig()
@@ -54,7 +56,7 @@ func TestSaveConfigRestrictsExistingFileBeforeReplacingToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := info.Mode().Perm(); got != 0o600 {
+	if got := info.Mode().Perm(); runtime.GOOS != "windows" && got != 0o600 {
 		t.Fatalf("config permissions = %o", got)
 	}
 	got, err := loadConfig()
@@ -74,5 +76,35 @@ func TestLoadConfigRejectsInvalidUTF8(t *testing.T) {
 	}
 	if _, err := loadConfig(); err == nil {
 		t.Fatal("expected invalid UTF-8 config to fail")
+	}
+}
+
+func TestLoadConfigDefaultsToMarkdawnCloud(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("MARKDAWN_CONFIG_DIR", dir)
+	config, err := loadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.BaseURL != "https://markdawn.space" {
+		t.Fatalf("default base URL = %q", config.BaseURL)
+	}
+}
+
+func TestLoadConfigRejectsUnknownFieldsAndMultipleValues(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("MARKDAWN_CONFIG_DIR", dir)
+	path := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(path, []byte(`{"baseUrl":"https://example.test","token":"secret","unknown":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadConfig(); err == nil || !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("expected unknown field error, got %v", err)
+	}
+	if err := os.WriteFile(path, []byte(`{"baseUrl":"https://example.test","token":"secret"} {}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadConfig(); err == nil || !strings.Contains(err.Error(), "multiple JSON values") {
+		t.Fatalf("expected multiple JSON values error, got %v", err)
 	}
 }

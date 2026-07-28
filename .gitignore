@@ -2,6 +2,7 @@ node_modules/
 dist/
 /cli/cli
 /cli/markdawn
+/cli/*.exe
 .env
 .env.local
 *.env
