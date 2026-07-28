@@ -11,7 +11,53 @@ permissions:
   attestations: write
 
 jobs:
+  test-unix:
+    name: Test CLI (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache-dependency-path: cli/go.sum
+      - name: Test, vet, and build
+        working-directory: cli
+        run: |
+          go test -race ./...
+          go vet ./...
+          go build -trimpath ./...
+          bash ../scripts/install-cli.test.sh
+          sh ../scripts/standalone-cli.e2e.sh
+
+  test-windows:
+    name: Test CLI (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache-dependency-path: cli/go.sum
+      - name: Test, vet, and build
+        working-directory: cli
+        run: |
+          go test ./...
+          go vet ./...
+          go build -trimpath ./...
+      - name: Parse and test PowerShell bootstrap installer
+        shell: pwsh
+        run: |
+          $errors = $null
+          [Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'scripts/install-cli.ps1'), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+          ./scripts/install-cli.ps1.test.ps1
+          ./scripts/standalone-cli.e2e.ps1
+
   release:
+    needs: [test-unix, test-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,15 +69,24 @@ jobs:
           go-version: "1.24.x"
           cache-dependency-path: cli/go.sum
 
-      - name: Test
-        working-directory: cli
-        run: go test -race ./...
-
       - name: Build release archives
+        id: release-version
         shell: bash
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#cli/v}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]] || {
+            echo "invalid CLI release version: $version" >&2
+            exit 1
+          }
+          normalized_version="${version%%+*}"
+          source_date_epoch="$(git log -1 --format=%ct "$GITHUB_SHA")"
+          export SOURCE_DATE_EPOCH="$source_date_epoch"
+          if [[ "$normalized_version" == *-* ]]; then
+            echo "prerelease=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >>"$GITHUB_OUTPUT"
+          fi
           mkdir -p dist
           for target in \
             linux/amd64 linux/arm64 \
@@ -47,21 +102,33 @@ jobs:
               -trimpath \
               -ldflags "-s -w -X main.version=${version} -X main.commit=${GITHUB_SHA}" \
               -o "$stage/$binary" .
-            cp LICENSE cli/README.md cli/DESIGN.md "$stage/"
+            cp LICENSE cli/README.md "$stage/"
+            find "$stage" -type f -exec touch -d "@$source_date_epoch" {} +
+            find "$stage" -type d -exec touch -d "@$source_date_epoch" {} +
             if [[ "$goos" == "windows" ]]; then
-              (cd "$stage" && zip -q -r "$GITHUB_WORKSPACE/dist/${archive}.zip" .)
+              (cd "$stage" && zip -X -q -r "$GITHUB_WORKSPACE/dist/${archive}.zip" .)
             else
-              tar -C "$stage" -czf "dist/${archive}.tar.gz" .
+              tar --sort=name --mtime="@$source_date_epoch" --owner=0 --group=0 --numeric-owner -C "$stage" -czf "dist/${archive}.tar.gz" .
+            fi
+            if [[ "$normalized_version" != *-* ]]; then
+              if [[ "$goos" == "windows" ]]; then
+                cp "dist/${archive}.zip" "dist/markdawn_${goos}_${goarch}.zip"
+              else
+                cp "dist/${archive}.tar.gz" "dist/markdawn_${goos}_${goarch}.tar.gz"
+              fi
             fi
             rm -rf "$stage"
           done
-          (cd dist && sha256sum markdawn_* > checksums.txt)
+          cp scripts/install-cli.sh dist/install.sh
+          cp scripts/install-cli.ps1 dist/install.ps1
+          (cd dist && LC_ALL=C sha256sum markdawn_* > checksums.txt)
 
       - uses: actions/attest-build-provenance@v2
         with:
-          subject-path: "dist/markdawn_*"
+          subject-path: "dist/*"
 
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
           generate_release_notes: true
+          prerelease: ${{ steps.release-version.outputs.prerelease }}
