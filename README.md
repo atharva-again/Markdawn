@@ -65,17 +65,26 @@ immediate use. The official CLI supports safe Markdown edits, structured JSON ou
 completion, and scoped API tokens. It runs against `https://markdawn.space` by default and can
 target a self-hosted server with `MARKDAWN_URL` or `--url`.
 
-For coding agents, install the portable Markdawn skill with the optional Vercel skills tool:
+Coding agents should follow the dedicated [Markdawn skill](skills/markdawn/SKILL.md). See the
+[CLI guide](cli/README.md) for CLI installation and command reference details.
 
-```sh
-markdawn skill install --global
-```
+### Web and CLI capability matrix
 
-To install it during the CLI bootstrap instead, set `MARKDAWN_INSTALL_SKILL=global` (or
-`project`) on the installer process. This optional step requires Node.js and `npx`.
+The web app is the collaborative workspace; the CLI is the typed, automation-oriented interface
+to the same API and page content.
 
-See the [CLI guide](cli/README.md) for install details, agent compatibility, and the complete
-command reference.
+| Capability | Web app | CLI |
+| --- | --- | --- |
+| Read pages and folders | Browse, render Markdown, and navigate workspace UI | `page view`, `page list`, and `folder list`, including JSON output |
+| Create pages | Forms and editor UI | `page create`, including Markdown from files or stdin |
+| Edit authored Markdown | Interactive Milkdown editor with revision protection | Interactive editor, exact edits, revision-guarded replace, append, and prepend |
+| Concurrent document updates | Live WebSocket/Yjs collaboration | Server-side content commands apply against current content; no live editing session |
+| Page title and icon | Full metadata UI | `page update`; content frontmatter can carry page properties and icons |
+| Cover images and properties panel | Supported | No dedicated cover or properties-panel command |
+| Workspace administration, collaborators, shares, tags, favorites, and trash | Supported | Not currently exposed as CLI commands |
+| Import and export | Obsidian import and Markdown export UI | Not currently exposed as CLI commands |
+| Authentication | Google/GitHub OAuth browser session | Named API token through `login` or environment variables |
+| Automation and agent use | Browser-driven only | Stable JSON output, non-interactive mode, idempotency keys, and Agent Skills support |
 
 ---
 
