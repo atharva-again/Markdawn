@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MAX_YDOC_BYTES } from '../constants/collaboration.js';
+import { fitsPageMarkdownSize } from '../utils/pageMarkdownSize.js';
 
 export const INTERNAL_CONTENT_HEADERS = {
   secret: 'x-markdawn-internal-secret',
@@ -10,6 +11,7 @@ export const INTERNAL_CONTENT_HEADERS = {
 } as const;
 
 export const MAX_EXACT_EDITS = 100;
+export const MAX_CONTENT_BOUNDARY_OPERATION_ID_LENGTH = 200;
 export const MAX_EXACT_EDIT_REPLACEMENT_BYTES = MAX_YDOC_BYTES;
 /** Maximum cumulative Markdown bytes parsed while validating one exact-edit command. */
 export const MAX_EXACT_EDIT_VALIDATION_BYTES = MAX_YDOC_BYTES * 4;
@@ -84,6 +86,26 @@ export const applyExactEditsCommandSchema = z
   })
   .superRefine(validateExactEdits);
 
+export const contentBoundaryOperationSchema = z.object({
+  id: z
+    .string()
+    .max(
+      MAX_CONTENT_BOUNDARY_OPERATION_ID_LENGTH,
+      `Operation ID must be ${MAX_CONTENT_BOUNDARY_OPERATION_ID_LENGTH} characters or less`,
+    )
+    .refine((value) => value.trim().length > 0, 'Operation ID must not be empty'),
+  operation: z.enum(['append', 'prepend']),
+  content: z
+    .string()
+    .min(1, 'Content must not be empty')
+    .refine(fitsPageMarkdownSize, `Content must be ${MAX_YDOC_BYTES} bytes or less`),
+});
+
+export const applyContentBoundaryOperationCommandSchema = z.object({
+  ...contentBoundaryOperationSchema.shape,
+  idempotency: contentIdempotencyReservationSchema.optional(),
+});
+
 export const exactEditCommandResultSchema = z.discriminatedUnion('status', [
   z.object({ id: z.string().min(1), status: z.literal('applied') }),
   z.object({ id: z.string().min(1), status: z.literal('conflict'), reason: z.string() }),
@@ -92,6 +114,11 @@ export const exactEditCommandResultSchema = z.discriminatedUnion('status', [
 
 export const exactEditCommandResponseSchema = z.object({
   results: z.array(exactEditCommandResultSchema),
+  etag: z.string().min(1),
+});
+
+export const contentBoundaryOperationResponseSchema = z.object({
+  id: z.string().min(1).max(MAX_CONTENT_BOUNDARY_OPERATION_ID_LENGTH),
   etag: z.string().min(1),
 });
 
@@ -117,3 +144,10 @@ export type ReplacePageMarkdownCommandResponse = z.infer<
   typeof replacePageMarkdownCommandResponseSchema
 >;
 export type ApplyExactEditsCommand = z.infer<typeof applyExactEditsCommandSchema>;
+export type ContentBoundaryOperation = z.infer<typeof contentBoundaryOperationSchema>;
+export type ApplyContentBoundaryOperationCommand = z.infer<
+  typeof applyContentBoundaryOperationCommandSchema
+>;
+export type ContentBoundaryOperationResponse = z.infer<
+  typeof contentBoundaryOperationResponseSchema
+>;

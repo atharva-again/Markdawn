@@ -251,6 +251,317 @@ func TestPageEditExpectEmptySendsEmptyPrecondition(t *testing.T) {
 	}
 }
 
+func TestWholePageEditsUseAppropriateConcurrencyControls(t *testing.T) {
+	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
+	tests := []struct {
+		name      string
+		current   string
+		content   string
+		operation string
+		run       func(*runtimeState) error
+	}{
+		{
+			name:      "replace",
+			current:   "Old document",
+			content:   "New document\n",
+			operation: "replace",
+			run: func(runtime *runtimeState) error {
+				return (&PageEditReplaceCmd{Reference: pageID, ContentText: pageContentPointer("New document\n")}).Run(runtime)
+			},
+		},
+		{
+			name:      "append",
+			content:   "\nAdded",
+			operation: "append",
+			run: func(runtime *runtimeState) error {
+				return (&PageEditAppendCmd{Reference: pageID, ContentText: pageContentPointer("\nAdded"), EditID: "append"}).Run(runtime)
+			},
+		},
+		{
+			name:      "prepend",
+			content:   "Added\n\n",
+			operation: "prepend",
+			run: func(runtime *runtimeState) error {
+				return (&PageEditPrependCmd{Reference: pageID, ContentText: pageContentPointer("Added\n\n"), EditID: "prepend"}).Run(runtime)
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			runtime, _ := testRuntime(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				switch {
+				case request.Method == http.MethodGet && request.URL.Path == "/api/v1/pages/"+pageID:
+					fmt.Fprintf(response, `{"id":%q,"title":"Page"}`, pageID)
+				case request.Method == http.MethodGet && request.URL.Path == "/api/v1/pages/"+pageID+"/content":
+					response.Header().Set("ETag", `"current"`)
+					fmt.Fprint(response, test.current)
+				case request.Method == http.MethodPut && request.URL.Path == "/api/v1/pages/"+pageID+"/content":
+					if test.operation != "replace" || request.Header.Get("If-Match") != `"current"` {
+						t.Fatalf("unexpected replacement request")
+					}
+					body, err := io.ReadAll(request.Body)
+					if err != nil || string(body) != test.content {
+						t.Fatalf("unexpected replacement %q: %v", body, err)
+					}
+					response.Header().Set("ETag", `"updated"`)
+				case request.Method == http.MethodPost && request.URL.Path == "/api/v1/pages/"+pageID+"/content-operations":
+					var body contentBoundaryOperation
+					if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+						t.Fatal(err)
+					}
+					if test.operation == "replace" || body.ID != test.operation || body.Operation != test.operation || body.Content != test.content {
+						t.Fatalf("unexpected boundary operation %#v", body)
+					}
+					fmt.Fprintf(response, `{"id":%q,"etag":"etag"}`, body.ID)
+				default:
+					t.Fatalf("unexpected request %s %s", request.Method, request.URL.Path)
+				}
+			}), true)
+			if err := test.run(runtime); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestPageEditReplaceReturnsConflictWhenRevisionChanges(t *testing.T) {
+	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
+	runtime, _ := testRuntime(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch {
+		case request.Method == http.MethodGet && request.URL.Path == "/api/v1/pages/"+pageID:
+			fmt.Fprintf(response, `{"id":%q,"title":"Page"}`, pageID)
+		case request.Method == http.MethodGet && request.URL.Path == "/api/v1/pages/"+pageID+"/content":
+			response.Header().Set("ETag", `"before"`)
+			fmt.Fprint(response, "Before")
+		case request.Method == http.MethodPut && request.URL.Path == "/api/v1/pages/"+pageID+"/content":
+			if request.Header.Get("If-Match") != `"before"` {
+				t.Fatalf("unexpected If-Match %q", request.Header.Get("If-Match"))
+			}
+			response.Header().Set("Content-Type", "application/json")
+			response.WriteHeader(http.StatusConflict)
+			fmt.Fprint(response, `{"error":{"code":"content_conflict","message":"Page changed since it was read"}}`)
+		default:
+			t.Fatalf("unexpected request %s %s", request.Method, request.URL.Path)
+		}
+	}), true)
+
+	err := (&PageEditReplaceCmd{Reference: pageID, ContentText: pageContentPointer("Replacement")}).Run(runtime)
+	if exitCode(err) != exitConflict {
+		t.Fatalf("expected revision conflict, got %v", err)
+	}
+	if errorCode(err) == "edit_outcome_uncertain" {
+		t.Fatalf("revision conflict was reported as uncertain: %v", err)
+	}
+}
+
+func TestAppendAndPrependRejectEmptyContent(t *testing.T) {
+	for _, command := range []struct {
+		name string
+		run  func(*runtimeState) error
+	}{
+		{
+			name: "append",
+			run: func(runtime *runtimeState) error {
+				empty := ""
+				return (&PageEditAppendCmd{Reference: "page", ContentText: &empty}).Run(runtime)
+			},
+		},
+		{
+			name: "prepend",
+			run: func(runtime *runtimeState) error {
+				empty := ""
+				return (&PageEditPrependCmd{Reference: "page", ContentText: &empty}).Run(runtime)
+			},
+		},
+	} {
+		t.Run(command.name, func(t *testing.T) {
+			runtime, _ := testRuntime(t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				t.Fatal("empty content made an API request")
+			}), true)
+			if err := command.run(runtime); exitCode(err) != exitUsage {
+				t.Fatalf("expected usage error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestWholePageEditsRequireInspectionAfterUncertainOutcome(t *testing.T) {
+	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
+	for _, test := range []struct {
+		name string
+		run  func(*runtimeState) error
+	}{
+		{
+			name: "replace",
+			run: func(runtime *runtimeState) error {
+				return (&PageEditReplaceCmd{Reference: pageID, ContentText: pageContentPointer("Replacement")}).Run(runtime)
+			},
+		},
+		{
+			name: "append",
+			run: func(runtime *runtimeState) error {
+				return (&PageEditAppendCmd{Reference: pageID, ContentText: pageContentPointer("Appendix")}).Run(runtime)
+			},
+		},
+		{
+			name: "prepend",
+			run: func(runtime *runtimeState) error {
+				return (&PageEditPrependCmd{Reference: pageID, ContentText: pageContentPointer("Introduction")}).Run(runtime)
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runtime, _ := testRuntime(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				switch {
+				case request.Method == http.MethodGet && request.URL.Path == "/api/v1/pages/"+pageID:
+					fmt.Fprintf(response, `{"id":%q,"title":"Page"}`, pageID)
+				case request.Method == http.MethodGet && request.URL.Path == "/api/v1/pages/"+pageID+"/content":
+					fmt.Fprint(response, "Current content")
+				case request.Method == http.MethodPut && request.URL.Path == "/api/v1/pages/"+pageID+"/content":
+					time.Sleep(250 * time.Millisecond)
+				case request.Method == http.MethodPost && request.URL.Path == "/api/v1/pages/"+pageID+"/content-operations":
+					time.Sleep(250 * time.Millisecond)
+				default:
+					t.Fatalf("unexpected request %s %s", request.Method, request.URL.Path)
+				}
+			}), true)
+			runtime.clientValue.timeout = 100 * time.Millisecond
+			runtime.clientValue.http.Timeout = 100 * time.Millisecond
+			err := test.run(runtime)
+			var uncertain *cliError
+			if !errors.As(err, &uncertain) || uncertain.Code != "edit_outcome_uncertain" {
+				t.Fatalf("expected uncertain edit error, got %v", err)
+			}
+			if !strings.Contains(uncertain.Message, "inspect the page") || strings.Contains(uncertain.Message, "retry with") {
+				t.Fatalf("unsafe retry guidance: %q", uncertain.Message)
+			}
+		})
+	}
+}
+
+func TestPageEditReportsLostResponseAsUncertain(t *testing.T) {
+	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
+	oldText := "before"
+	newText := "after"
+	runtime, _ := testRuntime(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch {
+		case request.Method == http.MethodGet && request.URL.Path == "/api/v1/pages/"+pageID:
+			fmt.Fprintf(response, `{"id":%q,"title":"Page"}`, pageID)
+		case request.Method == http.MethodPost && request.URL.Path == "/api/v1/pages/"+pageID+"/edits":
+			hijacker, ok := response.(http.Hijacker)
+			if !ok {
+				t.Fatal("test server does not support connection hijacking")
+			}
+			connection, buffered, err := hijacker.Hijack()
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _ = fmt.Fprint(buffered, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 200\r\nConnection: close\r\n\r\n{\"results\":")
+			if err := buffered.Flush(); err != nil {
+				t.Fatal(err)
+			}
+			connection.Close()
+		default:
+			t.Fatalf("unexpected request %s %s", request.Method, request.URL.Path)
+		}
+	}), true)
+	err := (&PageEditExactCmd{
+		Reference: pageID,
+		OldText:   &oldText,
+		NewText:   &newText,
+		EditID:    "edit",
+	}).Run(runtime)
+	var uncertain *cliError
+	if !errors.As(err, &uncertain) || uncertain.Code != "edit_outcome_uncertain" {
+		t.Fatalf("expected uncertain edit error, got %v", err)
+	}
+	details, ok := uncertain.Details.(uncertainEditDetails)
+	if !ok || details.EditID != "edit" || details.IdempotencyKey == "" {
+		t.Fatalf("missing uncertain edit details: %#v", uncertain.Details)
+	}
+}
+
+func TestUncertainWriteOutcomeRecognizesUnknownServiceFailures(t *testing.T) {
+	err := uncertainWriteOutcome(
+		&cliError{Code: "COLLABORATION_FAILURE", StatusCode: http.StatusServiceUnavailable},
+		"edit",
+		"key",
+	)
+	if errorCode(err) != "edit_outcome_uncertain" {
+		t.Fatalf("expected uncertain outcome, got %v", err)
+	}
+}
+
+func TestBoundaryOperationCancellationReportsUncertainOutcome(t *testing.T) {
+	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
+	for _, test := range []struct {
+		operation string
+		label     string
+	}{
+		{operation: "append", label: "Appended"},
+		{operation: "prepend", label: "Prepended"},
+	} {
+		t.Run(test.operation, func(t *testing.T) {
+			requestStarted := make(chan struct{})
+			releaseRequest := make(chan struct{})
+			defer close(releaseRequest)
+			runtime, _ := testRuntime(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				switch {
+				case request.Method == http.MethodGet && request.URL.Path == "/api/v1/pages/"+pageID:
+					fmt.Fprintf(response, `{"id":%q,"title":"Page"}`, pageID)
+				case request.Method == http.MethodPost && request.URL.Path == "/api/v1/pages/"+pageID+"/content-operations":
+					close(requestStarted)
+					<-releaseRequest
+				default:
+					t.Fatalf("unexpected request %s %s", request.Method, request.URL.Path)
+				}
+			}), false)
+			stderr := &bytes.Buffer{}
+			runtime.stderr = stderr
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			runtime.clientValue.ctx = ctx
+
+			done := make(chan error, 1)
+			go func() {
+				done <- runContentBoundaryOperation(
+					runtime,
+					pageID,
+					pageContentPointer("Added"),
+					"",
+					"edit-id",
+					"idempotency-key",
+					test.operation,
+					test.label,
+				)
+			}()
+			select {
+			case <-requestStarted:
+			case <-time.After(time.Second):
+				t.Fatal("boundary operation was not transmitted")
+			}
+			cancel()
+			err := <-done
+			if errorCode(err) != "edit_outcome_uncertain" || !errors.Is(err, context.Canceled) {
+				t.Fatalf("expected uncertain canceled write, got %v", err)
+			}
+			if got := reportRunError(runtime, err); got != exitFailure {
+				t.Fatalf("unexpected exit code %d", got)
+			}
+			output := stderr.String()
+			if !strings.Contains(output, "edit outcome is uncertain; inspect the page before issuing another edit") ||
+				!strings.Contains(output, "Edit ID: edit-id") ||
+				!strings.Contains(output, "Idempotency key: idempotency-key") {
+				t.Fatalf("uncertain cancellation details were not displayed: %q", output)
+			}
+		})
+	}
+}
+
+func pageContentPointer(value string) *string {
+	return &value
+}
+
 func TestPageEditExactRejectsEmptyOldInputWithoutExpectEmpty(t *testing.T) {
 	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
 	requests := 0
@@ -281,7 +592,7 @@ func TestPageEditExactRejectsEmptyOldInputWithoutExpectEmpty(t *testing.T) {
 	}
 }
 
-func TestPageEditReportsGeneratedKeyForUncertainCommitAndSupportsReplay(t *testing.T) {
+func TestPageEditReportsUncertainOutcomeAndAllowsCallerManagedReplay(t *testing.T) {
 	pageID := "5d418de1-6b6f-4bb3-a35c-bc0c134b48dd"
 	oldText := "anchor"
 	newText := "inserted"
@@ -324,11 +635,11 @@ func TestPageEditReportsGeneratedKeyForUncertainCommitAndSupportsReplay(t *testi
 		t.Fatalf("expected uncertain edit error, got %v", err)
 	}
 	details, ok := uncertain.Details.(uncertainEditDetails)
-	if !ok || details.IdempotencyKey == "" {
-		t.Fatalf("missing generated idempotency key: %#v", uncertain.Details)
+	if !ok || details.IdempotencyKey == "" || details.EditID != "edit" {
+		t.Fatalf("missing uncertain edit details: %#v", uncertain.Details)
 	}
-	if !strings.Contains(uncertain.Message, details.IdempotencyKey) {
-		t.Fatalf("human-readable error does not expose generated key: %q", uncertain.Message)
+	if !strings.Contains(uncertain.Message, "inspect the page") || strings.Contains(uncertain.Message, details.IdempotencyKey) {
+		t.Fatalf("unsafe retry guidance: %q", uncertain.Message)
 	}
 	runtime.printError(err)
 	var errorOutput struct {
@@ -339,8 +650,8 @@ func TestPageEditReportsGeneratedKeyForUncertainCommitAndSupportsReplay(t *testi
 	if err := json.Unmarshal(output.Bytes(), &errorOutput); err != nil {
 		t.Fatal(err)
 	}
-	if errorOutput.Error.Details.IdempotencyKey != details.IdempotencyKey {
-		t.Fatalf("JSON error omitted generated key: %s", output.String())
+	if errorOutput.Error.Details.IdempotencyKey != details.IdempotencyKey || errorOutput.Error.Details.EditID != details.EditID {
+		t.Fatalf("JSON error omitted uncertain edit details: %s", output.String())
 	}
 
 	runtime.clientValue.timeout = time.Second

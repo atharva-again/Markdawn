@@ -1,5 +1,4 @@
 import { stringify } from 'yaml';
-import { MAX_YDOC_BYTES } from '../constants/collaboration.js';
 import type {
   ApplyExactEditsCommand,
   ExactEditCommandResult,
@@ -14,7 +13,17 @@ import {
   UnsupportedMarkdownFrontmatterError,
 } from './markdownFrontmatter.js';
 import { normalizePageIcon } from './pageIcon.js';
+import { assertPageMarkdownSize, PageMarkdownError } from './pageMarkdownSize.js';
 import { validatePageProperties } from './pageProperties.js';
+
+export type { PageMarkdownErrorCode } from './pageMarkdownSize.js';
+export {
+  assertPageMarkdownSize,
+  fitsPageMarkdownSize,
+  PAGE_MARKDOWN_SIZE_ERROR_MESSAGE,
+  PageMarkdownError,
+  pageMarkdownByteLength,
+} from './pageMarkdownSize.js';
 
 export type ParsedPageMarkdown = {
   body: string;
@@ -24,33 +33,12 @@ export type ParsedPageMarkdown = {
 
 export type RequestedExactEdit = ApplyExactEditsCommand['edits'][number];
 
-export type PageMarkdownErrorCode =
-  | 'document_too_large'
-  | 'edit_work_limit'
-  | 'unsupported_frontmatter'
-  | 'invalid_icon'
-  | 'invalid_properties';
-
-export class PageMarkdownError extends Error {
-  constructor(
-    readonly code: PageMarkdownErrorCode,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
 export function normalizeLineEndings(value: string): string {
   return value.replace(/\r\n?/g, '\n');
 }
 
 export function parsePageMarkdown(markdown: string): ParsedPageMarkdown {
-  if (new TextEncoder().encode(markdown).byteLength > MAX_YDOC_BYTES) {
-    throw new PageMarkdownError(
-      'document_too_large',
-      `Document must be ${MAX_YDOC_BYTES} bytes or less`,
-    );
-  }
+  assertPageMarkdownSize(markdown);
   let parsed: ReturnType<typeof parseMarkdownFrontmatter>;
   try {
     parsed = parseMarkdownFrontmatter(normalizeLineEndings(markdown));

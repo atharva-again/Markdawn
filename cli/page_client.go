@@ -1,13 +1,10 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 )
 
 func (c *client) listPages(parentID string, limit int) ([]page, error) {
@@ -111,6 +108,17 @@ type exactEdit struct {
 	NewText string `json:"newText"`
 }
 
+type contentBoundaryOperation struct {
+	ID        string `json:"id"`
+	Operation string `json:"operation"`
+	Content   string `json:"content"`
+}
+
+type contentBoundaryOperationResponse struct {
+	ID   string `json:"id"`
+	ETag string `json:"etag"`
+}
+
 func (c *client) createPage(request createPageRequest) (page, error) {
 	body, err := marshalBody(request)
 	if err != nil {
@@ -166,52 +174,32 @@ func (c *client) applyPageExactEdit(id string, edit exactEdit, idempotencyKey st
 	headers := map[string]string{
 		"Content-Type": "application/json", "Idempotency-Key": idempotencyKey,
 	}
-	retryContext, cancel := context.WithTimeout(c.ctx, c.timeout)
-	defer cancel()
-	attempt := func() (editResponse, error) {
-		response, err := c.requestWithContext(retryContext, http.MethodPost, "/pages/"+url.PathEscape(id)+"/edits", body, headers)
-		if err != nil {
-			return editResponse{}, err
-		}
-		var result editResponse
-		return result, decodeJSON(response, &result)
+	response, err := c.request(http.MethodPost, "/pages/"+url.PathEscape(id)+"/edits", body, headers)
+	if err != nil {
+		return editResponse{}, err
 	}
-	const defaultRetryDelay = 100 * time.Millisecond
-	for {
-		result, attemptError := attempt()
-		if attemptError == nil {
-			return result, nil
-		}
-		var requestError *cliError
-		if !errors.As(attemptError, &requestError) || !retryableExactEditError(requestError) {
-			return editResponse{}, attemptError
-		}
-		if retryError := retryContext.Err(); retryError != nil {
-			return editResponse{}, retryError
-		}
-		retryDelay := requestError.RetryAfter
-		if retryDelay <= 0 {
-			retryDelay = defaultRetryDelay
-		}
-		timer := time.NewTimer(retryDelay)
-		select {
-		case <-timer.C:
-		case <-retryContext.Done():
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
-			return editResponse{}, retryContext.Err()
-		}
-	}
+	var result editResponse
+	return result, decodeJSON(response, &result)
 }
 
-func retryableExactEditError(err *cliError) bool {
-	return err.Code == "network_error" ||
-		err.Code == "invalid_response" ||
-		err.Code == "idempotency_in_progress" ||
-		err.Code == "collaboration_busy" ||
-		err.StatusCode == http.StatusServiceUnavailable
+func (c *client) applyPageContentBoundaryOperation(
+	id string,
+	operation contentBoundaryOperation,
+	idempotencyKey string,
+) (contentBoundaryOperationResponse, error) {
+	body, err := marshalBody(operation)
+	if err != nil {
+		return contentBoundaryOperationResponse{}, err
+	}
+	response, err := c.request(
+		http.MethodPost,
+		"/pages/"+url.PathEscape(id)+"/content-operations",
+		body,
+		map[string]string{"Content-Type": "application/json", "Idempotency-Key": idempotencyKey},
+	)
+	if err != nil {
+		return contentBoundaryOperationResponse{}, err
+	}
+	var result contentBoundaryOperationResponse
+	return result, decodeJSON(response, &result)
 }

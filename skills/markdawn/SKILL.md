@@ -6,7 +6,7 @@ compatibility: Requires the markdawn CLI and a named Markdawn API token with app
 
 # Markdawn
 
-Use the official `markdawn` CLI. Do not access raw Yjs data or browser-only routes.
+Use the official `markdawn` CLI. Do not access raw Yjs data, the database, or browser-only routes.
 
 ## Setup
 
@@ -65,11 +65,9 @@ markdawn --json page edit exact PAGE_ID \
 
 Provide exactly one old source (`--old-text` or `--old-file`) and one new source (`--new-text` or `--new-file`). The old passage must occur exactly once. Include enough surrounding text to make repeated wording unique.
 
-Exact replacement covers all normal edits:
-
-- Insert: keep the anchor in both files and add text around it in the new file.
-- Replace: change the matched passage.
-- Delete: use `--new-text ""` or make the new file empty.
+Use exact edits for targeted insertions, replacements, and deletions. To insert, keep a unique
+anchor in both old and new content and add the new Markdown around that anchor. To delete, use
+`--new-text ""` or an empty replacement file.
 
 Do not use occurrence numbers, fuzzy matching, or broad replace-all behavior. To initialize a blank page, use `--expect-empty` with a replacement source; it fails if the page is no longer empty. Markdawn normalizes CRLF to LF but otherwise matches exactly.
 
@@ -84,6 +82,27 @@ markdawn page edit PAGE_ID
 This opens `$MARKDAWN_EDITOR`, `$VISUAL`, or `$EDITOR` and uploads the complete Markdown only if the page-wide revision still matches. It is appropriate for a human deliberately revising an entire page.
 
 `page edit exact` is the preferred automation path: it applies an exact, uniquely matched passage replacement and leaves unrelated concurrent changes intact. `page edit PAGE_ID` opens the configured editor for a deliberate whole-document rewrite.
+
+## Whole-page changes
+
+Use one of these commands only when the requested operation is intentionally about the entire
+document. Each accepts exactly one of `--content-text` or `--content-file`; `-` reads content from
+stdin.
+
+```bash
+markdawn --json page edit replace PAGE_ID --content-file /tmp/revised.md
+markdawn --json page edit append PAGE_ID --content-text "## Next steps"
+markdawn --json page edit prepend PAGE_ID --content-file /tmp/introduction.md
+```
+
+- `replace` safely replaces the complete authored Markdown. An empty content value clears a page.
+- `append` and `prepend` require non-empty content and insert exactly one blank Markdown line at
+  the boundary.
+- `replace` checks the document revision and returns a conflict if the page changed first.
+- `append` and `prepend` run against the server's latest document, so unrelated concurrent edits
+  can coexist with the requested boundary change.
+
+For a small change inside a page, use `page edit exact`, not `replace`.
 
 ## Update page metadata
 

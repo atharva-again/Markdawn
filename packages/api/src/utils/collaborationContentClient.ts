@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import {
+  type ApplyContentBoundaryOperationCommand,
   type ApplyExactEditsCommand,
+  applyContentBoundaryOperationCommandSchema,
   applyExactEditsCommandSchema,
+  type ContentBoundaryOperationResponse,
+  contentBoundaryOperationResponseSchema,
   type ExactEditCommandResponse,
   exactEditCommandResponseSchema,
   INTERNAL_CONTENT_HEADERS,
@@ -228,6 +232,26 @@ export async function applyPageExactEdits(
         requestBody: {
           contentType: 'application/json',
           value: JSON.stringify(applyExactEditsCommandSchema.parse(command)),
+        },
+      },
+    ),
+  );
+}
+
+export async function applyPageContentBoundaryOperation(
+  pageId: string,
+  principal: V1Principal,
+  command: ApplyContentBoundaryOperationCommand,
+): Promise<ContentBoundaryOperationResponse> {
+  return parseResponse(
+    contentBoundaryOperationResponseSchema,
+    await postInternal(
+      `/internal/pages/${encodeURIComponent(pageId)}/apply-content-boundary-operation`,
+      principal,
+      {
+        requestBody: {
+          contentType: 'application/json',
+          value: JSON.stringify(applyContentBoundaryOperationCommandSchema.parse(command)),
         },
       },
     ),

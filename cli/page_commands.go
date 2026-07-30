@@ -25,8 +25,11 @@ type PageCreateCmd struct {
 }
 
 type PageEditCmd struct {
-	Interactive PageEditInteractiveCmd `cmd:"" default:"withargs" hidden:""`
+	Interactive PageEditInteractiveCmd `cmd:"" default:"withargs" help:"Open a page in the configured editor."`
 	Exact       PageEditExactCmd       `cmd:"" help:"Apply an exact authored-Markdown edit."`
+	Replace     PageEditReplaceCmd     `cmd:"" help:"Replace all authored Markdown safely."`
+	Append      PageEditAppendCmd      `cmd:"" help:"Append Markdown after one blank line."`
+	Prepend     PageEditPrependCmd     `cmd:"" help:"Prepend Markdown before one blank line."`
 }
 
 type PageEditInteractiveCmd struct {
@@ -45,6 +48,28 @@ type PageEditExactCmd struct {
 	IdempotencyKey string  `help:"Safe-retry key for this request." placeholder:"KEY"`
 }
 
+type PageEditReplaceCmd struct {
+	Reference   string  `arg:"" name:"page" help:"Page ID or exact title."`
+	ContentText *string `help:"Replacement Markdown; an empty value clears the page." placeholder:"TEXT"`
+	ContentFile string  `help:"File containing replacement Markdown, or - for stdin." placeholder:"FILE"`
+}
+
+type PageEditAppendCmd struct {
+	Reference      string  `arg:"" name:"page" help:"Page ID or exact title."`
+	ContentText    *string `help:"Markdown to append." placeholder:"TEXT"`
+	ContentFile    string  `help:"File containing Markdown to append, or - for stdin." placeholder:"FILE"`
+	EditID         string  `name:"id" help:"Caller-defined edit identifier." placeholder:"ID"`
+	IdempotencyKey string  `help:"Safe-retry key for this request." placeholder:"KEY"`
+}
+
+type PageEditPrependCmd struct {
+	Reference      string  `arg:"" name:"page" help:"Page ID or exact title."`
+	ContentText    *string `help:"Markdown to prepend." placeholder:"TEXT"`
+	ContentFile    string  `help:"File containing Markdown to prepend, or - for stdin." placeholder:"FILE"`
+	EditID         string  `name:"id" help:"Caller-defined edit identifier." placeholder:"ID"`
+	IdempotencyKey string  `help:"Safe-retry key for this request." placeholder:"KEY"`
+}
+
 type PageUpdateCmd struct {
 	Reference string `arg:"" name:"page" help:"Page ID or exact title."`
 	Title     string `help:"Set the page title." placeholder:"TITLE"`
@@ -53,7 +78,8 @@ type PageUpdateCmd struct {
 }
 
 type uncertainEditDetails struct {
-	IdempotencyKey string `json:"idempotencyKey"`
+	IdempotencyKey string `json:"idempotencyKey,omitempty"`
+	EditID         string `json:"editId,omitempty"`
 }
 
 func (cmd *PageListCmd) Run(r *runtimeState) error {
@@ -282,20 +308,31 @@ func (cmd *PageEditExactCmd) Run(r *runtimeState) error {
 	if err != nil {
 		return err
 	}
-	editID := cmd.EditID
-	if editID == "" {
-		editID, err = randomRequestID()
-		if err != nil {
-			return err
-		}
+	selected, err := r.resolvePage(cmd.Reference)
+	if err != nil {
+		return err
 	}
-	idempotencyKey := cmd.IdempotencyKey
-	generatedIdempotencyKey := idempotencyKey == ""
-	if idempotencyKey == "" {
-		idempotencyKey, err = randomRequestID()
-		if err != nil {
-			return err
-		}
+	c, err := r.client()
+	if err != nil {
+		return err
+	}
+	result, editID, err := applyExactPageEdit(c, selected.ID, exactEdit{
+		OldText: string(oldText), NewText: string(newText),
+	}, cmd.EditID, cmd.IdempotencyKey)
+	if err != nil {
+		return err
+	}
+	if r.cli.JSON {
+		return r.printJSON(result)
+	}
+	_, err = fmt.Fprintf(r.stdout, "Applied exact edit %s\n", terminalText(editID))
+	return err
+}
+
+func (cmd *PageEditReplaceCmd) Run(r *runtimeState) error {
+	content, err := replacementInput(cmd.ContentText, cmd.ContentFile, r.stdin, "content")
+	if err != nil {
+		return err
 	}
 	selected, err := r.resolvePage(cmd.Reference)
 	if err != nil {
@@ -305,34 +342,166 @@ func (cmd *PageEditExactCmd) Run(r *runtimeState) error {
 	if err != nil {
 		return err
 	}
-	result, err := c.applyPageExactEdit(selected.ID, exactEdit{
-		ID: editID, OldText: string(oldText), NewText: string(newText),
-	}, idempotencyKey)
+	_, etag, err := c.getPageContent(selected.ID)
 	if err != nil {
-		if generatedIdempotencyKey &&
-			(errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)) {
-			return &cliError{
-				Code: "edit_outcome_uncertain",
-				Message: fmt.Sprintf(
-					"exact edit outcome is uncertain; retry with --idempotency-key %s",
-					idempotencyKey,
-				),
-				Details: uncertainEditDetails{IdempotencyKey: idempotencyKey},
-				Cause:   err,
-			}
-		}
 		return err
+	}
+	updatedETag, err := c.replacePageContent(selected.ID, content, etag)
+	if err != nil {
+		return uncertainWriteOutcome(err, "", "")
+	}
+	if r.cli.JSON {
+		return r.printJSON(pageEditResult{Changed: true, Page: selected, ETag: updatedETag})
+	}
+	_, err = fmt.Fprintf(r.stdout, "Replaced %s\n", terminalText(selected.Title))
+	return err
+}
+
+func (cmd *PageEditAppendCmd) Run(r *runtimeState) error {
+	return runContentBoundaryOperation(
+		r,
+		cmd.Reference,
+		cmd.ContentText,
+		cmd.ContentFile,
+		cmd.EditID,
+		cmd.IdempotencyKey,
+		"append",
+		"Appended",
+	)
+}
+
+func (cmd *PageEditPrependCmd) Run(r *runtimeState) error {
+	return runContentBoundaryOperation(
+		r,
+		cmd.Reference,
+		cmd.ContentText,
+		cmd.ContentFile,
+		cmd.EditID,
+		cmd.IdempotencyKey,
+		"prepend",
+		"Prepended",
+	)
+}
+
+func runContentBoundaryOperation(
+	r *runtimeState,
+	reference string,
+	contentText *string,
+	contentFile string,
+	editID string,
+	idempotencyKey string,
+	operation string,
+	label string,
+) error {
+	content, err := replacementInput(contentText, contentFile, r.stdin, "content")
+	if err != nil {
+		return err
+	}
+	if len(content) == 0 {
+		return usageError("--content-text or --content-file must not be empty for %s", operation)
+	}
+	selected, err := r.resolvePage(reference)
+	if err != nil {
+		return err
+	}
+	c, err := r.client()
+	if err != nil {
+		return err
+	}
+	result, err := applyContentBoundaryOperation(c, selected.ID, contentBoundaryOperation{
+		Operation: operation,
+		Content:   string(content),
+	}, editID, idempotencyKey)
+	if err != nil {
+		return err
+	}
+	if r.cli.JSON {
+		return r.printJSON(result)
+	}
+	_, err = fmt.Fprintf(r.stdout, "%s %s\n", label, terminalText(selected.Title))
+	return err
+}
+
+func applyExactPageEdit(
+	c *client,
+	pageID string,
+	edit exactEdit,
+	requestedEditID string,
+	requestedIdempotencyKey string,
+) (editResponse, string, error) {
+	editID := requestedEditID
+	if editID == "" {
+		generatedID, err := randomRequestID()
+		if err != nil {
+			return editResponse{}, "", err
+		}
+		editID = generatedID
+	}
+	idempotencyKey := requestedIdempotencyKey
+	if idempotencyKey == "" {
+		generatedKey, err := randomRequestID()
+		if err != nil {
+			return editResponse{}, "", err
+		}
+		idempotencyKey = generatedKey
+	}
+	edit.ID = editID
+	result, err := c.applyPageExactEdit(pageID, edit, idempotencyKey)
+	if err != nil {
+		return editResponse{}, "", uncertainWriteOutcome(err, editID, idempotencyKey)
 	}
 	if len(result.Results) != 1 || result.Results[0].Status != "applied" {
 		reason := "edit was not applied"
 		if len(result.Results) == 1 && result.Results[0].Reason != "" {
 			reason = result.Results[0].Reason
 		}
-		return &cliError{Code: "edit_conflict", Message: reason, StatusCode: http.StatusConflict, Details: result}
+		return editResponse{}, "", &cliError{Code: "edit_conflict", Message: reason, StatusCode: http.StatusConflict, Details: result}
 	}
-	if r.cli.JSON {
-		return r.printJSON(result)
+	return result, editID, nil
+}
+
+func applyContentBoundaryOperation(
+	c *client,
+	pageID string,
+	operation contentBoundaryOperation,
+	requestedID string,
+	requestedIdempotencyKey string,
+) (contentBoundaryOperationResponse, error) {
+	operation.ID = requestedID
+	if operation.ID == "" {
+		generatedID, err := randomRequestID()
+		if err != nil {
+			return contentBoundaryOperationResponse{}, err
+		}
+		operation.ID = generatedID
 	}
-	_, err = fmt.Fprintf(r.stdout, "Applied exact edit %s\n", terminalText(editID))
+	idempotencyKey := requestedIdempotencyKey
+	if idempotencyKey == "" {
+		generatedKey, err := randomRequestID()
+		if err != nil {
+			return contentBoundaryOperationResponse{}, err
+		}
+		idempotencyKey = generatedKey
+	}
+	result, err := c.applyPageContentBoundaryOperation(pageID, operation, idempotencyKey)
+	if err != nil {
+		return contentBoundaryOperationResponse{}, uncertainWriteOutcome(err, operation.ID, idempotencyKey)
+	}
+	return result, nil
+}
+
+func uncertainWriteOutcome(err error, editID string, idempotencyKey string) error {
+	var requestError *cliError
+	if errors.Is(err, context.DeadlineExceeded) ||
+		errorCode(err) == "network_error" ||
+		errorCode(err) == "invalid_response" ||
+		(errors.As(err, &requestError) && requestError.StatusCode == http.StatusServiceUnavailable && requestError.Code != "collaboration_busy") {
+		return &cliError{
+			Code:    "edit_outcome_uncertain",
+			Message: "edit outcome is uncertain; inspect the page before issuing another edit",
+			Details: uncertainEditDetails{IdempotencyKey: idempotencyKey, EditID: editID},
+			Cause:   err,
+		}
+	}
 	return err
 }

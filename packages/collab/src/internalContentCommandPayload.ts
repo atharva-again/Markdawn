@@ -1,5 +1,7 @@
 import {
+  type ApplyContentBoundaryOperationCommand,
   type ApplyExactEditsCommand,
+  applyContentBoundaryOperationCommandSchema,
   applyExactEditsCommandSchema,
   MAX_YDOC_BYTES,
   PageMarkdownError,
@@ -12,6 +14,17 @@ export function parseApplyExactEditsCommand(value: unknown): ApplyExactEditsComm
   if (parsed.success) return parsed.data;
   const issue = parsed.error.issues[0];
   throw new ContentCommandPayloadError(issue?.message ?? 'Invalid exact-edit command', {
+    cause: parsed.error,
+  });
+}
+
+export function parseApplyContentBoundaryOperationCommand(
+  value: unknown,
+): ApplyContentBoundaryOperationCommand {
+  const parsed = applyContentBoundaryOperationCommandSchema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  const issue = parsed.error.issues[0];
+  throw new ContentCommandPayloadError(issue?.message ?? 'Invalid content boundary operation', {
     cause: parsed.error,
   });
 }
