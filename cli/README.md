@@ -18,14 +18,36 @@ irm https://markdawn.space/install.ps1 | iex
 
 The standalone installer downloads the matching release archive, verifies its SHA-256
 checksum, and installs Markdawn to `~/.markdawn/bin` on Linux/macOS or
-`%LOCALAPPDATA%\Markdawn\bin` on Windows. It does not modify your PATH by default; follow the
-printed instruction, or opt in explicitly:
+`%LOCALAPPDATA%\Markdawn\bin` on Windows. It automatically adds a clearly marked PATH block to
+your shell or PowerShell profile. To leave PATH unchanged, opt out explicitly:
 
 ```sh
-curl -fsSL https://markdawn.space/install.sh | MARKDAWN_MODIFY_PATH=1 sh
+curl -fsSL https://markdawn.space/install.sh | MARKDAWN_MODIFY_PATH=0 sh
 ```
 
-In PowerShell, run `$env:MARKDAWN_MODIFY_PATH = 1` before the installer command.
+In PowerShell, run `$env:MARKDAWN_MODIFY_PATH = 0` before the installer command.
+
+PATH changes apply to future terminal sessions. Open a new terminal or source the profile named
+by the installer before invoking `markdawn` by name; the installer also prints an absolute-path
+`markdawn login` command that works immediately.
+
+To install the optional agent skill in the same non-interactive bootstrap, choose a scope with
+`MARKDAWN_INSTALL_SKILL`. This requires Node.js and `npx`; an explicit skill request fails loudly
+after the CLI is installed if `npx skills` cannot finish.
+
+```sh
+# Install the CLI and a global agent skill.
+curl -fsSL https://markdawn.space/install.sh | MARKDAWN_INSTALL_SKILL=global sh
+
+# Install the skill in the current project instead.
+curl -fsSL https://markdawn.space/install.sh | MARKDAWN_INSTALL_SKILL=project sh
+```
+
+In PowerShell:
+
+```powershell
+$env:MARKDAWN_INSTALL_SKILL = 'global'; irm https://markdawn.space/install.ps1 | iex
+```
 
 To install a specific release, set `MARKDAWN_VERSION`, for example:
 
@@ -40,7 +62,8 @@ Installer configuration:
 | `MARKDAWN_VERSION` | Install a semantic version such as `v1.2.3`; the default is the latest stable release. |
 | `MARKDAWN_INSTALL_DIR` | Override the platform-default binary directory. |
 | `MARKDAWN_INSTALL_STATE_DIR` | Override the directory containing the standalone install receipt. |
-| `MARKDAWN_MODIFY_PATH` | Set to `1` to add a marked PATH block to the detected shell profile. |
+| `MARKDAWN_MODIFY_PATH` | Set to `0` to leave PATH unchanged; the default is `1`, which adds a marked PATH block to the detected shell profile. |
+| `MARKDAWN_INSTALL_SKILL` | Set to `global` or `project` to invoke `npx skills` after a successful CLI installation; leave unset or set to `0` to skip it. |
 | `MARKDAWN_PROFILE_PATH` | Override the PowerShell profile modified on Windows. |
 | `MARKDAWN_HTTP_TIMEOUT_SECONDS` | Set a positive timeout for each installer download. |
 
@@ -62,6 +85,32 @@ attestations. To independently verify a downloaded file before using it:
 ```sh
 gh attestation verify markdawn_1.2.3_linux_amd64.tar.gz --repo atharva-again/Markdawn
 ```
+
+## Agent skills
+
+Markdawn ships an [Agent Skills](https://agentskills.io) compatible `markdawn` skill. It gives an
+agent the safe CLI workflow for discovering pages, making targeted edits, and handling conflicts.
+
+If Node.js is available, the optional [Vercel skills CLI](https://github.com/vercel-labs/skills)
+installs the skill into the correct paths for installed agents and manages future updates:
+
+```sh
+# Current project; npx skills asks which installed agents to target.
+markdawn skill install
+
+# All of your projects
+markdawn skill install --global
+
+# Update a previously installed skill
+markdawn skill update
+```
+
+`npx skills` is optional; Markdawn itself has no Node.js dependency. `markdawn skill` delegates
+agent-specific installation locations to `npx skills`; use `--copy` when symlinks are unsuitable,
+or use `--yes` for a non-interactive npx installation.
+
+For a project skill, commit the skill directory only when every collaborator should receive these
+instructions. Prefer a global install for a personal agent setup.
 
 ## Authenticate
 
@@ -92,6 +141,9 @@ Environment variables override saved configuration. Do not pass tokens as comman
 markdawn login [--url URL]
 markdawn logout
 markdawn whoami
+markdawn doctor
+markdawn skill install [--global] [--copy] [--yes]
+markdawn skill update [--global | --project] [--yes]
 markdawn update [VERSION]
 markdawn uninstall [--purge] [--remove-path] [--dry-run] [--yes]
 markdawn help [command...]
@@ -100,8 +152,12 @@ markdawn page list [--parent FOLDER_ID] [--limit N]
 markdawn page view <page-id-or-title> [--raw]
 markdawn page create [--title TITLE] [--parent FOLDER_ID] [--icon ICON] [--content-file FILE]
 markdawn page edit <page-id-or-title> [--editor COMMAND]
+markdawn page edit interactive <page-id-or-title> [--editor COMMAND]
 markdawn page edit exact <page-id-or-title> {--old-text OLD | --old-file OLD} {--new-text NEW | --new-file NEW}
 markdawn page edit exact <page-id-or-title> --expect-empty {--new-text NEW | --new-file NEW}
+markdawn page edit replace <page-id-or-title> {--content-text CONTENT | --content-file CONTENT}
+markdawn page edit append <page-id-or-title> {--content-text CONTENT | --content-file CONTENT}
+markdawn page edit prepend <page-id-or-title> {--content-text CONTENT | --content-file CONTENT}
 markdawn page update <page-id-or-title> [--title TITLE] [--icon ICON | --clear-icon]
 
 markdawn folder list
@@ -122,9 +178,11 @@ The title is page metadata. Initial Markdown is the authored body; the CLI does 
 ```sh
 markdawn page edit "Project plan"
 markdawn page edit "Project plan" --editor "code --wait"
+markdawn page edit interactive "Project plan"
 ```
 
 `page edit` downloads the current Markdown and ETag, opens `MARKDAWN_EDITOR`, `VISUAL`, or `EDITOR`, then performs an `If-Match` guarded upload. `--editor COMMAND` overrides those variables for one invocation. If the page changed while the editor was open, the upload fails instead of overwriting newer work.
+`page edit interactive` is the explicit equivalent of `page edit`.
 
 ### Apply an exact edit
 
@@ -136,6 +194,11 @@ markdawn page edit exact "Project plan" \
   --new-text "Approved"
 ```
 
+Markdawn does not retry page-content writes automatically. On a network, service, or uncertain
+edit failure, inspect the page before deciding whether to issue another edit. Automation using
+`exact`, `append`, or `prepend` can supply both `--id` and `--idempotency-key` for
+caller-managed idempotency.
+
 For multiline Markdown, use files or stdin:
 
 ```sh
@@ -144,7 +207,7 @@ markdawn page edit exact "Project plan" \
   --new-file revised-passage.md
 ```
 
-Provide exactly one old source (`--old-text` or `--old-file`) and one new source (`--new-text` or `--new-file`). The old passage must occur exactly once after CRLF-to-LF normalization. The CLI generates an edit ID and idempotency key unless explicitly supplied. If a generated-key request times out with an uncertain outcome, the error reports that key; retry with `--idempotency-key KEY` to retrieve the committed result without applying the edit again. Use `--new-text ""` or an empty replacement file for deletion.
+Provide exactly one old source (`--old-text` or `--old-file`) and one new source (`--new-text` or `--new-file`). The old passage must occur exactly once after CRLF-to-LF normalization. The CLI generates an edit ID and idempotency key unless explicitly supplied. If a generated-key request times out with an uncertain outcome, the error reports both identifiers for diagnostics; inspect the page before issuing another edit. Do not blindly rerun a whole-page append, prepend, or replace after an uncertain outcome. Use `--new-text ""` or an empty replacement file for deletion.
 
 To initialize a blank page without an ambiguous empty-text match, use `--expect-empty`:
 
@@ -153,6 +216,31 @@ markdawn page edit exact "Project plan" --expect-empty --new-file initial.md
 ```
 
 It applies only if the page is still empty; otherwise it returns a conflict.
+
+### Replace, append, or prepend a whole page
+
+Use `replace` for a deliberate full-document rewrite. It accepts exactly one content source and
+allows an empty `--content-text ""` or empty file to clear the page:
+
+```sh
+markdawn page edit replace "Project plan" --content-file revised-plan.md
+```
+
+`append` and `prepend` add non-empty Markdown, separated from the existing document by exactly
+one blank Markdown line:
+
+```sh
+markdawn page edit append "Project plan" --content-text "## Next steps"
+markdawn page edit prepend "Project plan" --content-file introduction.md
+```
+
+`replace` reads the document's current revision and only saves when it is still current; it fails
+on any concurrent page change rather than overwriting it. `append` and `prepend` are applied by
+the server against the latest document, so unrelated concurrent edits do not cause a conflict.
+All three normalize supplied CRLF line endings to LF. `replace` otherwise preserves supplied
+Markdown. To enforce exactly one blank boundary line on a non-empty page, `append` removes leading
+line breaks from its supplied content and `prepend` removes trailing line breaks from its supplied
+content; both also remove boundary line breaks from the existing document.
 
 ### Update title or icon
 
@@ -215,6 +303,17 @@ markdawn uninstall --yes
 markdawn uninstall --purge --yes
 ```
 
+## Diagnose an installation
+
+`markdawn doctor` reports the CLI version, resolved server, authentication status, standalone
+receipt health, and whether the optional `npx skills` tool is available. It validates a configured
+token with the server without printing the token.
+
+```sh
+markdawn doctor
+markdawn --json doctor
+```
+
 ## Standalone platform support
 
 The standalone installer supports Linux, macOS, and Windows. Linux and macOS use `install.sh`; Windows uses `install.ps1`.
@@ -224,8 +323,7 @@ WSL2 is treated as a separate Linux environment: install Markdawn inside WSL wit
 If an install, update, or uninstall is interrupted, rerun the same command. Installer publication and PATH changes are rolled back when publication fails. Uninstall records completed PATH cleanup before continuing and preserves or restores its receipt while the binary remains. For a Windows deferred update or uninstall failure, the next invocation reports and clears the persisted failure; run the command once more to retry the operation.
 
 Uninstall preserves saved credentials and configuration unless `--purge` is supplied. If the
-installer was invoked with `MARKDAWN_MODIFY_PATH=1`, use `--remove-path` to remove its marked PATH
-block.
+installer created its marked PATH block, use `--remove-path` to remove it.
 
 ## Environment
 

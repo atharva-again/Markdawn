@@ -30,6 +30,8 @@ type CLI struct {
 	Folder     FolderCmd             `cmd:"" help:"Discover accessible folders."`
 	Update     UpdateCmd             `cmd:"" help:"Update a standalone Markdawn installation."`
 	Uninstall  UninstallCmd          `cmd:"" help:"Remove a standalone Markdawn installation."`
+	Doctor     DoctorCmd             `cmd:"" help:"Check CLI, authentication, and standalone install health."`
+	Skill      SkillCmd              `cmd:"" help:"Install or update the optional Markdawn agent skill."`
 	Finalize   StandaloneFinalizeCmd `cmd:"" name:"standalone-finalize" hidden:""`
 	Completion CompletionCmd         `cmd:"" help:"Generate a shell completion script."`
 }
@@ -54,6 +56,23 @@ type StandaloneFinalizeCmd struct {
 	InstallDir string `required:""`
 	PathFile   string `optional:""`
 	PathStyle  string `optional:""`
+}
+
+type SkillCmd struct {
+	Install SkillInstallCmd `cmd:"" help:"Install the Markdawn skill with npx skills."`
+	Update  SkillUpdateCmd  `cmd:"" help:"Update an installed Markdawn skill with npx skills."`
+}
+
+type SkillInstallCmd struct {
+	Global bool `short:"g" help:"Install for all projects instead of the current project."`
+	Copy   bool `help:"Copy skill files instead of using symlinks where supported."`
+	Yes    bool `short:"y" help:"Skip npx skills confirmation prompts."`
+}
+
+type SkillUpdateCmd struct {
+	Global  bool `short:"g" help:"Update only globally installed skills."`
+	Project bool `short:"p" help:"Update only project-installed skills."`
+	Yes     bool `short:"y" help:"Skip npx skills confirmation prompts."`
 }
 
 type PageCmd struct {

@@ -4,7 +4,8 @@ $repository = 'atharva-again/Markdawn'
 $releaseBaseURL = "https://github.com/$repository/releases"
 $installDir = if ($env:MARKDAWN_INSTALL_DIR) { $env:MARKDAWN_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Markdawn\bin' }
 $requestedVersion = $env:MARKDAWN_VERSION
-$modifyPath = $env:MARKDAWN_MODIFY_PATH -eq '1'
+$modifyPath = $env:MARKDAWN_MODIFY_PATH -ne '0'
+$installSkill = $env:MARKDAWN_INSTALL_SKILL
 $httpTimeoutSeconds = $env:MARKDAWN_HTTP_TIMEOUT_SECONDS
 $maxReleaseArchiveBytes = 256MB
 $maxReleaseBinaryBytes = 128MB
@@ -120,6 +121,12 @@ function Extract-ReleaseBinary([string]$ArchivePath, [string]$DestinationPath) {
 if ($requestedVersion -and $requestedVersion -notmatch '^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') {
   Fail 'MARKDAWN_VERSION must be a semantic version such as v1.2.3'
 }
+if ($env:MARKDAWN_MODIFY_PATH -and $env:MARKDAWN_MODIFY_PATH -notin @('0', '1')) {
+  Fail 'MARKDAWN_MODIFY_PATH must be 0 or 1'
+}
+if ($installSkill -and $installSkill -notin @('0', 'global', 'project')) {
+  Fail 'MARKDAWN_INSTALL_SKILL must be global, project, or 0'
+}
 $parsedHttpTimeoutSeconds = 0
 if ($httpTimeoutSeconds -and (-not [int]::TryParse($httpTimeoutSeconds, [ref]$parsedHttpTimeoutSeconds) -or $parsedHttpTimeoutSeconds -le 0)) { Fail 'MARKDAWN_HTTP_TIMEOUT_SECONDS must be a positive 32-bit integer' }
 
@@ -186,7 +193,26 @@ try {
     if ($null -eq $previousStateDir) { Remove-Item Env:MARKDAWN_INSTALL_STATE_DIR -ErrorAction SilentlyContinue } else { $env:MARKDAWN_INSTALL_STATE_DIR = $previousStateDir }
   }
   Write-Output "Markdawn installed to $(Join-Path $installDir 'markdawn.exe')"
-  if ($modifyPath) { Write-Output 'Updated PowerShell PATH configuration.' } else { Write-Output "Add $installDir to your PATH, then run: markdawn login" }
+  if ($modifyPath) {
+    $escapedPathFile = $pathFile.Replace("'", "''")
+    Write-Output 'Updated PowerShell PATH configuration.'
+    Write-Output "Start a new terminal or run . '$escapedPathFile' before using markdawn from PATH."
+  } else {
+    Write-Output "PATH was not changed. Add $installDir to your PATH before using markdawn by name."
+  }
+  $escapedBinaryPath = (Join-Path $installDir 'markdawn.exe').Replace("'", "''")
+  Write-Output "Then sign in: & '$escapedBinaryPath' login"
+  if ($installSkill -eq 'global') {
+    Write-Output 'Installing Markdawn agent skill globally with npx skills.'
+    & (Join-Path $installDir 'markdawn.exe') skill install --global --yes
+    if ($LASTEXITCODE -ne 0) { Fail 'could not install Markdawn agent skill' }
+  } elseif ($installSkill -eq 'project') {
+    Write-Output 'Installing Markdawn agent skill for this project with npx skills.'
+    & (Join-Path $installDir 'markdawn.exe') skill install --yes
+    if ($LASTEXITCODE -ne 0) { Fail 'could not install Markdawn agent skill' }
+  } else {
+    Write-Output 'Optional agent skill: markdawn skill install --global'
+  }
 } finally {
   if ($finalizerBinary -and (Test-Path -LiteralPath $finalizerBinary)) { Remove-Item -LiteralPath $finalizerBinary -Force -ErrorAction Stop }
   if (Test-Path -LiteralPath $temporaryDir) { Remove-Item -LiteralPath $temporaryDir -Recurse -Force }
