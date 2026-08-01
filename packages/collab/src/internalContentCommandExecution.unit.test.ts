@@ -308,6 +308,88 @@ describe('withAuthorizedPageDocument', () => {
     harness.document.destroy();
   });
 
+  it.each([
+    ['append', 'Existing\n\nAdded\n\n'] as const,
+    ['prepend', 'Added\n\nExisting\n\n'] as const,
+  ])('applies %s against the latest document and stores its idempotent response', async (operation, expected) => {
+    const harness = mutationHarness('Existing');
+    const response = await withAuthorizedPageDocument(
+      harness.options,
+      harness.pageId,
+      harness.principal,
+      {
+        action: 'apply-content-boundary-operation',
+        command: {
+          id: operation,
+          operation,
+          content: 'Added',
+          idempotency: {
+            recordId: randomUUID(),
+            key: 'same-key',
+            requestHash: 'request-hash',
+          },
+        },
+      },
+    );
+
+    expect(response).toMatchObject({ id: operation, etag: etagFor(harness.committedState()) });
+    expect(yDocToMarkdown(harness.committedState())).toBe(expected);
+    expect(harness.persistedMutation()?.idempotency?.response).toMatchObject({ id: operation });
+    harness.document.destroy();
+  });
+
+  it('appends after an unrelated browser edit that wins the content lock first', async () => {
+    const harness = mutationHarness('Existing');
+    harness.options.withDocumentContentLock = async (_pageId, task) => {
+      replaceMarkdownBody(harness.document, 'Page', 'Browser change', null);
+      return task();
+    };
+
+    await withAuthorizedPageDocument(harness.options, harness.pageId, harness.principal, {
+      action: 'apply-content-boundary-operation',
+      command: { id: 'append', operation: 'append', content: 'Added' },
+    });
+
+    expect(yDocToMarkdown(harness.committedState())).toBe('Browser change\n\nAdded\n\n');
+    harness.document.destroy();
+  });
+
+  it('rejects CRLF-only boundary content before persisting an append', async () => {
+    const harness = mutationHarness('Existing');
+
+    await expect(
+      withAuthorizedPageDocument(harness.options, harness.pageId, harness.principal, {
+        action: 'apply-content-boundary-operation',
+        command: { id: 'append', operation: 'append', content: '\r\n' },
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: 'Content must contain Markdown after boundary normalization',
+    });
+    expect(harness.options.flushDocument).not.toHaveBeenCalled();
+    harness.document.destroy();
+  });
+
+  it.each([
+    ['prepend', 'Existing'] as const,
+    ['append', ''] as const,
+  ])('%s preserves frontmatter-looking input as authored body text', async (operation, initialBody) => {
+    const harness = mutationHarness(initialBody);
+    const boundaryContent = '---\nicon: boundary\nstatus: draft\n---\nBoundary content';
+
+    await withAuthorizedPageDocument(harness.options, harness.pageId, harness.principal, {
+      action: 'apply-content-boundary-operation',
+      command: { id: operation, operation, content: boundaryContent },
+    });
+
+    const markdown = yDocToMarkdown(harness.committedState());
+    expect(markdown).toContain('icon: boundary');
+    expect(markdown).toContain('status: draft');
+    expect(markdown).toContain('Boundary content');
+    expect(harness.persistedMutation()?.metadata).toEqual({ properties: null, icon: null });
+    harness.document.destroy();
+  });
+
   it('renders accessible bound links and protects inaccessible targets', async () => {
     const targetId = randomUUID();
     const accessible = mutationHarness('', undefined, [

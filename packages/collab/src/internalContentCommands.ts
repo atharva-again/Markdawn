@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
+  contentBoundaryOperationResponseSchema,
   exactEditCommandResponseSchema,
   INTERNAL_CONTENT_HEADERS,
   type InternalContentPrincipal,
@@ -23,6 +24,7 @@ import {
 } from './internalContentCommandExecution';
 import {
   ContentCommandPayloadError,
+  parseApplyContentBoundaryOperationCommand,
   parseApplyExactEditsCommand,
   readMarkdownCommandBody,
 } from './internalContentCommandPayload';
@@ -107,6 +109,12 @@ async function parseCommand(
     if (!ifMatch) throw new ContentCommandPayloadError('If-Match is required');
     return { action, ifMatch, markdown: await readMarkdownCommandBody(request) };
   }
+  if (action === 'apply-content-boundary-operation') {
+    return {
+      action,
+      command: parseApplyContentBoundaryOperationCommand(await readJson(request)),
+    };
+  }
   return { action, command: parseApplyExactEditsCommand(await readJson(request)) };
 }
 
@@ -138,6 +146,10 @@ function sendCommandResponse(
     send(response, 200, replacePageMarkdownCommandResponseSchema.parse(value));
     return;
   }
+  if (action === 'apply-content-boundary-operation') {
+    send(response, 200, contentBoundaryOperationResponseSchema.parse(value));
+    return;
+  }
   send(response, 200, exactEditCommandResponseSchema.parse(value));
 }
 
@@ -148,7 +160,7 @@ export function createInternalContentCommands(options: InternalContentCommandOpt
   ): Promise<boolean> {
     const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
     const match = pathname.match(
-      /^\/internal\/pages\/([0-9a-f-]{36})\/(read-markdown|replace-markdown|apply-exact-edits)$/i,
+      /^\/internal\/pages\/([0-9a-f-]{36})\/(read-markdown|replace-markdown|apply-exact-edits|apply-content-boundary-operation)$/i,
     );
     if (!match) return false;
     const pageId = match[1];

@@ -1,6 +1,6 @@
 import { HTTPException } from 'hono/http-exception';
 import { describe, expect, it } from 'vitest';
-import { isUnknownOutcome, parseIdempotencyKey } from './exactEdits';
+import { isUnknownIdempotencyOutcome, parseIdempotencyKey } from './idempotency';
 
 describe('parseIdempotencyKey', () => {
   it('allows an absent header', () => {
@@ -18,13 +18,17 @@ describe('parseIdempotencyKey', () => {
   });
 });
 
-describe('isUnknownOutcome', () => {
+describe('isUnknownIdempotencyOutcome', () => {
   it('distinguishes rejected admission from genuinely uncertain 503 responses', () => {
     expect(
-      isUnknownOutcome(new HTTPException(503, { cause: { code: 'collaboration_busy' } })),
+      isUnknownIdempotencyOutcome(
+        new HTTPException(503, { cause: { code: 'collaboration_busy' } }),
+      ),
     ).toBe(false);
     expect(
-      isUnknownOutcome(new HTTPException(503, { cause: { code: 'COLLABORATION_FAILURE' } })),
+      isUnknownIdempotencyOutcome(
+        new HTTPException(503, { cause: { code: 'COLLABORATION_FAILURE' } }),
+      ),
     ).toBe(true);
   });
 });

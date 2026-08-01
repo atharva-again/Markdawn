@@ -11,13 +11,13 @@ func TestCompletionScriptsIncludePageCommands(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, command := range []string{"create", "edit", "update", "uninstall"} {
+		for _, command := range []string{"create", "edit", "interactive", "replace", "append", "prepend", "update", "uninstall", "doctor", "skill"} {
 			if !strings.Contains(script, command) {
 				t.Fatalf("%s completion missing %s", shell, command)
 			}
 		}
-		if strings.Contains(script, "replace") {
-			t.Fatalf("%s completion still exposes removed replace command", shell)
+		if strings.Contains(script, "editor-mode") {
+			t.Fatalf("%s completion exposes removed command editor-mode", shell)
 		}
 	}
 }

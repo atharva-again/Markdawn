@@ -2,6 +2,7 @@ import {
   API_IDEMPOTENCY_REPLAY_SECONDS,
   type ApiTokenAuditResult,
   type ContentAuditOperation,
+  type ContentBoundaryOperationResponse,
   type ContentIdempotencyReservation,
   type ExactEditCommandResponse,
   type PageContentMetadata,
@@ -19,7 +20,7 @@ export type ContentCommandEffects = {
   };
   idempotency?: ContentIdempotencyReservation & {
     principalKey: string;
-    response: ExactEditCommandResponse;
+    response: ExactEditCommandResponse | ContentBoundaryOperationResponse;
   };
 };
 

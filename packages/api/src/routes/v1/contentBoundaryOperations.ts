@@ -2,41 +2,35 @@ import { createHash } from 'node:crypto';
 import { normalizeLineEndings } from '@markdawn/shared';
 import { Hono } from 'hono';
 import { requireV1Scope } from '../../middleware/v1Auth';
-import { applyPageExactEdits } from '../../utils/collaborationContentClient';
+import { applyPageContentBoundaryOperation } from '../../utils/collaborationContentClient';
 import { parseIdempotencyKey, runIdempotentContentCommand } from './idempotency';
-import { type ExactEditsResponse, exactEditsRequestSchema, pageOperations } from './pageContracts';
+import { contentBoundaryOperationSchema, pageOperations } from './pageContracts';
 import { requireUuid } from './pageModel';
 import { v1DocumentJsonBodyLimit } from './requestLimits';
 import { parseJsonRequest } from './requestValidation';
 
-type EditResponse = ExactEditsResponse;
+const contentBoundaryOperationsRoute = new Hono();
 
-const exactEditsRoute = new Hono();
-
-exactEditsRoute.post(
-  pageOperations.editContent.routePath,
+contentBoundaryOperationsRoute.post(
+  pageOperations.boundaryContentOperation.routePath,
   requireV1Scope('pages:write'),
   v1DocumentJsonBodyLimit,
   async (c) => {
     const principal = c.get('v1Principal');
     const pageId = requireUuid(c.req.param('id'), 'page ID');
     const idempotencyKey = parseIdempotencyKey(c.req.header('idempotency-key'));
-    const request = await parseJsonRequest(c, exactEditsRequestSchema);
-    const edits = request.edits.map((edit) => ({
-      id: edit.id,
-      oldText: normalizeLineEndings(edit.oldText),
-      newText: normalizeLineEndings(edit.newText),
-    }));
+    const request = await parseJsonRequest(c, contentBoundaryOperationSchema);
+    const operation = { ...request, content: normalizeLineEndings(request.content) };
     const requestHash = createHash('sha256')
-      .update(JSON.stringify({ pageId, edits }))
+      .update(JSON.stringify({ pageId, ...operation }))
       .digest('base64url');
-    const response = await runIdempotentContentCommand<EditResponse>(
+    const response = await runIdempotentContentCommand(
       principal,
       idempotencyKey,
       requestHash,
       (reservation) =>
-        applyPageExactEdits(pageId, principal, {
-          edits,
+        applyPageContentBoundaryOperation(pageId, principal, {
+          ...operation,
           ...(reservation ? { idempotency: reservation } : {}),
         }),
     );
@@ -45,4 +39,4 @@ exactEditsRoute.post(
   },
 );
 
-export default exactEditsRoute;
+export default contentBoundaryOperationsRoute;

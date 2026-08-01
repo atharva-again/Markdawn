@@ -3,6 +3,7 @@ import { HeaderActions } from '../components/HeaderActions';
 import { useAuth } from '../hooks/useAuth';
 
 const GITHUB_REPO = 'https://github.com/atharva-again/Markdawn';
+const CLI_GUIDE = `${GITHUB_REPO}/tree/master/cli`;
 
 export default function Home() {
   const { data: session } = useAuth();
@@ -34,7 +35,8 @@ export default function Home() {
 
         <p className="text-lg md:text-xl text-zinc-600 dark:text-zinc-400 mb-10 max-w-2xl leading-relaxed font-medium">
           The collaborative markdown editor designed for speed, simplicity, and seamless team
-          synchronization. Write better, together.
+          synchronization. Write together in the browser, or let your terminal and AI agents work
+          through the same versioned API.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
@@ -51,6 +53,14 @@ export default function Home() {
             className="inline-flex items-center justify-center px-8 py-3.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all duration-200 shadow-sm hover:shadow-md"
           >
             Learn More
+          </a>
+          <a
+            href={CLI_GUIDE}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center px-8 py-3.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all duration-200 shadow-sm hover:shadow-md"
+          >
+            CLI &amp; agents
           </a>
         </div>
       </main>

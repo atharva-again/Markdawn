@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"strings"
 	"syscall"
 
 	"github.com/alecthomas/kong"
@@ -56,16 +57,9 @@ func main() {
 	if len(arguments) > 0 && arguments[0] == "help" {
 		arguments = append(arguments[1:], "--help")
 	}
-	parsed, err := parser.Parse(arguments)
+	parsed, err := parser.Parse(normalizeLegacyPageEditArguments(arguments))
 	if err != nil {
-		jsonOutput := false
-		for _, argument := range arguments {
-			if argument == "--json" || argument == "-j" {
-				jsonOutput = true
-				break
-			}
-		}
-		if jsonOutput {
+		if hasJSONFlag(arguments) {
 			_ = json.NewEncoder(os.Stdout).Encode(jsonErrorEnvelope{
 				Error: jsonError{Code: "invalid_arguments", Message: err.Error()},
 			})
@@ -83,10 +77,84 @@ func main() {
 	if err == nil {
 		return
 	}
+	os.Exit(reportRunError(runtime, err))
+}
+
+func normalizeLegacyPageEditArguments(arguments []string) []string {
+	for index := 0; index+2 < len(arguments); index++ {
+		if arguments[index] != "page" || arguments[index+1] != "edit" {
+			continue
+		}
+		titleIndex := index + 2
+		if !isReservedPageEditTitle(arguments[titleIndex]) ||
+			!hasOnlyLegacyInteractiveFlags(arguments[titleIndex+1:]) {
+			return arguments
+		}
+		normalized := make([]string, 0, len(arguments)+1)
+		normalized = append(normalized, arguments[:titleIndex]...)
+		normalized = append(normalized, "interactive")
+		normalized = append(normalized, arguments[titleIndex:]...)
+		return normalized
+	}
+	return arguments
+}
+
+func isReservedPageEditTitle(value string) bool {
+	switch value {
+	case "interactive", "exact", "replace", "append", "prepend":
+		return true
+	default:
+		return false
+	}
+}
+
+func hasOnlyLegacyInteractiveFlags(arguments []string) bool {
+	for index := 0; index < len(arguments); index++ {
+		argument := arguments[index]
+		switch argument {
+		case "--json", "-j", "--plain", "--no-input":
+			continue
+		case "--editor", "--url", "--timeout":
+			index++
+			if index >= len(arguments) || strings.HasPrefix(arguments[index], "-") {
+				return false
+			}
+			continue
+		}
+		if strings.HasPrefix(argument, "--editor=") ||
+			strings.HasPrefix(argument, "--url=") ||
+			strings.HasPrefix(argument, "--timeout=") {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func reportRunError(runtime *runtimeState, err error) int {
+	var renderedDoctorError *renderedDoctorHealthError
+	if errors.As(err, &renderedDoctorError) {
+		return exitCode(err)
+	}
+	// A canceled request may have reached the server. Preserve the typed
+	// uncertain-write outcome instead of reducing it to an interruption.
+	if errorCode(err) == "edit_outcome_uncertain" {
+		runtime.printError(err)
+		return exitCode(err)
+	}
 	if errors.Is(err, context.Canceled) {
 		fmt.Fprintln(os.Stderr, "markdawn: interrupted")
-		os.Exit(exitInterrupted)
+		return exitInterrupted
 	}
 	runtime.printError(err)
-	os.Exit(exitCode(err))
+	return exitCode(err)
+}
+
+func hasJSONFlag(arguments []string) bool {
+	for _, argument := range arguments {
+		if argument == "--json" || argument == "-j" {
+			return true
+		}
+	}
+	return false
 }

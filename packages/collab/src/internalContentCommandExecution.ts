@@ -2,12 +2,17 @@ import { createHash } from 'node:crypto';
 import type { Hocuspocus } from '@hocuspocus/server';
 import type { Logger } from '@logtape/logtape';
 import {
+  type ApplyContentBoundaryOperationCommand,
   type ApplyExactEditsCommand,
   applyExactEdits,
+  assertPageMarkdownSize,
   type ContentAuditOperation,
+  type ContentBoundaryOperationResponse,
+  type ContentIdempotencyReservation,
   composePageMarkdown,
   type ExactEditCommandResponse,
   type InternalContentPrincipal,
+  normalizeLineEndings,
   normalizeWikiLinkLookupKey,
   parsePageMarkdown,
 } from '@markdawn/shared';
@@ -35,7 +40,11 @@ import { getWikiLinkAccess, type WikiLinkAccess } from './wikiLinkAccess';
 export type ParsedContentCommand =
   | { action: 'read-markdown' }
   | { action: 'replace-markdown'; markdown: string; ifMatch: string }
-  | { action: 'apply-exact-edits'; command: ApplyExactEditsCommand };
+  | { action: 'apply-exact-edits'; command: ApplyExactEditsCommand }
+  | {
+      action: 'apply-content-boundary-operation';
+      command: ApplyContentBoundaryOperationCommand;
+    };
 
 type AccessVerifier = {
   assertPageAccess(
@@ -140,6 +149,12 @@ function replaceAndBindMarkdownBody(
   Y.applyUpdate(document, boundState, null);
 }
 
+function joinMarkdown(before: string, after: string): string {
+  if (!before) return after;
+  if (!after) return before;
+  return `${before.replace(/[\r\n]+$/g, '')}\n\n${after.replace(/^[\r\n]+/g, '')}`;
+}
+
 function tokenAudit(
   credential: Extract<AuthenticatedCredential, { kind: 'internal' }>,
   ownerId: string,
@@ -186,6 +201,77 @@ async function readMarkdownCommand(context: AuthorizedDocument) {
   return { markdown, etag: contentEtag(markdown) };
 }
 
+type PreparedMarkdownMutationBase = {
+  body: string;
+  metadata: Pick<PageMetadata, 'properties' | 'icon'>;
+  auditOperation: ContentAuditOperation;
+};
+
+type PreparedMarkdownMutation =
+  | (PreparedMarkdownMutationBase & {
+      kind: 'standard';
+      response: { etag: string };
+    })
+  | (PreparedMarkdownMutationBase & {
+      kind: 'idempotent';
+      response: ExactEditCommandResponse | ContentBoundaryOperationResponse;
+      reservation: ContentIdempotencyReservation;
+    });
+
+async function persistPreparedMarkdownMutation(
+  context: AuthorizedDocument,
+  prepared: PreparedMarkdownMutation,
+): Promise<void> {
+  assertWikiLinksCanRoundTrip(context.document, context.wikiLinks);
+  replaceAndBindMarkdownBody(
+    context.document,
+    context.metadata.title,
+    prepared.body,
+    context.wikiLinks.pageLookup,
+  );
+  context.markMutationApplied();
+  const updateResponseETag = (state: Uint8Array): void => {
+    prepared.response.etag = contentEtag(
+      composePageMarkdown(
+        markdownBodyFor(state, context.wikiLinks),
+        prepared.metadata.properties,
+        prepared.metadata.icon,
+      ),
+    );
+  };
+  const audit = tokenAudit(context.credential, context.ownerId, prepared.auditOperation, 'success');
+  const mutationBase = {
+    expectedMetadataHash: contentMetadataHash(context.metadata),
+    metadata: prepared.metadata,
+    prepareCommittedState: updateResponseETag,
+    ...(audit ? { tokenAudit: audit } : {}),
+  };
+  let mutation: DocumentPersistenceMutation;
+  if (prepared.kind === 'idempotent') {
+    mutation = {
+      ...mutationBase,
+      idempotency: {
+        ...prepared.reservation,
+        principalKey: context.credential.idempotencyPrincipal,
+        response: prepared.response,
+      },
+    };
+  } else {
+    mutation = mutationBase;
+  }
+  const state = committedState(
+    await context.options.flushDocument(
+      context.pageId,
+      context.document,
+      context.session,
+      'persist',
+      mutation,
+      true,
+    ),
+  );
+  updateResponseETag(state);
+}
+
 async function replaceMarkdownCommand(
   context: AuthorizedDocument,
   command: Extract<ParsedContentCommand, { action: 'replace-markdown' }>,
@@ -204,40 +290,16 @@ async function replaceMarkdownCommand(
     }
     throw new ContentConflictError('Page changed since it was read', currentEtag);
   }
-  assertWikiLinksCanRoundTrip(context.document, context.wikiLinks);
   const parsed = parsePageMarkdown(command.markdown);
-  replaceAndBindMarkdownBody(
-    context.document,
-    context.metadata.title,
-    parsed.body,
-    context.wikiLinks.pageLookup,
-  );
-  context.markMutationApplied();
-  const audit = tokenAudit(context.credential, context.ownerId, 'page.content.replace', 'success');
-  const mutation: DocumentPersistenceMutation = {
-    expectedMetadataHash: contentMetadataHash(context.metadata),
+  const response = { etag: '' };
+  await persistPreparedMarkdownMutation(context, {
+    body: parsed.body,
     metadata: { properties: parsed.properties, icon: parsed.icon },
-    ...(audit ? { tokenAudit: audit } : {}),
-  };
-  const state = committedState(
-    await context.options.flushDocument(
-      context.pageId,
-      context.document,
-      context.session,
-      'persist',
-      mutation,
-      true,
-    ),
-  );
-  return {
-    etag: contentEtag(
-      composePageMarkdown(
-        markdownBodyFor(state, context.wikiLinks),
-        parsed.properties,
-        parsed.icon,
-      ),
-    ),
-  };
+    response,
+    auditOperation: 'page.content.replace',
+    kind: 'standard',
+  });
+  return response;
 }
 
 async function applyExactEditsCommand(
@@ -266,56 +328,87 @@ async function applyExactEditsCommand(
     });
     return response;
   }
-  assertWikiLinksCanRoundTrip(context.document, context.wikiLinks);
   const parsed = applied.parsedMarkdown;
   if (!parsed) throw new Error('Applied exact edits are missing parsed Markdown');
-  replaceAndBindMarkdownBody(
-    context.document,
-    context.metadata.title,
-    parsed.body,
-    context.wikiLinks.pageLookup,
-  );
-  context.markMutationApplied();
-  const audit = tokenAudit(context.credential, context.ownerId, 'page.content.edit', 'success');
-  const mutation: DocumentPersistenceMutation = {
-    expectedMetadataHash: contentMetadataHash(context.metadata),
+  const prepared = {
+    body: parsed.body,
     metadata: { properties: parsed.properties, icon: parsed.icon },
-    prepareCommittedState: (state) => {
-      response.etag = contentEtag(
-        composePageMarkdown(
-          markdownBodyFor(state, context.wikiLinks),
-          parsed.properties,
-          parsed.icon,
-        ),
-      );
-    },
-    ...(audit ? { tokenAudit: audit } : {}),
-    ...(command.command.idempotency
-      ? {
-          idempotency: {
-            ...command.command.idempotency,
-            principalKey: context.credential.idempotencyPrincipal,
-            response,
-          },
-        }
-      : {}),
-  };
-  committedState(
-    await context.options.flushDocument(
-      context.pageId,
-      context.document,
-      context.session,
-      'persist',
-      mutation,
-      true,
-    ),
+    response,
+    auditOperation: 'page.content.edit',
+  } as const;
+  if (command.command.idempotency) {
+    await persistPreparedMarkdownMutation(context, {
+      ...prepared,
+      kind: 'idempotent',
+      reservation: command.command.idempotency,
+    });
+  } else {
+    await persistPreparedMarkdownMutation(context, {
+      ...prepared,
+      kind: 'standard',
+    });
+  }
+  return response;
+}
+
+async function applyContentBoundaryOperationCommand(
+  context: AuthorizedDocument,
+  command: Extract<ParsedContentCommand, { action: 'apply-content-boundary-operation' }>,
+): Promise<ContentBoundaryOperationResponse> {
+  const currentMarkdown = markdownFor(context.document, context.metadata, context.wikiLinks);
+  const currentBody = markdownBodyFor(Y.encodeStateAsUpdate(context.document), context.wikiLinks);
+  const content = normalizeLineEndings(command.command.content);
+  const boundaryContent =
+    command.command.operation === 'append'
+      ? content.replace(/^[\r\n]+/g, '')
+      : content.replace(/[\r\n]+$/g, '');
+  if (!boundaryContent) {
+    throw new ContentCommandError(
+      422,
+      'Content must contain Markdown after boundary normalization',
+    );
+  }
+  const body =
+    command.command.operation === 'append'
+      ? joinMarkdown(currentBody, boundaryContent)
+      : joinMarkdown(boundaryContent, currentBody);
+  // Boundary content is always authored body text. Parsing the composed document
+  // here would reinterpret prepended, or empty-page-appended, YAML-looking text
+  // as page metadata.
+  assertPageMarkdownSize(
+    composePageMarkdown(body, context.metadata.properties, context.metadata.icon),
   );
+  const response: ContentBoundaryOperationResponse = {
+    id: command.command.id,
+    etag: contentEtag(currentMarkdown),
+  };
+  const prepared = {
+    body,
+    metadata: { properties: context.metadata.properties, icon: context.metadata.icon },
+    response,
+    auditOperation: 'page.content.edit',
+  } as const;
+  if (command.command.idempotency) {
+    await persistPreparedMarkdownMutation(context, {
+      ...prepared,
+      kind: 'idempotent',
+      reservation: command.command.idempotency,
+    });
+  } else {
+    await persistPreparedMarkdownMutation(context, {
+      ...prepared,
+      kind: 'standard',
+    });
+  }
   return response;
 }
 
 async function executeCommand(context: AuthorizedDocument, command: ParsedContentCommand) {
   if (command.action === 'read-markdown') return readMarkdownCommand(context);
   if (command.action === 'replace-markdown') return replaceMarkdownCommand(context, command);
+  if (command.action === 'apply-content-boundary-operation') {
+    return applyContentBoundaryOperationCommand(context, command);
+  }
   return applyExactEditsCommand(context, command);
 }
 

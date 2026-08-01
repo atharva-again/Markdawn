@@ -134,6 +134,16 @@ func (r *runtimeState) printError(err error) {
 		return
 	}
 	fmt.Fprintln(r.stderr, "markdawn:", terminalText(message))
+	if typed != nil && typed.Code == "edit_outcome_uncertain" {
+		if details, ok := typed.Details.(uncertainEditDetails); ok {
+			if details.EditID != "" {
+				fmt.Fprintln(r.stderr, "Edit ID:", terminalText(details.EditID))
+			}
+			if details.IdempotencyKey != "" {
+				fmt.Fprintln(r.stderr, "Idempotency key:", terminalText(details.IdempotencyKey))
+			}
+		}
+	}
 	if ambiguous != nil {
 		fmt.Fprintln(r.stderr, "Candidates:")
 		for _, candidate := range ambiguous.Candidates {

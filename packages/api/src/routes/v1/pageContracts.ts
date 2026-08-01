@@ -1,4 +1,7 @@
 import {
+  type ContentBoundaryOperation,
+  contentBoundaryOperationResponseSchema,
+  contentBoundaryOperationSchema,
   type ExactEditCommandResponse,
   exactEditCommandResponseSchema,
   exactEditsRequestSchema,
@@ -33,6 +36,7 @@ export const updatePageRequestSchema = z
 
 export { exactEditsRequestSchema };
 export const exactEditsResponseSchema = exactEditCommandResponseSchema;
+export { contentBoundaryOperationSchema };
 
 export const pageResponseSchema = z.object({
   id: z.uuid(),
@@ -60,6 +64,7 @@ export type CreatePageRequest = z.infer<typeof createPageRequestSchema>;
 export type UpdatePageRequest = z.infer<typeof updatePageRequestSchema>;
 export type ExactEditsRequest = z.infer<typeof exactEditsRequestSchema>;
 export type ExactEditsResponse = ExactEditCommandResponse;
+export type ContentBoundaryOperationRequest = ContentBoundaryOperation;
 export type PageResponse = z.infer<typeof pageResponseSchema>;
 
 const pageIdParameter = uuidPathParameter('pageId');
@@ -180,6 +185,30 @@ export const pageOperations = {
         description: 'One result per requested edit',
         headers: etagHeader,
         content: jsonContent(exactEditsResponseSchema),
+      },
+    },
+  },
+  boundaryContentOperation: {
+    method: 'post',
+    routePath: '/:id/content-operations',
+    openApiPath: '/pages/{pageId}/content-operations',
+    summary: 'Append or prepend Markdown against the latest page content',
+    parameters: [
+      pageIdParameter,
+      {
+        name: 'Idempotency-Key',
+        in: 'header',
+        schema: { type: 'string', minLength: 1, maxLength: 200, pattern: '\\S' },
+        description:
+          'Replay completed operation responses for 24 hours. Incomplete reservations expire after 5 minutes.',
+      },
+    ],
+    request: { required: true, ...jsonContent(contentBoundaryOperationSchema) },
+    responses: {
+      '200': {
+        description: 'Markdown was appended or prepended',
+        headers: etagHeader,
+        content: jsonContent(contentBoundaryOperationResponseSchema),
       },
     },
   },

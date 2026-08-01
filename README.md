@@ -50,13 +50,41 @@ Install Markdawn for your terminal and agents:
 
 ```sh
 curl -fsSL https://markdawn.space/install.sh | sh
-export PATH="$HOME/.markdawn/bin:$PATH"
-markdawn login
 ```
 
-The official CLI supports safe Markdown edits, structured JSON output, shell completion, and
-scoped API tokens. It runs against `https://markdawn.space` by default and can target a
-self-hosted server with `MARKDAWN_URL` or `--url`. See the [CLI guide](cli/README.md).
+Windows PowerShell:
+
+```powershell
+irm https://markdawn.space/install.ps1 | iex
+```
+
+The installer automatically configures PATH. Set `MARKDAWN_MODIFY_PATH=0` before installation to
+opt out. PATH changes apply to new terminal sessions; open a new terminal or source your shell
+profile before running `markdawn login`. The installer prints an absolute-path login command for
+immediate use. The official CLI supports safe Markdown edits, structured JSON output, shell
+completion, and scoped API tokens. It runs against `https://markdawn.space` by default and can
+target a self-hosted server with `MARKDAWN_URL` or `--url`.
+
+Coding agents should follow the dedicated [Markdawn skill](skills/markdawn/SKILL.md). See the
+[CLI guide](cli/README.md) for CLI installation and command reference details.
+
+### Web and CLI capability matrix
+
+The web app is the collaborative workspace; the CLI is the typed, automation-oriented interface
+to the same API and page content.
+
+| Capability | Web app | CLI |
+| --- | --- | --- |
+| Read pages and folders | Browse, render Markdown, and navigate workspace UI | `page view`, `page list`, and `folder list`, including JSON output |
+| Create pages | Forms and editor UI | `page create`, including Markdown from files or stdin |
+| Edit authored Markdown | Interactive Milkdown editor with revision protection | Interactive editor, exact edits, revision-guarded replace, append, and prepend |
+| Concurrent document updates | Live WebSocket/Yjs collaboration | Server-side content commands apply against current content; no live editing session |
+| Page title and icon | Full metadata UI | `page update`; content frontmatter can carry page properties and icons |
+| Cover images and properties panel | Supported | No dedicated cover or properties-panel command |
+| Workspace administration, collaborators, shares, tags, favorites, and trash | Supported | Not currently exposed as CLI commands |
+| Import and export | Obsidian import and Markdown export UI | Not currently exposed as CLI commands |
+| Authentication | Google/GitHub OAuth browser session | Named API token through `login` or environment variables |
+| Automation and agent use | Browser-driven only | Stable JSON output, non-interactive mode, idempotency keys, and Agent Skills support |
 
 ---
 

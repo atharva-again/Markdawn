@@ -4,7 +4,8 @@ set -eu
 repository="atharva-again/Markdawn"
 install_dir="${MARKDAWN_INSTALL_DIR:-$HOME/.markdawn/bin}"
 requested_version="${MARKDAWN_VERSION:-}"
-modify_path="${MARKDAWN_MODIFY_PATH:-0}"
+modify_path="${MARKDAWN_MODIFY_PATH:-1}"
+install_skill="${MARKDAWN_INSTALL_SKILL:-}"
 http_timeout="${MARKDAWN_HTTP_TIMEOUT_SECONDS:-}"
 max_release_archive_bytes=268435456
 max_release_archive_entries=1024
@@ -23,14 +24,24 @@ require_command() {
 for argument in "$@"; do
   case "$argument" in
     --modify-path) modify_path=1 ;;
+    --no-modify-path) modify_path=0 ;;
+    --install-skill) install_skill=global ;;
+    --install-skill=global) install_skill=global ;;
+    --install-skill=project) install_skill=project ;;
     --help)
       cat <<'EOF'
 Usage: curl -fsSL https://markdawn.space/install.sh | sh
 
+Options:
+  --modify-path          Add the install directory to PATH (the default).
+  --no-modify-path       Leave PATH unchanged.
+  --install-skill[=SCOPE]  Install the agent skill with npx skills (global or project).
+
 Environment:
   MARKDAWN_VERSION      Install a version such as v1.2.3.
   MARKDAWN_INSTALL_DIR  Install into this directory.
-  MARKDAWN_MODIFY_PATH  Set to 1 to add the install directory to your shell PATH.
+  MARKDAWN_MODIFY_PATH  Set to 0 to leave your shell PATH unchanged (default: 1).
+  MARKDAWN_INSTALL_SKILL  Set to global or project to install the optional agent skill.
   MARKDAWN_INSTALL_STATE_DIR  Override the standalone receipt directory.
   MARKDAWN_HTTP_TIMEOUT_SECONDS  Set a positive download timeout in seconds.
 EOF
@@ -39,6 +50,15 @@ EOF
     *) fail "unknown argument: $argument" ;;
   esac
 done
+
+case "$modify_path" in
+  0 | 1) ;;
+  *) fail "MARKDAWN_MODIFY_PATH must be 0 or 1" ;;
+esac
+case "$install_skill" in
+  "" | 0 | global | project) ;;
+  *) fail "MARKDAWN_INSTALL_SKILL must be global, project, or 0" ;;
+esac
 
 require_command curl
 require_command tar
@@ -71,20 +91,21 @@ if [ -n "$http_timeout" ]; then
 fi
 path_file=""
 path_style=""
+unsupported_shell=""
 if [ "$modify_path" = 1 ]; then
   case "$(basename "${SHELL:-sh}")" in
     fish) path_file="${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish"; path_style=fish ;;
     zsh) path_file="$HOME/.zshrc"; path_style=sh ;;
     bash) path_file="$HOME/.bashrc"; path_style=sh ;;
-    *) fail "--modify-path supports bash, zsh, and fish" ;;
+    sh | dash | ash | ksh | mksh | yash) path_file="$HOME/.profile"; path_style=sh ;;
+    *) unsupported_shell=$(basename "${SHELL:-sh}"); modify_path=0 ;;
   esac
+fi
+if [ "$modify_path" = 1 ]; then
   validate_json_string "$path_file" "shell configuration path"
   case "$path_file" in
     /*) ;;
     *) fail "shell configuration path must be absolute" ;;
-  esac
-  case "$path_file" in
-    *\\* | *\"*) fail "shell configuration path contains characters unsupported by the standalone install receipt" ;;
   esac
 fi
 case "$install_dir" in
@@ -92,12 +113,9 @@ case "$install_dir" in
   *) install_dir="$(pwd -P)/$install_dir" ;;
 esac
 validate_json_string "$install_dir" "MARKDAWN_INSTALL_DIR"
-case "$install_dir" in
-  *\\* | *\"*) fail "MARKDAWN_INSTALL_DIR contains characters unsupported by the standalone install receipt" ;;
-esac
 if [ "$modify_path" = 1 ]; then
   case "$install_dir" in
-    *[!A-Za-z0-9_@%+=,./-]*) fail "MARKDAWN_INSTALL_DIR contains characters unsupported by --modify-path" ;;
+    *:*) fail "MARKDAWN_INSTALL_DIR must not contain : when --modify-path is enabled" ;;
   esac
 fi
 
@@ -268,7 +286,39 @@ finalizer_binary=""
 printf 'Markdawn installed to %s/markdawn\n' "$install_dir"
 if [ "$modify_path" = 1 ]; then
   printf 'Updated PATH configuration in %s.\n' "$path_file"
+  printf 'Open a new terminal or run:\n  '
+  if [ "$path_style" = fish ]; then
+    printf 'source '
+  else
+    printf '. '
+  fi
+  printf "'"
+  printf '%s' "$path_file" | sed "s/'/'\\\\''/g" || fail "could not render PATH activation command"
+  printf "'\n"
 else
-  printf '\nAdd Markdawn to PATH:\n  export PATH="%s:$PATH"\n' "$install_dir"
+  if [ -n "$unsupported_shell" ]; then
+    printf '\nPATH was not changed because %s is not a supported shell. Add Markdawn to PATH using your shell\047s native startup-file syntax:\n  ' "$unsupported_shell"
+  else
+    printf '\nPATH was not changed. Add Markdawn to PATH:\n  export PATH='
+  fi
+  printf "'"
+  printf '%s' "$install_dir" | sed "s/'/'\\\\''/g" || fail "could not render PATH instruction"
+  if [ -n "$unsupported_shell" ]; then
+    printf "\n"
+  else
+    printf "':\$PATH\n"
+  fi
 fi
-printf '\nThen sign in:\n  markdawn login\n'
+printf '\nThen sign in:\n  '
+printf "'"
+printf '%s' "$install_dir/markdawn" | sed "s/'/'\\\\''/g" || fail "could not render login command"
+printf "' login\n"
+if [ "$install_skill" = global ]; then
+  printf '\nInstalling Markdawn agent skill globally with npx skills.\n'
+  "$install_dir/markdawn" skill install --global --yes
+elif [ "$install_skill" = project ]; then
+  printf '\nInstalling Markdawn agent skill for this project with npx skills.\n'
+  "$install_dir/markdawn" skill install --yes
+else
+  printf '\nOptional agent skill:\n  markdawn skill install --global\n'
+fi

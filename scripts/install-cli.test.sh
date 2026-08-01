@@ -129,7 +129,12 @@ fi
 exec "$REAL_WC" "$@"
 EOF
 
-chmod +x "$fake_bin/curl" "$fake_bin/sha256sum" "$fake_bin/tar" "$fake_bin/install" "$fake_bin/mv" "$fake_bin/wc"
+cat >"$fake_bin/npx" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$@" >"$MOCK_STATE/npx-arguments"
+EOF
+
+chmod +x "$fake_bin/curl" "$fake_bin/sha256sum" "$fake_bin/tar" "$fake_bin/install" "$fake_bin/mv" "$fake_bin/wc" "$fake_bin/npx"
 
 run_installer() {
   local install_dir=$1
@@ -194,10 +199,63 @@ fi
 later_path_dir="$test_dir/later-path"
 later_path_state="$test_dir/state-later-path"
 run_installer "$later_path_dir" "$later_path_state"
-grep -F '"pathFile": ""' "$later_path_state/install.json" >/dev/null || fail "default install unexpectedly recorded PATH ownership"
-run_installer "$later_path_dir" "$later_path_state" MARKDAWN_MODIFY_PATH=1
-grep -F '"pathFile": "'"$test_dir/home/.bashrc"'"' "$later_path_state/install.json" >/dev/null || fail "later PATH opt-in did not record ownership"
-grep -F 'export PATH="'"$later_path_dir"':$PATH"' "$test_dir/home/.bashrc" >/dev/null || fail "later PATH opt-in did not add PATH block"
+grep -F '"pathFile": "'"$test_dir/home/.bashrc"'"' "$later_path_state/install.json" >/dev/null || fail "default install did not record PATH ownership"
+grep -F "export PATH='$later_path_dir':\$PATH" "$test_dir/home/.bashrc" >/dev/null || fail "default install did not add PATH block"
+
+escaped_source_marker="$test_dir/source-should-not-run"
+escaped_home="$test_dir/hôme ' path \$(touch $escaped_source_marker)"
+escaped_default_dir="$escaped_home/.markdawn/bin"
+escaped_default_output=$(run_installer "$escaped_default_dir" "$test_dir/state-escaped-default" HOME="$escaped_home")
+escaped_default_entry=$(printf '%s' "$escaped_default_dir" | sed "s/'/'\\\\''/g")
+grep -F "export PATH='$escaped_default_entry':\$PATH" "$escaped_home/.bashrc" >/dev/null || fail "default install did not escape a spaced Unicode home path"
+escaped_source_path=$(printf '%s' "$escaped_home/.bashrc" | sed "s/'/'\\\\''/g")
+escaped_source_command=$(printf '%s\n' "$escaped_default_output" | sed -n '/^  \. /p')
+[ "$escaped_source_command" = "  . '$escaped_source_path'" ] || fail "PATH activation command did not quote the shell profile path"
+bash -c "${escaped_source_command#  }"
+[ ! -e "$escaped_source_marker" ] || fail "PATH activation command executed a profile-path command substitution"
+
+opt_out_dir="$test_dir/path-opt-out"
+opt_out_state="$test_dir/state-path-opt-out"
+run_installer "$opt_out_dir" "$opt_out_state" MARKDAWN_MODIFY_PATH=0
+grep -F '"pathFile": ""' "$opt_out_state/install.json" >/dev/null || fail "PATH opt-out recorded PATH ownership"
+
+spaced_install_dir="$test_dir/install path"
+spaced_output=$(run_installer "$spaced_install_dir" "$test_dir/state-spaced-path" MARKDAWN_MODIFY_PATH=0)
+spaced_login_command=$(printf '%s\n' "$spaced_output" | sed -n '/^  .* login$/p')
+expected_spaced_login_command="  '$spaced_install_dir/markdawn' login"
+[ "$spaced_login_command" = "$expected_spaced_login_command" ] || fail "login command did not quote a path containing spaces"
+cat >"$spaced_install_dir/markdawn" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$@" >"$MARKDAWN_LOGIN_MARKER"
+EOF
+chmod +x "$spaced_install_dir/markdawn"
+spaced_marker="$test_dir/spaced-login-marker"
+MARKDAWN_LOGIN_MARKER="$spaced_marker" sh -c "${spaced_login_command#  }"
+[ "$(cat "$spaced_marker")" = login ] || fail "quoted login command was not runnable"
+
+metacharacter_install_dir="$test_dir/install \$(touch should-not-run)"
+metacharacter_output=$(run_installer "$metacharacter_install_dir" "$test_dir/state-metacharacter-path" MARKDAWN_MODIFY_PATH=0)
+metacharacter_path_command=$(printf '%s\n' "$metacharacter_output" | sed -n "/^  export PATH=/p")
+expected_metacharacter_path_command="  export PATH='$metacharacter_install_dir':\$PATH"
+[ "$metacharacter_path_command" = "$expected_metacharacter_path_command" ] || fail "PATH instruction did not quote shell metacharacters"
+PATH="$fake_bin:$PATH" sh -c "${metacharacter_path_command#  }; command -v touch >/dev/null"
+[ ! -e "$test_dir/should-not-run" ] || fail "PATH instruction executed an install-path command substitution"
+
+skill_dir="$test_dir/skill-install"
+run_installer "$skill_dir" "$test_dir/state-skill-install" MARKDAWN_INSTALL_SKILL=global
+expected_npx_arguments='--yes
+skills
+add
+atharva-again/Markdawn
+--skill
+markdawn
+--global
+--yes'
+[ "$(cat "$mock_state/npx-arguments")" = "$expected_npx_arguments" ] || fail "skill installation did not invoke npx skills with the global scope"
+
+if run_installer "$test_dir/invalid-skill" "$test_dir/state-invalid-skill" MARKDAWN_INSTALL_SKILL=invalid; then
+  fail "invalid skill scope was accepted"
+fi
 
 separator_dir="$test_dir/path:separator"
 if run_installer "$separator_dir" "$test_dir/state-separator" MARKDAWN_MODIFY_PATH=1; then
@@ -229,7 +287,7 @@ preexisting_block="$test_dir/preexisting-block"
 run_installer "$preexisting_block" "$test_dir/state-preexisting" MARKDAWN_MODIFY_PATH=1
 grep -F '"pathFile": "'"$test_dir/home/.bashrc"'"' "$test_dir/state-preexisting/install.json" >/dev/null || fail "receipt did not record the repaired PATH block"
 grep -F 'export PATH="/other/markdawn:$PATH"' "$existing_path_block" >/dev/null || fail "pre-existing PATH block changed"
-grep -F 'export PATH="'"$preexisting_block"':$PATH"' "$existing_path_block" >/dev/null || fail "installer did not add its own PATH block"
+grep -F "export PATH='$preexisting_block':\$PATH" "$existing_path_block" >/dev/null || fail "installer did not add its own PATH block"
 
 rm "$existing_path_block"
 owned_path_dir="$test_dir/owned-path"
@@ -247,18 +305,13 @@ fi
 [ ! -e "$moved_path_dir/markdawn" ] || fail "managed installation directory change installed a binary"
 
 unsafe_dir="$test_dir/unsafe;touch-pwned"
-if run_installer "$unsafe_dir" "$test_dir/state-unsafe" MARKDAWN_MODIFY_PATH=1; then
-  fail "unsafe PATH install directory was accepted"
-fi
-if grep -F "$unsafe_dir" "$existing_path_block" >/dev/null; then
-  fail "unsafe PATH install modified a shell profile"
-fi
+run_installer "$unsafe_dir" "$test_dir/state-unsafe" MARKDAWN_MODIFY_PATH=1
+grep -F "export PATH='$unsafe_dir':\$PATH" "$test_dir/home/.bashrc" >/dev/null || fail "shell-metacharacter install path was not quoted in the profile"
 
 unsupported_shell_dir="$test_dir/unsupported-shell"
-if run_installer "$unsupported_shell_dir" "$test_dir/state-unsupported-shell" MARKDAWN_MODIFY_PATH=1 SHELL=/bin/unsupported; then
-  fail "unsupported shell was accepted"
-fi
-[ ! -e "$unsupported_shell_dir/markdawn" ] || fail "unsupported shell installed an unmanaged binary"
+unsupported_shell_output=$(run_installer "$unsupported_shell_dir" "$test_dir/state-unsupported-shell" SHELL=/bin/unsupported)
+grep -F '"pathFile": ""' "$test_dir/state-unsupported-shell/install.json" >/dev/null || fail "unsupported shell recorded PATH ownership"
+printf '%s\n' "$unsupported_shell_output" | grep -F "PATH was not changed because unsupported is not a supported shell." >/dev/null || fail "unsupported shell did not receive manual PATH guidance"
 
 control_dir="$test_dir/control$(printf '\t')path"
 if run_installer "$control_dir" "$test_dir/state-control"; then

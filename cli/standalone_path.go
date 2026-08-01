@@ -97,8 +97,13 @@ func removePathBlockWithRollback(path, installDir string) (func() error, error) 
 }
 
 func blockContainsInstallPath(block, installDir string) bool {
-	powershellEntry := "$env:Path = '" + strings.ReplaceAll(installDir, "'", "''") + "' + [IO.Path]::PathSeparator + $env:Path"
-	return strings.Contains(block, "export PATH=\""+installDir+":$PATH\"") || strings.Contains(block, "fish_add_path "+installDir) || strings.Contains(block, powershellEntry)
+	return strings.Contains(block, standalonePathEntry(installDir, "sh")) ||
+		strings.Contains(block, standalonePathEntry(installDir, "fish")) ||
+		strings.Contains(block, standalonePathEntry(installDir, "powershell")) ||
+		// Keep recognition of blocks written by standalone CLI releases before
+		// path entries were shell-escaped, so uninstall and upgrades remain safe.
+		strings.Contains(block, "export PATH=\""+installDir+":$PATH\"") ||
+		strings.Contains(block, "fish_add_path "+installDir)
 }
 
 type profileEncoding uint8

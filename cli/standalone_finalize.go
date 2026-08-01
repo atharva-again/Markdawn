@@ -255,12 +255,7 @@ func addStandalonePathBlock(path, installDir, style string) (string, func() erro
 	if found {
 		return path, func() error { return nil }, nil
 	}
-	entry := "export PATH=\"" + installDir + ":$PATH\""
-	if style == "fish" {
-		entry = "fish_add_path " + installDir
-	} else if style == "powershell" {
-		entry = "$env:Path = '" + strings.ReplaceAll(installDir, "'", "''") + "' + [IO.Path]::PathSeparator + $env:Path"
-	}
+	entry := standalonePathEntry(installDir, style)
 	updated := contents + "\n" + pathBlockStart + "\n" + entry + "\n" + pathBlockEnd + "\n"
 	encoded, err := encodeProfile(updated, encoding)
 	if err != nil {
@@ -282,4 +277,22 @@ func addStandalonePathBlock(path, installDir, style string) (string, func() erro
 		}
 		return writeStandalonePathProfile(resolved, original)
 	}, nil
+}
+
+func standalonePathEntry(installDir, style string) string {
+	if style == "fish" {
+		return "fish_add_path -- " + quoteFishShell(installDir)
+	}
+	if style == "powershell" {
+		return "$env:Path = '" + strings.ReplaceAll(installDir, "'", "''") + "' + [IO.Path]::PathSeparator + $env:Path"
+	}
+	return "export PATH=" + quotePOSIXShell(installDir) + ":$PATH"
+}
+
+func quotePOSIXShell(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+}
+
+func quoteFishShell(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "\\'") + "'"
 }
