@@ -199,7 +199,7 @@ fi
 later_path_dir="$test_dir/later-path"
 later_path_state="$test_dir/state-later-path"
 run_installer "$later_path_dir" "$later_path_state"
-grep -F '"pathFile": "'"$test_dir/home/.bashrc"'"' "$later_path_state/install.json" >/dev/null || fail "default install did not record PATH ownership"
+! grep -F '"pathFile"' "$later_path_state/install.json" >/dev/null || fail "default install retained obsolete PATH ownership"
 grep -F "export PATH='$later_path_dir':\$PATH" "$test_dir/home/.bashrc" >/dev/null || fail "default install did not add PATH block"
 
 escaped_source_marker="$test_dir/source-should-not-run"
@@ -208,30 +208,18 @@ escaped_default_dir="$escaped_home/.markdawn/bin"
 escaped_default_output=$(run_installer "$escaped_default_dir" "$test_dir/state-escaped-default" HOME="$escaped_home")
 escaped_default_entry=$(printf '%s' "$escaped_default_dir" | sed "s/'/'\\\\''/g")
 grep -F "export PATH='$escaped_default_entry':\$PATH" "$escaped_home/.bashrc" >/dev/null || fail "default install did not escape a spaced Unicode home path"
-escaped_source_path=$(printf '%s' "$escaped_home/.bashrc" | sed "s/'/'\\\\''/g")
-escaped_source_command=$(printf '%s\n' "$escaped_default_output" | sed -n '/^  \. /p')
-[ "$escaped_source_command" = "  . '$escaped_source_path'" ] || fail "PATH activation command did not quote the shell profile path"
-bash -c "${escaped_source_command#  }"
-[ ! -e "$escaped_source_marker" ] || fail "PATH activation command executed a profile-path command substitution"
+printf '%s\n' "$escaped_default_output" | grep -F 'Open a new terminal before running markdawn.' >/dev/null || fail "PATH activation guidance was not printed"
+[ ! -e "$escaped_source_marker" ] || fail "installer output executed a profile-path command substitution"
 
 opt_out_dir="$test_dir/path-opt-out"
 opt_out_state="$test_dir/state-path-opt-out"
-run_installer "$opt_out_dir" "$opt_out_state" MARKDAWN_MODIFY_PATH=0
-grep -F '"pathFile": ""' "$opt_out_state/install.json" >/dev/null || fail "PATH opt-out recorded PATH ownership"
+opt_out_output=$(run_installer "$opt_out_dir" "$opt_out_state" MARKDAWN_MODIFY_PATH=0)
+! grep -F '"pathFile"' "$opt_out_state/install.json" >/dev/null || fail "PATH opt-out recorded PATH ownership"
+printf '%s\n' "$opt_out_output" | grep -F 'After adding Markdawn to PATH, run markdawn login to get started.' >/dev/null || fail "PATH opt-out did not explain when markdawn login becomes available"
 
 spaced_install_dir="$test_dir/install path"
 spaced_output=$(run_installer "$spaced_install_dir" "$test_dir/state-spaced-path" MARKDAWN_MODIFY_PATH=0)
-spaced_login_command=$(printf '%s\n' "$spaced_output" | sed -n '/^  .* login$/p')
-expected_spaced_login_command="  '$spaced_install_dir/markdawn' login"
-[ "$spaced_login_command" = "$expected_spaced_login_command" ] || fail "login command did not quote a path containing spaces"
-cat >"$spaced_install_dir/markdawn" <<'EOF'
-#!/bin/sh
-printf '%s\n' "$@" >"$MARKDAWN_LOGIN_MARKER"
-EOF
-chmod +x "$spaced_install_dir/markdawn"
-spaced_marker="$test_dir/spaced-login-marker"
-MARKDAWN_LOGIN_MARKER="$spaced_marker" sh -c "${spaced_login_command#  }"
-[ "$(cat "$spaced_marker")" = login ] || fail "quoted login command was not runnable"
+printf '%s\n' "$spaced_output" | grep -F 'After adding Markdawn to PATH, run markdawn login to get started.' >/dev/null || fail "PATH opt-out login guidance was not printed"
 
 metacharacter_install_dir="$test_dir/install \$(touch should-not-run)"
 metacharacter_output=$(run_installer "$metacharacter_install_dir" "$test_dir/state-metacharacter-path" MARKDAWN_MODIFY_PATH=0)
@@ -285,7 +273,7 @@ existing_path_block="$test_dir/home/.bashrc"
 printf '%s\n' '# >>> markdawn >>>' 'export PATH="/other/markdawn:$PATH"' '# <<< markdawn <<<' >"$existing_path_block"
 preexisting_block="$test_dir/preexisting-block"
 run_installer "$preexisting_block" "$test_dir/state-preexisting" MARKDAWN_MODIFY_PATH=1
-grep -F '"pathFile": "'"$test_dir/home/.bashrc"'"' "$test_dir/state-preexisting/install.json" >/dev/null || fail "receipt did not record the repaired PATH block"
+! grep -F '"pathFile"' "$test_dir/state-preexisting/install.json" >/dev/null || fail "receipt retained obsolete PATH ownership"
 grep -F 'export PATH="/other/markdawn:$PATH"' "$existing_path_block" >/dev/null || fail "pre-existing PATH block changed"
 grep -F "export PATH='$preexisting_block':\$PATH" "$existing_path_block" >/dev/null || fail "installer did not add its own PATH block"
 
@@ -293,11 +281,11 @@ rm "$existing_path_block"
 owned_path_dir="$test_dir/owned-path"
 owned_path_state="$test_dir/state-owned-path"
 run_installer "$owned_path_dir" "$owned_path_state" MARKDAWN_MODIFY_PATH=1
-grep -F '"pathFile": "'"$test_dir/home/.bashrc"'"' "$owned_path_state/install.json" >/dev/null || fail "PATH install did not record ownership"
+! grep -F '"pathFile"' "$owned_path_state/install.json" >/dev/null || fail "PATH install retained obsolete ownership"
 run_installer "$owned_path_dir" "$owned_path_state"
-grep -F '"pathFile": "'"$test_dir/home/.bashrc"'"' "$owned_path_state/install.json" >/dev/null || fail "reinstall lost PATH ownership"
+! grep -F '"pathFile"' "$owned_path_state/install.json" >/dev/null || fail "reinstall wrote obsolete PATH ownership"
 run_installer "$owned_path_dir" "$owned_path_state" MARKDAWN_MODIFY_PATH=1
-grep -F '"pathFile": "'"$test_dir/home/.bashrc"'"' "$owned_path_state/install.json" >/dev/null || fail "PATH reinstall lost ownership"
+! grep -F '"pathFile"' "$owned_path_state/install.json" >/dev/null || fail "PATH reinstall wrote obsolete ownership"
 moved_path_dir="$test_dir/moved-path"
 if run_installer "$moved_path_dir" "$owned_path_state"; then
   fail "managed installation directory change was accepted"
@@ -310,7 +298,7 @@ grep -F "export PATH='$unsafe_dir':\$PATH" "$test_dir/home/.bashrc" >/dev/null |
 
 unsupported_shell_dir="$test_dir/unsupported-shell"
 unsupported_shell_output=$(run_installer "$unsupported_shell_dir" "$test_dir/state-unsupported-shell" SHELL=/bin/unsupported)
-grep -F '"pathFile": ""' "$test_dir/state-unsupported-shell/install.json" >/dev/null || fail "unsupported shell recorded PATH ownership"
+! grep -F '"pathFile"' "$test_dir/state-unsupported-shell/install.json" >/dev/null || fail "unsupported shell recorded PATH ownership"
 printf '%s\n' "$unsupported_shell_output" | grep -F "PATH was not changed because unsupported is not a supported shell." >/dev/null || fail "unsupported shell did not receive manual PATH guidance"
 
 control_dir="$test_dir/control$(printf '\t')path"

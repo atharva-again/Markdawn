@@ -11,41 +11,6 @@ import (
 	"unicode/utf8"
 )
 
-func removePathBlock(path, installDir string) error {
-	resolvedPath, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return fmt.Errorf("resolve installer PATH file: %w", err)
-	}
-	data, err := os.ReadFile(resolvedPath)
-	if err != nil {
-		return fmt.Errorf("read installer PATH file: %w", err)
-	}
-	contents, encoding, err := decodeProfile(data)
-	if err != nil {
-		return fmt.Errorf("read installer PATH file: %w", err)
-	}
-	start, end, found, err := managedPathBlockRange(contents, installDir)
-	if err != nil {
-		return err
-	}
-	if !found {
-		return fmt.Errorf("remove installer PATH block: block for this installation was not found")
-	}
-	if strings.HasPrefix(contents[end:], "\r\n") {
-		end += 2
-	} else if end < len(contents) && contents[end] == '\n' {
-		end++
-	}
-	encoded, err := encodeProfile(contents[:start]+contents[end:], encoding)
-	if err != nil {
-		return fmt.Errorf("encode installer PATH file: %w", err)
-	}
-	if err := writeStandalonePathProfile(resolvedPath, encoded); err != nil {
-		return fmt.Errorf("remove installer PATH block: %w", err)
-	}
-	return nil
-}
-
 func managedPathBlockRange(contents, installDir string) (int, int, bool, error) {
 	start := -1
 	end := 0
@@ -81,27 +46,12 @@ func managedPathBlockRange(contents, installDir string) (int, int, bool, error) 
 	return start, end, start >= 0, nil
 }
 
-func removePathBlockWithRollback(path, installDir string) (func() error, error) {
-	resolvedPath, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return nil, fmt.Errorf("resolve installer PATH file for rollback: %w", err)
-	}
-	original, err := os.ReadFile(resolvedPath)
-	if err != nil {
-		return nil, fmt.Errorf("read installer PATH file for rollback: %w", err)
-	}
-	if err := removePathBlock(path, installDir); err != nil {
-		return nil, err
-	}
-	return func() error { return writeStandalonePathProfile(resolvedPath, original) }, nil
-}
-
 func blockContainsInstallPath(block, installDir string) bool {
 	return strings.Contains(block, standalonePathEntry(installDir, "sh")) ||
 		strings.Contains(block, standalonePathEntry(installDir, "fish")) ||
 		strings.Contains(block, standalonePathEntry(installDir, "powershell")) ||
 		// Keep recognition of blocks written by standalone CLI releases before
-		// path entries were shell-escaped, so uninstall and upgrades remain safe.
+		// path entries were shell-escaped, so upgrades remain safe.
 		strings.Contains(block, "export PATH=\""+installDir+":$PATH\"") ||
 		strings.Contains(block, "fish_add_path "+installDir)
 }

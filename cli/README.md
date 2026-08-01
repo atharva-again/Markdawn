@@ -27,9 +27,8 @@ curl -fsSL https://markdawn.space/install.sh | MARKDAWN_MODIFY_PATH=0 sh
 
 In PowerShell, run `$env:MARKDAWN_MODIFY_PATH = 0` before the installer command.
 
-PATH changes apply to future terminal sessions. Open a new terminal or source the profile named
-by the installer before invoking `markdawn` by name; the installer also prints an absolute-path
-`markdawn login` command that works immediately.
+PATH changes apply to future terminal sessions. Open a new terminal before invoking `markdawn` by
+name.
 
 To install the optional agent skill in the same non-interactive bootstrap, choose a scope with
 `MARKDAWN_INSTALL_SKILL`. This requires Node.js and `npx`; an explicit skill request fails loudly
@@ -145,7 +144,7 @@ markdawn doctor
 markdawn skill install [--global] [--copy] [--yes]
 markdawn skill update [--global | --project] [--yes]
 markdawn update [VERSION]
-markdawn uninstall [--purge] [--remove-path] [--dry-run] [--yes]
+markdawn uninstall [--purge] [--dry-run] [--yes]
 markdawn help [command...]
 
 markdawn page list [--parent FOLDER_ID] [--limit N]
@@ -320,10 +319,13 @@ The standalone installer supports Linux, macOS, and Windows. Linux and macOS use
 
 WSL2 is treated as a separate Linux environment: install Markdawn inside WSL with `install.sh` and configure the WSL shell PATH. It does not modify the Windows PATH or share the Windows standalone receipt. Install under the WSL Linux home directory rather than `/mnt/*`; Windows-mounted filesystems have different permission, locking, and atomic-rename behavior. The installer warns when a custom WSL install directory is under `/mnt`.
 
-If an install, update, or uninstall is interrupted, rerun the same command. Installer publication and PATH changes are rolled back when publication fails. Uninstall records completed PATH cleanup before continuing and preserves or restores its receipt while the binary remains. For a Windows deferred update or uninstall failure, the next invocation reports and clears the persisted failure; run the command once more to retry the operation.
+If an install, update, or uninstall is interrupted, rerun the same command. Installer publication and PATH changes are rolled back when publication fails. For a Windows deferred update or uninstall failure, the next invocation reports and clears the persisted failure; run the command once more to retry the operation.
 
-Uninstall preserves saved credentials and configuration unless `--purge` is supplied. If the
-installer created its marked PATH block, use `--remove-path` to remove it.
+Uninstall removes the standalone binary and install receipt while preserving shell profiles and
+saved configuration. Add `--purge` to also remove saved credentials and configuration. The
+installer-created PATH entry is intentionally left in place; its missing directory is harmless.
+In scripts and non-interactive use, pass `--yes` to skip the single confirmation. `--dry-run`
+previews the selected cleanup plan without changing files.
 
 ## Environment
 

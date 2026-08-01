@@ -39,7 +39,7 @@ func TestStandaloneUninstallHelperRestoresReceiptWhenBinaryRemovalFails(t *testi
 	}
 	failurePath := filepath.Join(stateDir, "uninstall-failure.txt")
 	helperPath := filepath.Join(stateDir, "uninstall-test.ps1")
-	if err := os.WriteFile(helperPath, []byte(standaloneUninstallScript(0, binaryPath, receiptPath, "", installDir, configPath, failurePath)), 0o600); err != nil {
+	if err := os.WriteFile(helperPath, []byte(standaloneUninstallScript(0, binaryPath, receiptPath, configPath, failurePath)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	command := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", helperPath)
@@ -84,7 +84,7 @@ func TestStandaloneUninstallHelperRemovesBinaryAndReceipt(t *testing.T) {
 		t.Fatal(err)
 	}
 	helperPath := filepath.Join(stateDir, "uninstall-success.ps1")
-	if err := os.WriteFile(helperPath, []byte(standaloneUninstallScript(0, binaryPath, receiptPath, "", installDir, "", filepath.Join(stateDir, "failure"))), 0o600); err != nil {
+	if err := os.WriteFile(helperPath, []byte(standaloneUninstallScript(0, binaryPath, receiptPath, "", filepath.Join(stateDir, "failure"))), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	command := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", helperPath)

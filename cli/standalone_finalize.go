@@ -24,7 +24,7 @@ func (cmd *StandaloneFinalizeCmd) Run(_ *runtimeState) (resultErr error) {
 		return fmt.Errorf("resolve standalone install state directory: %w", err)
 	}
 	receiptPath := filepath.Join(stateDir, "install.json")
-	previous, err := readExistingInstallReceipt(receiptPath, installDir)
+	_, err = readExistingInstallReceipt(receiptPath, installDir)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,6 @@ func (cmd *StandaloneFinalizeCmd) Run(_ *runtimeState) (resultErr error) {
 	}
 	defer os.Remove(staged)
 
-	pathFile := previous.PathFile
 	restorePaths := []func() error{}
 	committed := false
 	defer func() {
@@ -97,15 +96,8 @@ func (cmd *StandaloneFinalizeCmd) Run(_ *runtimeState) (resultErr error) {
 		}
 	}()
 	if pathFileOption != "" {
-		if previous.PathFile != "" && previous.PathFile != pathFileOption {
-			restorePreviousPath, err := removePathBlockWithRollback(previous.PathFile, installDir)
-			if err != nil {
-				return fmt.Errorf("remove previous installer PATH block: %w", err)
-			}
-			restorePaths = append(restorePaths, restorePreviousPath)
-		}
 		var restoreCurrentPath func() error
-		pathFile, restoreCurrentPath, err = addStandalonePathBlock(pathFileOption, installDir, cmd.PathStyle)
+		_, restoreCurrentPath, err = addStandalonePathBlock(pathFileOption, installDir, cmd.PathStyle)
 		if err != nil {
 			return err
 		}
@@ -124,7 +116,7 @@ func (cmd *StandaloneFinalizeCmd) Run(_ *runtimeState) (resultErr error) {
 			}
 		}()
 	}
-	receipt := installReceipt{SchemaVersion: 1, InstallMethod: standaloneInstallMethod, InstallDir: installDir, BinaryPath: binaryPath, PathFile: pathFile}
+	receipt := installReceipt{SchemaVersion: 1, InstallMethod: standaloneInstallMethod, InstallDir: installDir, BinaryPath: binaryPath}
 	if err := writeStandaloneReceipt(receiptPath, receipt); err != nil {
 		var restoreErr error
 		if binaryBackup != "" {

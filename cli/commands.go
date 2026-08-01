@@ -46,10 +46,9 @@ type UpdateCmd struct {
 }
 
 type UninstallCmd struct {
-	Purge      bool `help:"Also remove saved Markdawn configuration and credentials."`
-	RemovePath bool `help:"Remove the PATH block created by the standalone installer."`
-	DryRun     bool `help:"Show what would be removed without removing it."`
-	Yes        bool `help:"Skip the uninstall confirmation prompt."`
+	Purge  bool `help:"Also remove saved Markdawn configuration and credentials."`
+	DryRun bool `help:"Show what would be removed without removing it."`
+	Yes    bool `help:"Skip the uninstall confirmation prompt."`
 }
 
 type StandaloneFinalizeCmd struct {

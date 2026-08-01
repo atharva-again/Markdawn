@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func removeStandaloneBinary(binaryPath, receiptPath, pathFile, installDir, configPath string) (bool, error) {
+func removeStandaloneBinary(binaryPath, receiptPath, configPath string) (bool, error) {
 	stateDir := filepath.Dir(receiptPath)
 	failurePath := filepath.Join(stateDir, "uninstall-failure.txt")
 	if failure, err := os.ReadFile(failurePath); err == nil {
@@ -22,7 +22,7 @@ func removeStandaloneBinary(binaryPath, receiptPath, pathFile, installDir, confi
 		return false, fmt.Errorf("read deferred uninstall failure: %w", err)
 	}
 	helperPath := filepath.Join(stateDir, fmt.Sprintf("uninstall-%d.ps1", os.Getpid()))
-	script := standaloneUninstallScript(os.Getpid(), binaryPath, receiptPath, pathFile, installDir, configPath, failurePath)
+	script := standaloneUninstallScript(os.Getpid(), binaryPath, receiptPath, configPath, failurePath)
 	if err := os.WriteFile(helperPath, []byte(script), 0o600); err != nil {
 		return false, fmt.Errorf("write uninstall helper: %w", err)
 	}
@@ -33,7 +33,7 @@ func removeStandaloneBinary(binaryPath, receiptPath, pathFile, installDir, confi
 	return true, nil
 }
 
-func standaloneUninstallScript(parentID int, binaryPath, receiptPath, _, _, configPath, failurePath string) string {
+func standaloneUninstallScript(parentID int, binaryPath, receiptPath, configPath, failurePath string) string {
 	receiptBackupPath := receiptPath + ".uninstall-backup"
 	return fmt.Sprintf(`$ErrorActionPreference = 'Stop'
 $failed = $false

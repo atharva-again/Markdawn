@@ -11,6 +11,13 @@ max_release_archive_bytes=268435456
 max_release_archive_entries=1024
 path_block_start='# >>> markdawn >>>'
 path_block_end='# <<< markdawn <<<'
+command_color=''
+color_reset=''
+
+if [ -t 1 ] && [ -z "${NO_COLOR+x}" ]; then
+  command_color='\033[1;36m'
+  color_reset='\033[0m'
+fi
 
 fail() {
   printf '%s\n' "markdawn installer: $*" >&2
@@ -285,16 +292,9 @@ finalizer_binary=""
 
 printf 'Markdawn installed to %s/markdawn\n' "$install_dir"
 if [ "$modify_path" = 1 ]; then
-  printf 'Updated PATH configuration in %s.\n' "$path_file"
-  printf 'Open a new terminal or run:\n  '
-  if [ "$path_style" = fish ]; then
-    printf 'source '
-  else
-    printf '. '
-  fi
-  printf "'"
-  printf '%s' "$path_file" | sed "s/'/'\\\\''/g" || fail "could not render PATH activation command"
-  printf "'\n"
+  printf '\nUpdated PATH configuration in %s.\n' "$path_file"
+  printf '\nOpen a new terminal before running markdawn.\n'
+  printf '\nRun %bmarkdawn login%b to get started.\n' "$command_color" "$color_reset"
 else
   if [ -n "$unsupported_shell" ]; then
     printf '\nPATH was not changed because %s is not a supported shell. Add Markdawn to PATH using your shell\047s native startup-file syntax:\n  ' "$unsupported_shell"
@@ -308,11 +308,8 @@ else
   else
     printf "':\$PATH\n"
   fi
+  printf '\nAfter adding Markdawn to PATH, run %bmarkdawn login%b to get started.\n' "$command_color" "$color_reset"
 fi
-printf '\nThen sign in:\n  '
-printf "'"
-printf '%s' "$install_dir/markdawn" | sed "s/'/'\\\\''/g" || fail "could not render login command"
-printf "' login\n"
 if [ "$install_skill" = global ]; then
   printf '\nInstalling Markdawn agent skill globally with npx skills.\n'
   "$install_dir/markdawn" skill install --global --yes
@@ -320,5 +317,5 @@ elif [ "$install_skill" = project ]; then
   printf '\nInstalling Markdawn agent skill for this project with npx skills.\n'
   "$install_dir/markdawn" skill install --yes
 else
-  printf '\nOptional agent skill:\n  markdawn skill install --global\n'
+  printf '\nOptional agent skill:\n\n  %bmarkdawn skill install --global%b\n' "$command_color" "$color_reset"
 fi

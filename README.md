@@ -59,9 +59,8 @@ irm https://markdawn.space/install.ps1 | iex
 ```
 
 The installer automatically configures PATH. Set `MARKDAWN_MODIFY_PATH=0` before installation to
-opt out. PATH changes apply to new terminal sessions; open a new terminal or source your shell
-profile before running `markdawn login`. The installer prints an absolute-path login command for
-immediate use. The official CLI supports safe Markdown edits, structured JSON output, shell
+opt out. PATH changes apply to new terminal sessions; open a new terminal before running
+`markdawn login`. The official CLI supports safe Markdown edits, structured JSON output, shell
 completion, and scoped API tokens. It runs against `https://markdawn.space` by default and can
 target a self-hosted server with `MARKDAWN_URL` or `--url`.
 
