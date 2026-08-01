@@ -194,24 +194,24 @@ try {
   }
   Write-Output "Markdawn installed to $(Join-Path $installDir 'markdawn.exe')"
   if ($modifyPath) {
-    $escapedPathFile = $pathFile.Replace("'", "''")
-    Write-Output 'Updated PowerShell PATH configuration.'
-    Write-Output "Start a new terminal or run . '$escapedPathFile' before using markdawn from PATH."
+    Write-Output "`nUpdated PATH configuration in $pathFile."
+    Write-Output "`nOpen a new terminal before running markdawn."
+    Write-Output "`nRun markdawn login to get started."
   } else {
-    Write-Output "PATH was not changed. Add $installDir to your PATH before using markdawn by name."
+    $escapedInstallDir = $installDir.Replace("'", "''")
+    Write-Output "`nPATH was not changed. Add Markdawn to PATH:`n  `$env:Path = '$escapedInstallDir' + [IO.Path]::PathSeparator + `$env:Path"
+    Write-Output "`nAfter adding Markdawn to PATH, run markdawn login to get started."
   }
-  $escapedBinaryPath = (Join-Path $installDir 'markdawn.exe').Replace("'", "''")
-  Write-Output "Then sign in: & '$escapedBinaryPath' login"
   if ($installSkill -eq 'global') {
-    Write-Output 'Installing Markdawn agent skill globally with npx skills.'
+    Write-Output "`nInstalling Markdawn agent skill globally with npx skills."
     & (Join-Path $installDir 'markdawn.exe') skill install --global --yes
     if ($LASTEXITCODE -ne 0) { Fail 'could not install Markdawn agent skill' }
   } elseif ($installSkill -eq 'project') {
-    Write-Output 'Installing Markdawn agent skill for this project with npx skills.'
+    Write-Output "`nInstalling Markdawn agent skill for this project with npx skills."
     & (Join-Path $installDir 'markdawn.exe') skill install --yes
     if ($LASTEXITCODE -ne 0) { Fail 'could not install Markdawn agent skill' }
   } else {
-    Write-Output 'Optional agent skill: markdawn skill install --global'
+    Write-Output "`nOptional agent skill:`n`n  markdawn skill install --global"
   }
 } finally {
   if ($finalizerBinary -and (Test-Path -LiteralPath $finalizerBinary)) { Remove-Item -LiteralPath $finalizerBinary -Force -ErrorAction Stop }

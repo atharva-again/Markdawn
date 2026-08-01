@@ -147,7 +147,7 @@ try {
 
   if (-not (Test-Path -LiteralPath (Join-Path $installDir 'markdawn.exe') -PathType Leaf)) { throw 'installer did not create markdawn.exe' }
   $receipt = Get-Content -LiteralPath (Join-Path $stateDir 'install.json') -Raw | ConvertFrom-Json
-  if ($receipt.pathFile -ne $defaultProfile) { throw "default receipt pathFile = $($receipt.pathFile)" }
+  if ($null -ne $receipt.PSObject.Properties['pathFile']) { throw 'default receipt pathFile was written' }
   if (-not ([IO.File]::ReadAllText($defaultProfile).Contains($installDir))) { throw 'default install did not update the PowerShell profile' }
 
   $unicodeInstallDir = Join-Path $testRoot 'bín'
@@ -166,7 +166,7 @@ try {
   $profile = [Text.UnicodeEncoding]::new($false, $true).GetString($profileBytes)
   if (-not $profile.Contains($unicodeInstallDir)) { throw 'installer did not preserve the Unicode install path in the profile' }
   $receipt = Get-Content -LiteralPath (Join-Path $stateDir 'install.json') -Raw | ConvertFrom-Json
-  if ($receipt.pathFile -ne $profilePath) { throw "PATH receipt = $($receipt.pathFile)" }
+  if ($null -ne $receipt.PSObject.Properties['pathFile']) { throw 'PATH receipt was written' }
 
   $laterPathInstallDir = Join-Path $testRoot 'later-path-bin'
   $laterPathStateDir = Join-Path $testRoot 'state-later-path'
@@ -178,7 +178,7 @@ try {
   & $installer
   & $installer
   $receipt = Get-Content -LiteralPath (Join-Path $laterPathStateDir 'install.json') -Raw | ConvertFrom-Json
-  if ($receipt.pathFile -ne $laterPathProfile) { throw "default PATH receipt = $($receipt.pathFile)" }
+  if ($null -ne $receipt.PSObject.Properties['pathFile']) { throw 'default PATH receipt was written' }
   if (-not ([IO.File]::ReadAllText($laterPathProfile).Contains($laterPathInstallDir))) { throw 'default install did not update the profile' }
 
   $pathOptOutInstallDir = Join-Path $testRoot 'path-opt-out-bin'
@@ -190,7 +190,7 @@ try {
   $env:MARKDAWN_MODIFY_PATH = '0'
   & $installer
   $receipt = Get-Content -LiteralPath (Join-Path $pathOptOutStateDir 'install.json') -Raw | ConvertFrom-Json
-  if ($receipt.pathFile -ne '') { throw "PATH opt-out receipt pathFile = $($receipt.pathFile)" }
+  if ($null -ne $receipt.PSObject.Properties['pathFile']) { throw 'PATH opt-out receipt pathFile was written' }
   if (Test-Path -LiteralPath $pathOptOutProfile) { throw 'PATH opt-out modified the PowerShell profile' }
 
   $quotedInstallDir = Join-Path $testRoot "quoted' install"
@@ -201,10 +201,12 @@ try {
   $env:MARKDAWN_PROFILE_PATH = $quotedProfile
   $env:MARKDAWN_MODIFY_PATH = '1'
   $quotedOutput = (& $installer | Out-String)
-  $escapedQuotedProfile = $quotedProfile.Replace("'", "''")
-  $escapedQuotedBinary = (Join-Path $quotedInstallDir 'markdawn.exe').Replace("'", "''")
-  if (-not $quotedOutput.Contains(". '$escapedQuotedProfile'")) { throw 'profile instruction did not escape apostrophes' }
-  if (-not $quotedOutput.Contains("& '$escapedQuotedBinary' login")) { throw 'login instruction did not escape apostrophes' }
+  $escapedQuotedInstallDir = $quotedInstallDir.Replace("'", "''")
+  if (-not $quotedOutput.Contains('Open a new terminal before running markdawn.')) { throw 'installer did not print PATH activation guidance' }
+  if (-not $quotedOutput.Contains('Run markdawn login to get started.')) { throw 'installer did not print markdawn login guidance' }
+  $env:MARKDAWN_MODIFY_PATH = '0'
+  $pathOptOutOutput = (& $installer | Out-String)
+  if (-not $pathOptOutOutput.Contains("`$env:Path = '$escapedQuotedInstallDir' + [IO.Path]::PathSeparator + `$env:Path")) { throw 'PATH guidance did not escape apostrophes' }
 
   $rollbackInstallDir = Join-Path $testRoot 'rollback-bin'
   $rollbackStateDir = Join-Path $testRoot 'state-rollback'
