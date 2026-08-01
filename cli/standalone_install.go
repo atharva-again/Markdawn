@@ -28,7 +28,7 @@ type installReceipt struct {
 	InstallMethod string `json:"installMethod"`
 	InstallDir    string `json:"installDir"`
 	BinaryPath    string `json:"binaryPath"`
-	PathFile      string `json:"pathFile"`
+	PathFile      string `json:"pathFile,omitempty"`
 }
 
 func installStateDir() (string, error) {

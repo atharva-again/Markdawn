@@ -10,7 +10,7 @@ import (
 	"syscall"
 )
 
-func removeStandaloneBinary(binaryPath, receiptPath, _, _, configPath string) (bool, error) {
+func removeStandaloneBinary(binaryPath, receiptPath, configPath string) (bool, error) {
 	stateDir := filepath.Dir(receiptPath)
 	stateInfo, err := os.Stat(stateDir)
 	if err != nil {

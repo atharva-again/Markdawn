@@ -15,6 +15,7 @@ try {
 
   $entry = "`$env:Path = '$($installDir.Replace("'", "''"))' + [IO.Path]::PathSeparator + `$env:Path"
   [IO.File]::WriteAllText($profilePath, "before`r`n# >>> markdawn >>>`r`n$entry`r`n# <<< markdawn <<<`r`nafter`r`n", [Text.UTF8Encoding]::new($false))
+  $profileBefore = [IO.File]::ReadAllText($profilePath)
   [IO.File]::WriteAllText((Join-Path $configDir 'config.json'), '{"baseUrl":"https://markdawn.space","token":"secret"}', [Text.UTF8Encoding]::new($false))
   $receipt = [PSCustomObject]@{
     schemaVersion = 1
@@ -27,7 +28,7 @@ try {
 
   $env:MARKDAWN_INSTALL_STATE_DIR = $stateDir
   $env:MARKDAWN_CONFIG_DIR = $configDir
-  & $binaryPath uninstall --remove-path --purge --yes
+  & $binaryPath uninstall --purge --yes
   if ($LASTEXITCODE -ne 0) { throw "standalone uninstall exited with $LASTEXITCODE" }
 
   $deadline = [DateTime]::UtcNow.AddSeconds(15)
@@ -39,7 +40,7 @@ try {
   if (Test-Path -LiteralPath $binaryPath) { throw 'standalone CLI E2E: binary was not removed' }
   if (Test-Path -LiteralPath $receiptPath) { throw 'standalone CLI E2E: receipt was not removed' }
   if (Test-Path -LiteralPath (Join-Path $configDir 'config.json')) { throw 'standalone CLI E2E: config was not removed' }
-  if ([IO.File]::ReadAllText($profilePath) -ne "before`r`nafter`r`n") { throw 'standalone CLI E2E: PATH block was not removed' }
+  if ([IO.File]::ReadAllText($profilePath) -ne $profileBefore) { throw 'standalone CLI E2E: shell profile was changed' }
 } finally {
   Remove-Item Env:MARKDAWN_INSTALL_STATE_DIR -ErrorAction SilentlyContinue
   Remove-Item Env:MARKDAWN_CONFIG_DIR -ErrorAction SilentlyContinue

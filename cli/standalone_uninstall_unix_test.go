@@ -3,10 +3,57 @@
 package main
 
 import (
+	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+func TestPurgePreservesShellProfile(t *testing.T) {
+	stateDir := filepath.Join(t.TempDir(), "state")
+	if err := os.Mkdir(stateDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	installDir := filepath.Join(t.TempDir(), "markdawn")
+	if err := os.Mkdir(installDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	binaryPath := filepath.Join(installDir, executableName())
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(executable, binaryPath); err != nil {
+		t.Fatal(err)
+	}
+	profilePath := filepath.Join(t.TempDir(), "profile")
+	profile := []byte("before\n# >>> markdawn >>>\nexport PATH=\"" + installDir + ":$PATH\"\n# <<< markdawn <<<\nafter\n")
+	if err := os.WriteFile(profilePath, profile, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("MARKDAWN_INSTALL_STATE_DIR", stateDir)
+	t.Setenv("MARKDAWN_CONFIG_DIR", t.TempDir())
+	if err := writeStandaloneReceipt(filepath.Join(stateDir, "install.json"), installReceipt{
+		SchemaVersion: 1,
+		InstallMethod: standaloneInstallMethod,
+		InstallDir:    installDir,
+		BinaryPath:    binaryPath,
+		PathFile:      profilePath,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := (&UninstallCmd{Purge: true, Yes: true}).Run(&runtimeState{ctx: context.Background(), cli: &CLI{}, stdout: io.Discard}); err != nil {
+		t.Fatal(err)
+	}
+	actual, err := os.ReadFile(profilePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(actual) != string(profile) {
+		t.Fatalf("purge changed shell profile: %q", actual)
+	}
+}
 
 func TestRemoveStandaloneBinaryRestoresReceiptWhenBinaryRemovalFails(t *testing.T) {
 	stateDir := filepath.Join(t.TempDir(), "state")
@@ -36,7 +83,7 @@ func TestRemoveStandaloneBinaryRestoresReceiptWhenBinaryRemovalFails(t *testing.
 		t.Fatal(err)
 	}
 
-	if _, err := removeStandaloneBinary(binaryPath, receiptPath, "", "", configPath); err == nil {
+	if _, err := removeStandaloneBinary(binaryPath, receiptPath, configPath); err == nil {
 		t.Fatalf("expected binary removal error, got %v", err)
 	}
 	actualReceipt, err := os.ReadFile(receiptPath)
@@ -90,7 +137,7 @@ func TestRemoveStandaloneBinaryPreservesManagedStateWhenPurgeConfigFails(t *test
 		t.Fatal(err)
 	}
 
-	if _, err := removeStandaloneBinary(binaryPath, receiptPath, "", "", configPath); err == nil {
+	if _, err := removeStandaloneBinary(binaryPath, receiptPath, configPath); err == nil {
 		t.Fatalf("expected config cleanup failure, got %v", err)
 	}
 	if _, err := os.Stat(binaryPath); err != nil {
@@ -105,7 +152,7 @@ func TestRemoveStandaloneBinaryPreservesManagedStateWhenPurgeConfigFails(t *test
 	if err := os.WriteFile(configPath, []byte("config"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := removeStandaloneBinary(binaryPath, receiptPath, "", "", configPath); err != nil {
+	if _, err := removeStandaloneBinary(binaryPath, receiptPath, configPath); err != nil {
 		t.Fatalf("retry after config cleanup failure: %v", err)
 	}
 	if _, err := os.Stat(binaryPath); !os.IsNotExist(err) {
