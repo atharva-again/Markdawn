@@ -1,24 +1,64 @@
 name: Release CLI
 
 on:
-  push:
-    tags:
-      - "cli/v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version without a leading v (for example, 1.2.3)"
+        required: true
+        type: string
 
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: read
+
+concurrency:
+  group: release-cli
+  cancel-in-progress: false
 
 jobs:
+  validate-release:
+    name: Validate release request
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - name: Validate version and release branch
+        id: version
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/master" ]] || {
+            echo "CLI releases must be dispatched from master" >&2
+            exit 1
+          }
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]] || {
+            echo "invalid CLI release version: $VERSION" >&2
+            exit 1
+          }
+          normalized_version="${VERSION%%+*}"
+          echo "version=$VERSION" >>"$GITHUB_OUTPUT"
+          echo "tag=cli/v$VERSION" >>"$GITHUB_OUTPUT"
+          if [[ "$normalized_version" == *-* ]]; then
+            echo "prerelease=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >>"$GITHUB_OUTPUT"
+          fi
+
   test-unix:
     name: Test CLI (${{ matrix.os }})
+    needs: validate-release
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24.x"
@@ -34,9 +74,12 @@ jobs:
 
   test-windows:
     name: Test CLI (Windows)
+    needs: validate-release
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24.x"
@@ -56,37 +99,56 @@ jobs:
           ./scripts/install-cli.ps1.test.ps1
           ./scripts/standalone-cli.e2e.ps1
 
-  release:
-    needs: [test-unix, test-windows]
+  release-gate:
+    name: Release approval
+    needs: [validate-release, test-unix, test-windows]
     runs-on: ubuntu-latest
+    environment:
+      name: release-gate
+      deployment: true
+    steps:
+      - run: echo "Release approved"
+
+  release:
+    name: Build and announce CLI release
+    needs: [validate-release, test-unix, test-windows, release-gate]
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24.x"
           cache-dependency-path: cli/go.sum
 
-      - name: Build release archives
-        id: release-version
+      - name: Ensure the release tag does not already exist
         shell: bash
+        env:
+          TAG: ${{ needs.validate-release.outputs.tag }}
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#cli/v}"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]] || {
-            echo "invalid CLI release version: $version" >&2
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "release tag already exists: $TAG" >&2
             exit 1
-          }
-          normalized_version="${version%%+*}"
+          fi
+
+      - name: Build release archives
+        shell: bash
+        env:
+          VERSION: ${{ needs.validate-release.outputs.version }}
+        run: |
+          set -euo pipefail
           source_date_epoch="$(git log -1 --format=%ct "$GITHUB_SHA")"
           export SOURCE_DATE_EPOCH="$source_date_epoch"
-          if [[ "$normalized_version" == *-* ]]; then
-            echo "prerelease=true" >>"$GITHUB_OUTPUT"
-          else
-            echo "prerelease=false" >>"$GITHUB_OUTPUT"
-          fi
           mkdir -p dist
           for target in \
             linux/amd64 linux/arm64 \
@@ -94,13 +156,13 @@ jobs:
             windows/amd64 windows/arm64; do
             goos="${target%/*}"
             goarch="${target#*/}"
-            archive="markdawn_${version}_${goos}_${goarch}"
+            archive="markdawn_${VERSION}_${goos}_${goarch}"
             stage="$(mktemp -d)"
             binary="markdawn"
             if [[ "$goos" == "windows" ]]; then binary="markdawn.exe"; fi
             CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go -C cli build \
               -trimpath \
-              -ldflags "-s -w -X main.version=${version} -X main.commit=${GITHUB_SHA}" \
+              -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${GITHUB_SHA}" \
               -o "$stage/$binary" .
             cp LICENSE cli/README.md "$stage/"
             find "$stage" -type f -exec touch -d "@$source_date_epoch" {} +
@@ -110,7 +172,7 @@ jobs:
             else
               tar --sort=name --mtime="@$source_date_epoch" --owner=0 --group=0 --numeric-owner -C "$stage" -czf "dist/${archive}.tar.gz" .
             fi
-            if [[ "$normalized_version" != *-* ]]; then
+            if [[ "${VERSION%%+*}" != *-* ]]; then
               if [[ "$goos" == "windows" ]]; then
                 cp "dist/${archive}.zip" "dist/markdawn_${goos}_${goarch}.zip"
               else
@@ -127,8 +189,20 @@ jobs:
         with:
           subject-path: "dist/*"
 
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*
-          generate_release_notes: true
-          prerelease: ${{ steps.release-version.outputs.prerelease }}
+      - name: Create GitHub release and tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ needs.validate-release.outputs.prerelease }}
+          TAG: ${{ needs.validate-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          prerelease_flag=()
+          if [[ "$PRERELEASE" == "true" ]]; then
+            prerelease_flag=(--prerelease)
+          fi
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --generate-notes \
+            "${prerelease_flag[@]}" \
+            dist/*

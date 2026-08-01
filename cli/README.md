@@ -353,4 +353,12 @@ Run `markdawn <command> --help` for complete command-specific flags.
 
 ## Maintainer releases
 
-Push a signed `cli/vX.Y.Z` tag. The release workflow runs native Linux, macOS, and Windows tests—including transactional installer and uninstall E2E coverage—then cross-compiles six platform/architecture combinations, creates deterministic versioned archives and latest-stable aliases, creates checksums, publishes build-provenance attestations, and attaches the archives and installers to a GitHub release.
+Releases are **release-last**: the public GitHub release and its `cli/vX.Y.Z` tag are created only after the build, verification, and provenance-attestation steps succeed.
+
+1. Prepare and merge a release PR from `master`, including the user-facing release notes and any required documentation or compatibility changes.
+2. In GitHub Actions, run **Release CLI** from `master` and enter `X.Y.Z` (without a leading `v`).
+3. A second maintainer approves the `release-gate` environment deployment.
+4. The workflow reruns native Linux, macOS, and Windows tests—including transactional installer and uninstall E2E coverage—then cross-compiles six platform/architecture combinations, creates deterministic versioned archives and stable-release aliases, checksums, and build-provenance attestations.
+5. Finally, it creates the GitHub release, targeting the selected `master` commit, and creates the `cli/vX.Y.Z` tag with the release assets.
+
+Repository administrators must configure the `release-gate` environment to require a reviewer. The `release` environment can additionally be protected for the artifact-attestation and announcement job.
