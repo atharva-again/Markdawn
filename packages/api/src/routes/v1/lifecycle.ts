@@ -65,7 +65,9 @@ function auditLifecycleMutation(operation: ApiTokenAuditOperation) {
 }
 
 const lifecycleRoute = new Hono();
-lifecycleRoute.use('*', requireV1Auth);
+for (const { routePath } of Object.values(lifecyclePaths)) {
+  lifecycleRoute.use(routePath, requireV1Auth);
+}
 
 lifecycleRoute.post(
   lifecyclePaths.pageCopy.routePath,
