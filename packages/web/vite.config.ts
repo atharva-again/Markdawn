@@ -3,6 +3,7 @@ import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
+import { copyEmojiData } from './vite/emojiDataPlugin';
 
 const monorepoRoot = path.resolve(__dirname, '../../');
 
@@ -28,7 +29,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     envDir: monorepoRoot,
-    plugins: [react(), tailwindcss(), copyInstallerScripts()],
+    plugins: [react(), tailwindcss(), copyInstallerScripts(), copyEmojiData()],
     build: {
       rollupOptions: {
         output: {

@@ -17,7 +17,7 @@ import { useCallback, useState } from 'react';
 interface UseFloatingMenuOptions {
   align?: 'start' | 'end';
   matchReferenceWidth?: boolean;
-  role?: 'listbox' | 'menu';
+  role?: 'dialog' | 'listbox' | 'menu';
   sideOffset?: number;
   onOpen?: () => void;
 }
@@ -71,6 +71,7 @@ export function useFloatingMenu({
   return {
     isOpen,
     isMounted,
+    context,
     open,
     close,
     setIsOpen,

@@ -2,6 +2,19 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+.emoji-picker-root {
+  --emoji-picker-cell-size-rem: 2;
+  --emoji-picker-row-padding-rem: 0.5;
+}
+
+.emoji-picker-row {
+  padding-inline: calc(var(--emoji-picker-row-padding-rem) * 1rem);
+}
+
+.emoji-picker-emoji {
+  min-width: calc(var(--emoji-picker-cell-size-rem) * 1rem);
+}
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --z-index-dropdown: 40;
