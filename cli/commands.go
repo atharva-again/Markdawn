@@ -28,6 +28,9 @@ type CLI struct {
 	Whoami     WhoamiCmd             `cmd:"" help:"Show the authenticated user."`
 	Page       PageCmd               `cmd:"" help:"Read and edit pages."`
 	Folder     FolderCmd             `cmd:"" help:"Discover accessible folders."`
+	Trash      TrashCmd              `cmd:"" help:"Manage deleted pages and folders."`
+	Export     ExportCmd             `cmd:"" help:"Export Markdawn content."`
+	Import     ImportCmd             `cmd:"" help:"Import Markdawn content."`
 	Update     UpdateCmd             `cmd:"" help:"Update a standalone Markdawn installation."`
 	Uninstall  UninstallCmd          `cmd:"" help:"Remove a standalone Markdawn installation."`
 	Doctor     DoctorCmd             `cmd:"" help:"Check CLI, authentication, and standalone install health."`
@@ -80,10 +83,35 @@ type PageCmd struct {
 	Create PageCreateCmd `cmd:"" help:"Create a page."`
 	Edit   PageEditCmd   `cmd:"" help:"Edit a page's authored Markdown."`
 	Update PageUpdateCmd `cmd:"" help:"Update a page's title or icon."`
+	Move   PageMoveCmd   `cmd:"" help:"Move pages."`
+	Copy   PageCopyCmd   `cmd:"" help:"Copy pages."`
+	Delete PageDeleteCmd `cmd:"" help:"Move pages to Trash."`
 }
 
 type FolderCmd struct {
-	List FolderListCmd `cmd:"" help:"List accessible folders."`
+	List   FolderListCmd   `cmd:"" help:"List accessible folders."`
+	Create FolderCreateCmd `cmd:"" help:"Create a folder."`
+	Update FolderUpdateCmd `cmd:"" help:"Rename a folder."`
+	Move   FolderMoveCmd   `cmd:"" help:"Move folders."`
+	Copy   FolderCopyCmd   `cmd:"" help:"Copy folders."`
+	Delete FolderDeleteCmd `cmd:"" help:"Move folders to Trash."`
+}
+
+type TrashCmd struct {
+	List    TrashListCmd    `cmd:"" help:"List trashed pages and folders."`
+	Restore TrashRestoreCmd `cmd:"" help:"Restore trashed items."`
+	Delete  TrashDeleteCmd  `cmd:"" help:"Permanently delete trashed items."`
+	Empty   TrashEmptyCmd   `cmd:"" help:"Permanently delete all trashed items."`
+}
+
+type ExportCmd struct {
+	Page ExportPageCmd `cmd:"" help:"Export one page with its attachments."`
+	All  ExportAllCmd  `cmd:"" help:"Export all accessible pages as a ZIP."`
+}
+
+type ImportCmd struct {
+	Page   ImportPageCmd   `cmd:"" help:"Import one Markdown page."`
+	Folder ImportFolderCmd `cmd:"" help:"Import a folder or Obsidian vault."`
 }
 
 type CompletionCmd struct {

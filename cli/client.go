@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -20,6 +21,10 @@ type apiErrorEnvelope struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
 	} `json:"error"`
+}
+
+type legacyAPIError struct {
+	Message string `json:"message"`
 }
 
 type client struct {
@@ -120,9 +125,15 @@ func (c *client) requestWithContext(ctx context.Context, method, path string, bo
 	code := strings.TrimSpace(envelope.Error.Code)
 	message := strings.TrimSpace(envelope.Error.Message)
 	if code == "" || message == "" {
-		return nil, &cliError{
-			Code: "invalid_response", Message: "Markdawn returned an invalid error response",
-			StatusCode: response.StatusCode,
+		var legacy legacyAPIError
+		if err := json.Unmarshal(data, &legacy); err == nil && strings.TrimSpace(legacy.Message) != "" {
+			code = "api_error"
+			message = strings.TrimSpace(legacy.Message)
+		} else {
+			return nil, &cliError{
+				Code: "invalid_response", Message: "Markdawn returned an invalid error response",
+				StatusCode: response.StatusCode,
+			}
 		}
 	}
 	retryAfter := time.Duration(0)
@@ -157,4 +168,17 @@ func decodeJSON(response *http.Response, target any) error {
 		return &cliError{Code: "invalid_response", Message: "Markdawn returned invalid JSON", Cause: err}
 	}
 	return nil
+}
+
+func discardAndCloseResponse(response *http.Response) error {
+	_, readErr := io.Copy(io.Discard, response.Body)
+	closeErr := response.Body.Close()
+	if readErr == nil && closeErr == nil {
+		return nil
+	}
+	return &cliError{
+		Code:    "network_error",
+		Message: "could not drain Markdawn response",
+		Cause:   errors.Join(readErr, closeErr),
+	}
 }

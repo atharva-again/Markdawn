@@ -76,12 +76,13 @@ to the same API and page content.
 | --- | --- | --- |
 | Read pages and folders | Browse, render Markdown, and navigate workspace UI | `page view`, `page list`, and `folder list`, including JSON output |
 | Create pages | Forms and editor UI | `page create`, including Markdown from files or stdin |
+| Page and folder lifecycle | Create, rename, move, copy, and manage deleted items | Create, update, move, copy, and Trash commands, including bulk operations |
 | Edit authored Markdown | Interactive Milkdown editor with revision protection | Interactive editor, exact edits, revision-guarded replace, append, and prepend |
 | Concurrent document updates | Live WebSocket/Yjs collaboration | Server-side content commands apply against current content; no live editing session |
 | Page title and icon | Full metadata UI | `page update`; content frontmatter can carry page properties and icons |
 | Cover images and properties panel | Supported | No dedicated cover or properties-panel command |
-| Workspace administration, collaborators, shares, tags, favorites, and trash | Supported | Not currently exposed as CLI commands |
-| Import and export | Obsidian import and Markdown export UI | Not currently exposed as CLI commands |
+| Workspace administration, collaborators, shares, tags, and favorites | Supported | Not currently exposed as CLI commands |
+| Import and export | Obsidian import and Markdown export UI | Markdown page import, folder/vault import, per-page export, and export-all ZIP |
 | Authentication | Google/GitHub OAuth browser session | Named API token through `login` or environment variables |
 | Automation and agent use | Browser-driven only | Stable JSON output, non-interactive mode, idempotency keys, and Agent Skills support |
 

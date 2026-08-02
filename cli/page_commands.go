@@ -77,6 +77,21 @@ type PageUpdateCmd struct {
 	ClearIcon bool   `help:"Remove the page icon."`
 }
 
+type PageMoveCmd struct {
+	References []string `arg:"" required:"" name:"pages" help:"Page IDs or exact titles."`
+	Parent     string   `help:"Destination folder ID; omit for workspace root." placeholder:"FOLDER_ID"`
+}
+
+type PageCopyCmd struct {
+	References []string `arg:"" required:"" name:"pages" help:"Page IDs or exact titles."`
+	Parent     string   `help:"Destination folder ID; omit for workspace root." placeholder:"FOLDER_ID"`
+}
+
+type PageDeleteCmd struct {
+	References []string `arg:"" required:"" name:"pages" help:"Page IDs or exact titles."`
+	Yes        bool     `short:"y" help:"Skip the Trash confirmation."`
+}
+
 type uncertainEditDetails struct {
 	IdempotencyKey string `json:"idempotencyKey,omitempty"`
 	EditID         string `json:"editId,omitempty"`
@@ -192,7 +207,7 @@ func (cmd *PageCreateCmd) Run(r *runtimeState) error {
 	}
 	created, err := c.createPage(request)
 	if err != nil {
-		return err
+		return uncertainLifecycleMutationOutcome(err)
 	}
 	if r.cli.JSON {
 		return r.printJSON(created)
@@ -283,6 +298,57 @@ func (cmd *PageUpdateCmd) Run(r *runtimeState) error {
 		r.style(dimStyle, terminalText(updated.ID)),
 	)
 	return err
+}
+
+func pageDestination(parent string) (*string, error) {
+	if parent != "" && !isUUID(parent) {
+		return nil, usageError("--parent must be a folder UUID")
+	}
+	if parent == "" {
+		return nil, nil
+	}
+	return &parent, nil
+}
+
+func (cmd *PageMoveCmd) Run(r *runtimeState) error {
+	parent, err := pageDestination(cmd.Parent)
+	if err != nil {
+		return err
+	}
+	return runPageLifecycleBatch(r, cmd.References, func(c *client, pageID string) error {
+		_, moveErr := c.movePage(pageID, parent)
+		return moveErr
+	})
+}
+
+func (cmd *PageCopyCmd) Run(r *runtimeState) error {
+	parent, err := pageDestination(cmd.Parent)
+	if err != nil {
+		return err
+	}
+	c, err := r.client()
+	if err != nil {
+		return err
+	}
+	result, selected := resolveLifecycleBatch(cmd.References, r.resolvePage, func(item page) string {
+		return item.ID
+	})
+	return runResolvedLifecycleBatch(r, c, result, selected, func(c *client, item page, id string) (lifecycleActionResult, error) {
+		copied, copyErr := c.copyPage(id, parent)
+		if copyErr != nil {
+			return lifecycleActionResult{SourceID: id}, copyErr
+		}
+		return lifecycleActionResult{ID: copied.ID, SourceID: id}, nil
+	})
+}
+
+func (cmd *PageDeleteCmd) Run(r *runtimeState) error {
+	if err := confirmLifecycleAction(r, cmd.Yes, "Move selected pages to Trash?"); err != nil {
+		return err
+	}
+	return runPageLifecycleBatch(r, cmd.References, func(c *client, pageID string) error {
+		return c.trashPage(pageID)
+	})
 }
 
 func (cmd *PageEditExactCmd) Run(r *runtimeState) error {

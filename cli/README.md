@@ -158,10 +158,35 @@ markdawn page edit replace <page-id-or-title> {--content-text CONTENT | --conten
 markdawn page edit append <page-id-or-title> {--content-text CONTENT | --content-file CONTENT}
 markdawn page edit prepend <page-id-or-title> {--content-text CONTENT | --content-file CONTENT}
 markdawn page update <page-id-or-title> [--title TITLE] [--icon ICON | --clear-icon]
+markdawn page move <page-id-or-title>... [--parent FOLDER_ID]
+markdawn page copy <page-id-or-title>... [--parent FOLDER_ID]
+markdawn page delete <page-id-or-title>... [--yes]
 
 markdawn folder list
+markdawn folder create [--name NAME] [--parent FOLDER_ID]
+markdawn folder update <folder-id-or-name> --name NAME
+markdawn folder move <folder-id-or-name>... [--parent FOLDER_ID]
+markdawn folder copy <folder-id-or-name>... [--parent FOLDER_ID]
+markdawn folder delete <folder-id-or-name>... [--yes]
+
+markdawn trash list
+markdawn trash restore {page|folder} <id-or-title>...
+markdawn trash delete {page|folder} <id-or-title>... [--yes]
+markdawn trash empty [--yes]
+
+markdawn export page <page-id-or-title> [--output FILE] [--force]
+markdawn export all --output FILE [--force]
+markdawn import page FILE.md
+markdawn import folder DIRECTORY [--yes]
 markdawn completion {bash|zsh|fish}
 ```
+
+### Lifecycle retries
+
+Lifecycle mutations are not automatically retried. If a batch item's JSON `status` is
+`outcome_uncertain`, the server may have completed the mutation before the response was lost or
+unreadable. Inspect the affected page, folder, or Trash before retrying; in particular, blindly
+retrying a copy can create an additional copy.
 
 ### Create from a file or stdin
 
