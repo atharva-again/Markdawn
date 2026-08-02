@@ -12,7 +12,7 @@ Notion is a human tool with an API bolted on. Obsidian is a local vault you sync
 
 ### Editor
 - Real-time collaborative editing via WebSocket (CRDT-based — concurrent edits merge cleanly)
-- Markdown-first: GFM (tables, task lists, strikethrough), LaTeX math, inline code, images
+- markdown-first: GFM (tables, task lists, strikethrough), LaTeX math, inline code, images
 - `[[Wiki links]]` to link pages — backlinks are tracked automatically
 - Table of contents generated from headings
 - Page titles, icons, and cover images
@@ -33,11 +33,11 @@ Notion is a human tool with an API bolted on. Obsidian is a local vault you sync
 
 ### Import
 - Obsidian vault import — wiki links, folders, and markdown files map directly
-- Markdown export
+- markdown export
 
 ### API
 - Versioned REST API for browser sessions, the CLI, local agents, and integrations
-- Safe exact Markdown replacements that appear live in connected browser editors
+- Safe exact markdown replacements that appear live in connected browser editors
 - Named read-only or write-capable API tokens
 - Official Go CLI and portable agent skill
 
@@ -60,7 +60,7 @@ irm https://markdawn.space/install.ps1 | iex
 
 The installer automatically configures PATH. Set `MARKDAWN_MODIFY_PATH=0` before installation to
 opt out. PATH changes apply to new terminal sessions; open a new terminal before running
-`markdawn login`. The official CLI supports safe Markdown edits, structured JSON output, shell
+`markdawn login`. The official CLI supports safe markdown edits, structured JSON output, shell
 completion, and scoped API tokens. It runs against `https://markdawn.space` by default and can
 target a self-hosted server with `MARKDAWN_URL` or `--url`.
 
@@ -74,15 +74,15 @@ to the same API and page content.
 
 | Capability | Web app | CLI |
 | --- | --- | --- |
-| Read pages and folders | Browse, render Markdown, and navigate workspace UI | `page view`, `page list`, and `folder list`, including JSON output |
-| Create pages | Forms and editor UI | `page create`, including Markdown from files or stdin |
+| Read pages and folders | Browse, render markdown, and navigate workspace UI | `page view`, `page list`, and `folder list`, including JSON output |
+| Create pages | Forms and editor UI | `page create`, including markdown from files or stdin |
 | Page and folder lifecycle | Create, rename, move, copy, and manage deleted items | Create, update, move, copy, and Trash commands, including bulk operations |
-| Edit authored Markdown | Interactive Milkdown editor with revision protection | Interactive editor, exact edits, revision-guarded replace, append, and prepend |
+| Edit authored markdown | Interactive Milkdown editor with revision protection | Interactive editor, exact edits, revision-guarded replace, append, and prepend |
 | Concurrent document updates | Live WebSocket/Yjs collaboration | Server-side content commands apply against current content; no live editing session |
 | Page title and icon | Full metadata UI | `page update`; content frontmatter can carry page properties and icons |
 | Cover images and properties panel | Supported | No dedicated cover or properties-panel command |
 | Workspace administration, collaborators, shares, tags, and favorites | Supported | Not currently exposed as CLI commands |
-| Import and export | Obsidian import and Markdown export UI | Markdown page import, folder/vault import, per-page export, and export-all ZIP |
+| Import and export | Obsidian import and markdown export UI | markdown page import, folder/vault import, per-page export, and export-all ZIP |
 | Authentication | Google/GitHub OAuth browser session | Named API token through `login` or environment variables |
 | Automation and agent use | Browser-driven only | Stable JSON output, non-interactive mode, idempotency keys, and Agent Skills support |
 
