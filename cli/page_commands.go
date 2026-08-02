@@ -25,11 +25,11 @@ type PageCreateCmd struct {
 }
 
 type PageEditCmd struct {
-	Interactive PageEditInteractiveCmd `cmd:"" default:"withargs" help:"Open a page in the configured editor."`
-	Exact       PageEditExactCmd       `cmd:"" help:"Apply an exact authored-Markdown edit."`
-	Replace     PageEditReplaceCmd     `cmd:"" help:"Replace all authored Markdown safely."`
 	Append      PageEditAppendCmd      `cmd:"" help:"Append Markdown after one blank line."`
+	Exact       PageEditExactCmd       `cmd:"" help:"Apply an exact authored-Markdown edit."`
+	Interactive PageEditInteractiveCmd `cmd:"" default:"withargs" help:"Open a page in the configured editor."`
 	Prepend     PageEditPrependCmd     `cmd:"" help:"Prepend Markdown before one blank line."`
+	Replace     PageEditReplaceCmd     `cmd:"" help:"Replace all authored Markdown safely."`
 }
 
 type PageEditInteractiveCmd struct {

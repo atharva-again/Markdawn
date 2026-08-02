@@ -23,20 +23,21 @@ type CLI struct {
 	Timeout time.Duration    `help:"HTTP request and retry timeout." default:"30s"`
 	Version kong.VersionFlag `name:"version" short:"v" help:"Print the version."`
 
-	Login      LoginCmd              `cmd:"" help:"Authenticate with a named API token."`
-	Logout     LogoutCmd             `cmd:"" help:"Remove the locally stored API token."`
-	Whoami     WhoamiCmd             `cmd:"" help:"Show the authenticated user."`
-	Page       PageCmd               `cmd:"" help:"Read and edit pages."`
-	Folder     FolderCmd             `cmd:"" help:"Discover accessible folders."`
-	Trash      TrashCmd              `cmd:"" help:"Manage deleted pages and folders."`
-	Export     ExportCmd             `cmd:"" help:"Export Markdawn content."`
-	Import     ImportCmd             `cmd:"" help:"Import Markdawn content."`
-	Update     UpdateCmd             `cmd:"" help:"Update a standalone Markdawn installation."`
-	Uninstall  UninstallCmd          `cmd:"" help:"Remove a standalone Markdawn installation."`
-	Doctor     DoctorCmd             `cmd:"" help:"Check CLI, authentication, and standalone install health."`
-	Skill      SkillCmd              `cmd:"" help:"Install or update the optional Markdawn agent skill."`
-	Finalize   StandaloneFinalizeCmd `cmd:"" name:"standalone-finalize" hidden:""`
-	Completion CompletionCmd         `cmd:"" help:"Generate a shell completion script."`
+	Login  LoginCmd  `cmd:"" help:"Authenticate with a named API token." group:"Authentication"`
+	Logout LogoutCmd `cmd:"" help:"Remove the locally stored API token." group:"Authentication"`
+	Whoami WhoamiCmd `cmd:"" help:"Show the authenticated user." group:"Authentication"`
+	Page   PageCmd   `cmd:"" help:"Read and edit pages." group:"Page"`
+	Folder FolderCmd `cmd:"" help:"Discover accessible folders." group:"Folder"`
+	Trash  TrashCmd  `cmd:"" help:"Manage deleted pages and folders." group:"Trash"`
+	Export ExportCmd `cmd:"" help:"Export Markdawn content." group:"Import and Export"`
+	Import ImportCmd `cmd:"" help:"Import Markdawn content." group:"Import and Export"`
+	Skill  SkillCmd  `cmd:"" help:"Install or update the optional Markdawn agent skill." group:"Skill"`
+
+	Completion CompletionCmd         `cmd:"" help:"Generate a shell completion script." group:"Tooling"`
+	Doctor     DoctorCmd             `cmd:"" help:"Check CLI, authentication, and standalone install health." group:"Tooling"`
+	Finalize   StandaloneFinalizeCmd `cmd:"" name:"standalone-finalize" hidden:"" group:"Tooling"`
+	Uninstall  UninstallCmd          `cmd:"" help:"Remove a standalone Markdawn installation." group:"Tooling"`
+	Update     UpdateCmd             `cmd:"" help:"Update a standalone Markdawn installation." group:"Tooling"`
 }
 
 type LoginCmd struct{}
@@ -78,40 +79,40 @@ type SkillUpdateCmd struct {
 }
 
 type PageCmd struct {
-	List   PageListCmd   `cmd:"" help:"List accessible pages."`
-	View   PageViewCmd   `cmd:"" help:"View a page's Markdown."`
-	Create PageCreateCmd `cmd:"" help:"Create a page."`
-	Edit   PageEditCmd   `cmd:"" help:"Edit a page's authored Markdown."`
-	Update PageUpdateCmd `cmd:"" help:"Update a page's title or icon."`
-	Move   PageMoveCmd   `cmd:"" help:"Move pages."`
 	Copy   PageCopyCmd   `cmd:"" help:"Copy pages."`
+	Create PageCreateCmd `cmd:"" help:"Create a page."`
 	Delete PageDeleteCmd `cmd:"" help:"Move pages to Trash."`
+	Edit   PageEditCmd   `cmd:"" help:"Edit a page's authored Markdown."`
+	List   PageListCmd   `cmd:"" help:"List accessible pages."`
+	Move   PageMoveCmd   `cmd:"" help:"Move pages."`
+	Update PageUpdateCmd `cmd:"" help:"Update a page's title or icon."`
+	View   PageViewCmd   `cmd:"" help:"View a page's Markdown."`
 }
 
 type FolderCmd struct {
-	List   FolderListCmd   `cmd:"" help:"List accessible folders."`
-	Create FolderCreateCmd `cmd:"" help:"Create a folder."`
-	Update FolderUpdateCmd `cmd:"" help:"Rename a folder."`
-	Move   FolderMoveCmd   `cmd:"" help:"Move folders."`
 	Copy   FolderCopyCmd   `cmd:"" help:"Copy folders."`
+	Create FolderCreateCmd `cmd:"" help:"Create a folder."`
 	Delete FolderDeleteCmd `cmd:"" help:"Move folders to Trash."`
+	List   FolderListCmd   `cmd:"" help:"List accessible folders."`
+	Move   FolderMoveCmd   `cmd:"" help:"Move folders."`
+	Update FolderUpdateCmd `cmd:"" help:"Rename a folder."`
 }
 
 type TrashCmd struct {
-	List    TrashListCmd    `cmd:"" help:"List trashed pages and folders."`
-	Restore TrashRestoreCmd `cmd:"" help:"Restore trashed items."`
 	Delete  TrashDeleteCmd  `cmd:"" help:"Permanently delete trashed items."`
 	Empty   TrashEmptyCmd   `cmd:"" help:"Permanently delete all trashed items."`
+	List    TrashListCmd    `cmd:"" help:"List trashed pages and folders."`
+	Restore TrashRestoreCmd `cmd:"" help:"Restore trashed items."`
 }
 
 type ExportCmd struct {
-	Page ExportPageCmd `cmd:"" help:"Export one page with its attachments."`
 	All  ExportAllCmd  `cmd:"" help:"Export all accessible pages as a ZIP."`
+	Page ExportPageCmd `cmd:"" help:"Export one page with its attachments."`
 }
 
 type ImportCmd struct {
-	Page   ImportPageCmd   `cmd:"" help:"Import one Markdown page."`
 	Folder ImportFolderCmd `cmd:"" help:"Import a folder or Obsidian vault."`
+	Page   ImportPageCmd   `cmd:"" help:"Import one Markdown page."`
 }
 
 type CompletionCmd struct {
