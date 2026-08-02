@@ -1,8 +1,60 @@
 import { sql } from 'drizzle-orm';
 import { HTTPException } from 'hono/http-exception';
+import { db } from '../db/connection';
 import { executeQuery, type QueryExecutor } from '../db/query';
+import { deletedFolderOwnerSql, deletedPageOwnerSql } from './deletedEntityOwner';
 import { purgeEntityAccessMetadata } from './entityCleanup';
-import { purgeUnreferencedUploadsForPages } from './uploadCleanup';
+import { lockWorkspaceAccessMutation } from './share-access';
+import {
+  drainUploadDeletionQueueBestEffort,
+  purgeUnreferencedUploadsForPages,
+} from './uploadCleanup';
+
+export async function emptyTrashForUser(
+  userId: string,
+): Promise<{ folders: number; pages: number }> {
+  const result = await db.transaction(async (tx) => {
+    await lockWorkspaceAccessMutation(tx, userId);
+    const roots = await executeQuery<{ id: string }>(
+      tx,
+      sql`select f.id
+       from folders f
+       left join folders parent on parent.id = f.parent_id
+       where f.is_deleted = true
+         and ${deletedFolderOwnerSql} = ${userId}
+         and coalesce(parent.is_deleted, false) = false
+       order by f.id
+       for update of f`,
+    );
+    const folderCounts = await purgeFolderSubtrees(
+      tx,
+      roots.rows.map((row) => row.id),
+    );
+    const standalonePages = await executeQuery<{ id: string }>(
+      tx,
+      sql`select p.id
+       from pages p
+       left join folders parent on parent.id = p.parent_id
+       where p.is_deleted = true
+         and ${deletedPageOwnerSql} = ${userId}
+         and coalesce(parent.is_deleted, false) = false
+       order by p.id
+       for update of p`,
+    );
+    const pageIds = standalonePages.rows.map((row) => row.id);
+    await purgeUnreferencedUploadsForPages(tx, pageIds);
+    await purgeEntityAccessMetadata(tx, 'page', pageIds);
+    if (pageIds.length > 0) {
+      await executeQuery(
+        tx,
+        sql`delete from pages where id = any(${sql.param(pageIds)}::uuid[]) and is_deleted = true`,
+      );
+    }
+    return { folders: folderCounts.folders, pages: folderCounts.pages + pageIds.length };
+  });
+  await drainUploadDeletionQueueBestEffort();
+  return result;
+}
 
 export async function purgeFolderSubtrees(
   executor: QueryExecutor,

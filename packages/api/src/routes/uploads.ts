@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -22,6 +22,7 @@ import {
   MAX_IMAGE_SIZE_BYTES,
 } from '../utils/image-upload';
 import { lockEntityAccess, lockWorkspaceAccess } from '../utils/share-access';
+import { materializeUploadFile } from '../utils/uploadMaterialization';
 
 const uploadsRoute = new Hono();
 const MAX_UPLOAD_REQUEST_BYTES = MAX_IMAGE_SIZE_BYTES + 256 * 1024;
@@ -154,17 +155,12 @@ uploadsRoute.post(
       });
     }
 
-    await mkdir(uploadsDir, { recursive: true });
-
     const extension = IMAGE_EXTENSION_BY_MIME.get(file.type);
     if (!extension) {
       throw new HTTPException(400, { message: 'Unsupported image type' });
     }
     const filename = `${randomUUID()}.${extension}`;
-    const filePath = path.join(uploadsDir, filename);
-    await writeFile(filePath, buffer);
-
-    try {
+    await materializeUploadFile(filename, buffer, async () => {
       await db.transaction(async (tx) => {
         await lockEntityAccess(tx, 'page', pageId);
         await ensureActorPageAccess(actor, pageId, 'edit', tx);
@@ -189,17 +185,7 @@ uploadsRoute.post(
          on conflict (upload_id, page_id) do nothing`,
         );
       });
-    } catch (error) {
-      try {
-        await unlink(filePath);
-      } catch (cleanupError) {
-        throw new AggregateError(
-          [error, cleanupError],
-          'Upload failed and file cleanup was unsuccessful',
-        );
-      }
-      throw error;
-    }
+    });
 
     return c.json({ url: `/api/uploads/${filename}` });
   },

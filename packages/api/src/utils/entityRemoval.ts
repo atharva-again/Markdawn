@@ -3,13 +3,20 @@ import { sql } from 'drizzle-orm';
 import { HTTPException } from 'hono/http-exception';
 import { db } from '../db/connection';
 import { executeQuery, query } from '../db/query';
+import { deletedPageOwnerSql } from './deletedEntityOwner';
+import { purgeEntityAccessMetadata } from './entityCleanup';
 import {
   ensureCanAdminEntity,
   lockEntityAccessMutation,
+  lockWorkspaceAccessMutation,
   type ShareEntityType,
 } from './share-access';
 import { notifyShareRevoke } from './share-notify';
 import { getEntityMetaUserIds } from './shareRecipients';
+import {
+  drainUploadDeletionQueueBestEffort,
+  purgeUnreferencedUploadsForPages,
+} from './uploadCleanup';
 
 export type FolderTrashResult =
   | { deleted: true }
@@ -60,6 +67,52 @@ export async function movePageToTrash(pageId: string, userId: string): Promise<v
     await executeQuery(tx, sql`select pg_notify(${'page_deleted'}, ${JSON.stringify({ pageId })})`);
     await notifyShareRevoke({ entityType: 'page', entityId: pageId, metaUserIds }, tx);
   });
+}
+
+export async function permanentlyDeletePage(pageId: string, userId: string): Promise<void> {
+  const deleted = await query<{ owner_id: string | null }>(
+    sql`select ${deletedPageOwnerSql} as owner_id
+        from pages p where p.id = ${pageId} and p.is_deleted = true`,
+  );
+  const deletedOwnerId = deleted.rows[0]?.owner_id;
+  if (!deletedOwnerId) {
+    const active = await query<{ owner_id: string | null }>(
+      sql`select ${deletedPageOwnerSql} as owner_id
+          from pages p where p.id = ${pageId} and p.is_deleted = false`,
+    );
+    if (!active.rows[0]) throw new HTTPException(404, { message: 'Page not found' });
+    if (active.rows[0].owner_id !== userId) {
+      throw new HTTPException(403, {
+        message: 'You can only permanently delete pages that you own',
+      });
+    }
+    throw new HTTPException(409, {
+      message: 'Page must be moved to Trash before it can be permanently deleted',
+    });
+  }
+  if (deletedOwnerId !== userId) {
+    throw new HTTPException(403, { message: 'You can only permanently delete pages that you own' });
+  }
+
+  await db.transaction(async (tx) => {
+    await lockWorkspaceAccessMutation(tx, userId);
+    const lockedPage = await executeQuery<{ owner_id: string | null }>(
+      tx,
+      sql`select ${deletedPageOwnerSql} as owner_id
+          from pages p where p.id = ${pageId} and p.is_deleted = true for update`,
+    );
+    const ownerId = lockedPage.rows[0]?.owner_id;
+    if (!ownerId) throw new HTTPException(404, { message: 'Page not found' });
+    if (ownerId !== userId) {
+      throw new HTTPException(403, {
+        message: 'You can only permanently delete pages that you own',
+      });
+    }
+    await purgeUnreferencedUploadsForPages(tx, [pageId]);
+    await purgeEntityAccessMetadata(tx, 'page', [pageId]);
+    await executeQuery(tx, sql`delete from pages where id = ${pageId} and is_deleted = true`);
+  });
+  await drainUploadDeletionQueueBestEffort();
 }
 
 export async function moveFolderToTrash(

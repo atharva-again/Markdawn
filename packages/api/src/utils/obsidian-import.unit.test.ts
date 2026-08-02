@@ -31,6 +31,7 @@ describe('obsidian-import / isImageFile', () => {
 describe('obsidian-import / isMarkdownFile', () => {
   it('returns true for .md files', () => {
     expect(isMarkdownFile('note.md')).toBe(true);
+    expect(isMarkdownFile('note.MD')).toBe(true);
   });
 
   it('returns false for non-.md files', () => {

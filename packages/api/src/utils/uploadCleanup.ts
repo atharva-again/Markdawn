@@ -123,3 +123,23 @@ export async function processUploadDeletionQueue(
 
   return { failed, processed };
 }
+
+/**
+ * A deletion transaction has already committed when this drain runs. Queue
+ * rows are durable, so an unexpected database or filesystem-drain failure is
+ * logged and left for startup or a later drain instead of turning a completed
+ * destructive operation into a retry-unsafe API failure.
+ */
+export async function drainUploadDeletionQueueBestEffort(
+  processQueue: () => Promise<UploadCleanupResult> = processUploadDeletionQueue,
+): Promise<boolean> {
+  try {
+    await processQueue();
+    return true;
+  } catch (error) {
+    getApiLogger().error('Post-commit upload deletion queue drain failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+}

@@ -11,36 +11,34 @@ import {
   type WikiLinkPresentationResponse,
 } from '@markdawn/shared';
 import { bindWikiLinkTargets, createYjsDocWithTitle } from '@markdawn/shared/markdown-yjs';
-import { extractWikiLinkTargetIds } from '@markdawn/shared/yjs-helpers';
 import { sql } from 'drizzle-orm';
-import { Hono } from 'hono';
+import { type Context, Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
-import JSZip from 'jszip';
 import { marked } from 'marked';
 import { auth } from '../auth';
 import { db } from '../db/connection';
-import { executeQuery, type QueryExecutor, query } from '../db/query';
-import { uploadsDir } from '../env';
+import { executeQuery, query } from '../db/query';
 import { requireAuth } from '../middleware/auth';
+import { deletedPageOwnerSql } from '../utils/deletedEntityOwner';
 import { ensureDocumentInputSize, ensureYdocSize } from '../utils/documentSize';
 import { purgeEntityAccessMetadata } from '../utils/entityCleanup';
-import { movePageToTrash, removePageFromView } from '../utils/entityRemoval';
-import { extractImages, pageToMarkdown } from '../utils/export-helpers';
-import { allocateFilename, attachmentContentDisposition } from '../utils/filename';
+import { movePageToTrash, permanentlyDeletePage, removePageFromView } from '../utils/entityRemoval';
 import { getEnumerableFolderIds, redactParentId } from '../utils/folderEnumeration';
-import {
-  ensureActorCanCreateInFolder,
-  ensureActorPageAccess,
-  getRequestActor,
-  persistGuestIdentity,
-} from '../utils/guestAccess';
+import { ensureActorPageAccess, getRequestActor } from '../utils/guestAccess';
 import {
   replacePageConnectionIndex,
   replacePageTagConnectionIndex,
 } from '../utils/pageConnectionIndex';
-import { copyPageContent } from '../utils/pageCopy';
 import { createPageForActor } from '../utils/pageCreation';
+import { exportPageForUser } from '../utils/pageExport';
+import {
+  copyPageForActor,
+  ensurePageOrganizationAccess,
+  listTrashedPagesForUser,
+  organizePageForUser,
+  restorePageForUser,
+} from '../utils/pageLifecycle';
 import { notifyPageRename, replacePageRecordFields } from '../utils/pageMutation';
 import { getPageById, getPageByIdForUpdate } from '../utils/pageRepository';
 import {
@@ -51,7 +49,7 @@ import {
   toPageResponse,
 } from '../utils/pageRows';
 import { normalizePageTitle } from '../utils/pageTitle';
-import { getNextPosition, normalizePosition } from '../utils/position';
+import { normalizePosition } from '../utils/position';
 import {
   getPublicPermission,
   type PublicPermission,
@@ -59,18 +57,15 @@ import {
   resolveEntityAccess,
 } from '../utils/publicAccess';
 import {
-  ensureFolderAccess,
   ensurePageAccess,
-  ensureWorkspaceAdmin,
   lockEntityAccess,
-  lockEntityAccessMutations,
   lockWorkspaceAccessMutation,
   type SharePermission,
 } from '../utils/share-access';
 import { notifyShareRecompute } from '../utils/share-notify';
 import { getEntityMetaUserIds, mergeMetaUserIds } from '../utils/shareRecipients';
 import {
-  processUploadDeletionQueue,
+  drainUploadDeletionQueueBestEffort,
   purgeUnreferencedUploadsForPages,
 } from '../utils/uploadCleanup';
 import { getUniqueWorkspacePageLookup } from '../utils/wiki-link-lookup';
@@ -92,24 +87,6 @@ function parsePageIcon(value: unknown): string | null {
   return normalizePageIcon(value);
 }
 
-const deletedPageOwnerSql = sql`coalesce(
-  (
-    select root.created_by
-    from folder_closure fc
-    join folders root on root.id = fc.ancestor_id
-    where fc.descendant_id = p.parent_id
-      and root.parent_id is null
-    order by fc.depth desc
-    limit 1
-  ),
-  (
-    select folder_owner.created_by
-    from folders folder_owner
-    where folder_owner.id = p.parent_id
-  ),
-  p.created_by
-)`;
-
 pagesRoute.use('*', requireAuth);
 
 const _markdownToHtml = (markdown: string): string => {
@@ -123,56 +100,6 @@ const isValidMarkdown = (markdown: string): boolean => {
   } catch {
     return false;
   }
-};
-
-const ensurePageOrganizationAccess = async (
-  page: NormalizedPageRow,
-  targetParentId: string | null,
-  userId: string,
-  executor?: QueryExecutor,
-) => {
-  if (!page.ownerId) {
-    throw new HTTPException(409, { message: 'Page owner could not be determined' });
-  }
-  if (targetParentId === page.id) {
-    throw new HTTPException(400, { message: 'Cannot set parent to self' });
-  }
-
-  await ensurePageAccess(page.id, userId, 'admin', executor);
-  if (page.parentId) {
-    await ensureFolderAccess(page.parentId, userId, 'admin', executor);
-  } else {
-    await ensureWorkspaceAdmin(page.ownerId, userId, executor);
-  }
-
-  let destinationOwnerId: string | null = page.createdBy;
-  if (targetParentId) {
-    const ownerStatement = sql`select get_root_folder_owner(id) as owner_id
-       from folders
-       where id = ${targetParentId} and is_deleted = false`;
-    const ownerResult = executor
-      ? await executeQuery<{ owner_id: string | null }>(executor, ownerStatement)
-      : await query<{ owner_id: string | null }>(ownerStatement);
-    destinationOwnerId = ownerResult.rows[0]?.owner_id ?? null;
-    if (!destinationOwnerId) {
-      throw new HTTPException(404, { message: 'Parent folder not found' });
-    }
-    await ensureFolderAccess(targetParentId, userId, 'admin', executor);
-  } else if (destinationOwnerId) {
-    await ensureWorkspaceAdmin(destinationOwnerId, userId, executor);
-  }
-
-  if (destinationOwnerId !== page.ownerId) {
-    throw new HTTPException(409, { message: 'Pages cannot be moved between different owners' });
-  }
-};
-
-const getDeletedPageById = async (pageId: string) => {
-  const result = await query<PageDatabaseRowWithOwner>(
-    sql`select p.*, ${deletedPageOwnerSql} as owner_id from pages p where p.id = ${pageId} and p.is_deleted = true limit 1`,
-  );
-  const row = result.rows[0] ?? null;
-  return row ? normalizePageRow(row, row.owner_id) : null;
 };
 
 const toPageDto = (page: NormalizedPageRow, parentId: string | null) => ({
@@ -333,18 +260,7 @@ pagesPublicRoute.post(
 
 pagesRoute.get('/trash', async (c) => {
   const user = c.get('user') as { id: string };
-
-  const result = await query<PageDatabaseRowWithOwner>(
-    sql`select p.*, ${deletedPageOwnerSql} as owner_id
-     from pages p
-     left join folders parent on parent.id = p.parent_id
-     where p.is_deleted = true
-       and ${deletedPageOwnerSql} = ${user.id}
-       and coalesce(parent.is_deleted, false) = false
-     order by p.deleted_at desc nulls last, p.position::numeric asc`,
-  );
-
-  return c.json(result.rows.map((row) => toPageResponse(normalizePageRow(row, row.owner_id))));
+  return c.json((await listTrashedPagesForUser(user.id)).map(toPageResponse));
 });
 
 pagesRoute.delete('/trash/empty-all', async (c) => {
@@ -373,7 +289,7 @@ pagesRoute.delete('/trash/empty-all', async (c) => {
     }
     return pageIds.length;
   });
-  await processUploadDeletionQueue();
+  await drainUploadDeletionQueueBestEffort();
 
   return c.json({ deleted: true, count });
 });
@@ -859,88 +775,8 @@ pagesRoute.post(':id/access', async (c) => {
 
 pagesRoute.patch(':id/restore', async (c) => {
   const pageId = c.req.param('id');
-  const page = await getDeletedPageById(pageId);
-
-  if (!page) {
-    throw new HTTPException(404, { message: 'Page not found' });
-  }
-
   const user = c.get('user') as { id: string };
-  if (page.ownerId !== user.id) {
-    throw new HTTPException(403, { message: 'You can only restore pages that you own' });
-  }
-
-  const updateResult = await db.transaction(async (tx) => {
-    await lockWorkspaceAccessMutation(tx, user.id);
-    const lockedPageResult = await executeQuery<{
-      parent_id: string | null;
-      created_by: string | null;
-      owner_id: string | null;
-    }>(
-      tx,
-      sql`select p.parent_id, p.created_by, ${deletedPageOwnerSql} as owner_id
-       from pages p
-       where p.id = ${pageId} and p.is_deleted = true
-       for update`,
-    );
-    const lockedPage = lockedPageResult.rows[0];
-    if (!lockedPage) {
-      throw new HTTPException(404, { message: 'Page not found' });
-    }
-    if (lockedPage.owner_id !== user.id) {
-      throw new HTTPException(403, { message: 'You can only restore pages that you own' });
-    }
-    const affectedBefore = await getEntityMetaUserIds(tx, 'page', pageId);
-
-    let restoreParentId: string | null = null;
-    if (lockedPage.parent_id) {
-      const parentResult = await executeQuery<{ id: string }>(
-        tx,
-        sql`select id
-         from folders
-         where id = ${lockedPage.parent_id} and is_deleted = false
-         for share`,
-      );
-      if (parentResult.rowCount && parentResult.rowCount > 0) {
-        restoreParentId = lockedPage.parent_id;
-      }
-    }
-
-    const restoreCreatorId = restoreParentId ? lockedPage.created_by : user.id;
-    const nextPosition = await getNextPosition('pages', restoreParentId, user.id, tx);
-    const result = await executeQuery<PageDatabaseRow>(
-      tx,
-      sql`update pages
-       set is_deleted = false,
-           deleted_at = null,
-           deletion_batch_id = null,
-           parent_id = ${restoreParentId},
-           created_by = ${restoreCreatorId},
-           position = ${nextPosition},
-           title_search = to_tsvector('english', title),
-           updated_at = now()
-       where id = ${pageId} and is_deleted = true
-      returning *`,
-    );
-    if ((result.rowCount ?? 0) > 0) {
-      const affectedAfter = await getEntityMetaUserIds(tx, 'page', pageId);
-      const metaUserIds = mergeMetaUserIds(affectedBefore, affectedAfter);
-      await notifyShareRecompute({ entityType: 'page', entityId: pageId, metaUserIds }, tx);
-    }
-    return {
-      result,
-      ownerId: restoreParentId ? lockedPage.owner_id : user.id,
-    };
-  });
-
-  if (updateResult.result.rowCount === 0) {
-    throw new HTTPException(500, { message: 'Failed to restore page' });
-  }
-
-  const updatedRow = updateResult.result.rows[0];
-  if (!updatedRow) throw new HTTPException(500, { message: 'Failed to restore page' });
-  const updated = normalizePageRow(updatedRow, updateResult.ownerId);
-  return c.json(toPageResponse(updated));
+  return c.json(toPageResponse(await restorePageForUser(pageId, user.id)));
 });
 
 pagesRoute.patch(':id', async (c) => {
@@ -1075,160 +911,42 @@ pagesRoute.patch(':id', async (c) => {
 
 pagesRoute.patch(':id/move', async (c) => {
   const pageId = c.req.param('id');
-  const page = await getPageById(pageId);
-
-  if (!page) {
-    throw new HTTPException(404, { message: 'Page not found' });
-  }
-
   const user = c.get('user') as { id: string };
-
-  const body = await c.req.json().catch(() => null);
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch (error) {
+    throw new HTTPException(400, { message: 'Invalid JSON body', cause: error });
+  }
   if (!body || typeof body !== 'object') {
     throw new HTTPException(400, { message: 'Invalid body' });
   }
-
   const { parentId, position } = body as {
     parentId?: string | null;
     position?: string | number;
   };
-
-  const hasParentId = Object.hasOwn(body, 'parentId');
-
-  const updateResult = await db.transaction(async (tx) => {
-    const workspaceOwnerId = await lockEntityAccess(tx, 'page', pageId);
-    const currentPage = await getPageById(pageId, tx);
-    if (!currentPage) {
-      throw new HTTPException(404, { message: 'Page not found' });
-    }
-
-    const nextParent = hasParentId ? (parentId ?? null) : currentPage.parentId;
-    await ensurePageOrganizationAccess(currentPage, nextParent, user.id, tx);
-    const nextPosition = normalizePosition(position, currentPage.position);
-    const accessChanged = hasParentId && nextParent !== currentPage.parentId;
-    if (accessChanged) {
-      await lockWorkspaceAccessMutation(tx, workspaceOwnerId);
-    }
-    const affectedBefore = accessChanged ? await getEntityMetaUserIds(tx, 'page', pageId) : [];
-    const result = await executeQuery<PageDatabaseRow>(
-      tx,
-      sql`update pages set parent_id = ${nextParent}, position = ${nextPosition}, updated_at = now() where id = ${pageId} returning *`,
-    );
-
-    if (result.rowCount === 0) {
-      throw new HTTPException(500, { message: 'Failed to move page' });
-    }
-
-    if (accessChanged) {
-      const affectedAfter = await getEntityMetaUserIds(tx, 'page', pageId);
-      await notifyShareRecompute(
-        {
-          entityType: 'page',
-          entityId: pageId,
-          metaUserIds: mergeMetaUserIds(affectedBefore, affectedAfter),
-        },
-        tx,
-      );
-    }
-    return {
-      result,
-      ownerId: currentPage.ownerId,
-      enumerableFolderIds: await getEnumerableFolderIds(user.id, tx),
-    };
+  const updated = await organizePageForUser(pageId, user.id, {
+    ...(Object.hasOwn(body, 'parentId') ? { parentId: parentId ?? null } : {}),
+    ...(position === undefined ? {} : { position }),
   });
-
-  const updatedRow = updateResult.result.rows[0];
-  if (!updatedRow) throw new HTTPException(500, { message: 'Failed to move page' });
-  const updated = normalizePageRow(updatedRow, updateResult.ownerId);
-  return c.json(
-    toPageDto(updated, redactParentId(updated.parentId, updateResult.enumerableFolderIds)),
-  );
+  return c.json(toPageDto(updated, updated.parentId));
 });
 
-pagesRoute.get(':id/export/markdown', async (c) => {
+export async function exportPageMarkdown(c: Context) {
   const pageId = c.req.param('id');
   const user = c.get('user') as { id: string };
-  const snapshot = await db.transaction(async (tx) => {
-    await lockEntityAccess(tx, 'page', pageId);
-    const page = await getPageById(pageId, tx);
-    if (!page) {
-      throw new HTTPException(404, { message: 'Page not found' });
-    }
-    await ensurePageAccess(page.id, user.id, 'view', tx);
-    const uploadResult = await executeQuery<{ filename: string }>(
-      tx,
-      sql`select u.filename
-       from uploads u
-       join upload_page_refs upr on upr.upload_id = u.id
-       where upr.page_id = ${pageId}`,
-    );
-    const targetIds = page.ydoc
-      ? extractWikiLinkTargetIds(new Uint8Array(page.ydoc)).filter((targetId) =>
-          UUID_PATTERN.test(targetId),
-        )
-      : [];
-    const ownerId =
-      page.ownerId ??
-      (
-        await executeQuery<{ owner_id: string | null }>(
-          tx,
-          sql`select coalesce(get_root_folder_owner(parent_id), created_by) as owner_id
-           from pages where id = ${pageId}`,
-        )
-      ).rows[0]?.owner_id;
-    if (!ownerId) throw new HTTPException(404, { message: 'Page not found' });
-    const targetResult =
-      targetIds.length > 0
-        ? await executeQuery<{ id: string; title: string }>(
-            tx,
-            sql`select p.id, p.title
-             from pages p
-             where p.id = any(${sql.param(targetIds)}::uuid[])
-               and p.is_deleted = false
-               and p.id in (select page_id from get_accessible_page_ids(${user.id}))
-               and coalesce(get_root_folder_owner(p.parent_id), p.created_by) = ${ownerId}`,
-          )
-        : { rows: [] };
-    return {
-      page,
-      authorizedUploadFilenames: new Set(uploadResult.rows.map((row) => row.filename)),
-      wikiLinkTargets: new Map(targetResult.rows.map((target) => [target.id, target.title])),
-    };
-  });
-
-  const { page, authorizedUploadFilenames, wikiLinkTargets } = snapshot;
-  const markdownFilename = allocateFilename(page.title || 'Untitled', '.md', new Set());
-  const markdown = pageToMarkdown(page.ydoc, page.properties, page.icon, {
-    resolveWikiLinkTarget: (targetId) => {
-      const title = wikiLinkTargets.get(targetId.toLowerCase());
-      return title ? { title } : null;
-    },
-    restrictedWikiLinkText: 'Restricted page',
-  });
-  const extracted = await extractImages(markdown, uploadsDir, authorizedUploadFilenames);
-
-  if (extracted.assets.size === 0) {
-    c.header('Content-Type', 'text/markdown');
-    c.header('Content-Disposition', attachmentContentDisposition(markdownFilename));
-    return c.body(extracted.markdown);
-  }
-
-  const zip = new JSZip();
-  zip.file(markdownFilename, extracted.markdown);
-  for (const [assetName, assetBuffer] of extracted.assets) {
-    zip.file(`assets/${assetName}`, assetBuffer);
-  }
-
-  const buffer = await zip.generateAsync({ type: 'nodebuffer' });
-  const arrayBuffer = buffer.buffer.slice(
-    buffer.byteOffset,
-    buffer.byteOffset + buffer.byteLength,
+  const result = await exportPageForUser(pageId, user.id);
+  c.header('Content-Type', result.contentType);
+  c.header('Content-Disposition', result.contentDisposition);
+  if (typeof result.body === 'string') return c.body(result.body);
+  const arrayBuffer = result.body.buffer.slice(
+    result.body.byteOffset,
+    result.body.byteOffset + result.body.byteLength,
   ) as ArrayBuffer;
-  c.header('Content-Type', 'application/zip');
-  const zipFilename = allocateFilename(page.title || 'Untitled', '.zip', new Set());
-  c.header('Content-Disposition', attachmentContentDisposition(zipFilename));
   return c.newResponse(arrayBuffer, 200);
-});
+}
+
+pagesRoute.get(':id/export/markdown', exportPageMarkdown);
 
 pagesRoute.post(':id/import/markdown', async (c) => {
   const pageId = c.req.param('id');
@@ -1358,34 +1076,7 @@ pagesPublicRoute.post(
       throw new HTTPException(401, { message: 'Log in to copy a page to the workspace root' });
     }
 
-    const copiedPage = await db.transaction(async (tx) => {
-      await lockEntityAccessMutations(
-        tx,
-        [
-          { entityType: 'page', entityId: pageId },
-          ...(parentId ? [{ entityType: 'folder' as const, entityId: parentId }] : []),
-        ],
-        parentId ? [] : [actor.id],
-      );
-      const currentPage = await getPageById(pageId, tx);
-      if (!currentPage) throw new HTTPException(404, { message: 'Page not found' });
-      await ensureActorPageAccess(actor, pageId, 'view', tx);
-      if (parentId) await ensureActorCanCreateInFolder(actor, parentId, tx);
-      await persistGuestIdentity(actor, tx);
-
-      const insertedPage = await copyPageContent(tx, currentPage, parentId, actor);
-      const metaUserIds = await getEntityMetaUserIds(tx, 'page', insertedPage.id);
-      await notifyShareRecompute(
-        {
-          entityType: 'page',
-          entityId: insertedPage.id,
-          metaUserIds,
-          metaOnly: true,
-        },
-        tx,
-      );
-      return insertedPage;
-    });
+    const copiedPage = await copyPageForActor(actor, pageId, parentId);
 
     const created = normalizePageRow(copiedPage, copiedPage.owner_id);
     return c.json(toPageResponse(created), 201);
@@ -1395,51 +1086,7 @@ pagesPublicRoute.post(
 pagesRoute.delete(':id/permanent', async (c) => {
   const pageId = c.req.param('id');
   const user = c.get('user') as { id: string };
-  const deletedPage = await getDeletedPageById(pageId);
-  if (!deletedPage) {
-    const activePage = await getPageById(pageId);
-    if (activePage) {
-      if (activePage.ownerId !== user.id) {
-        throw new HTTPException(403, {
-          message: 'You can only permanently delete pages that you own',
-        });
-      }
-      throw new HTTPException(409, {
-        message: 'Page must be moved to Trash before it can be permanently deleted',
-      });
-    }
-    throw new HTTPException(404, { message: 'Page not found' });
-  }
-
-  if (deletedPage.ownerId !== user.id) {
-    throw new HTTPException(403, {
-      message: 'You can only permanently delete pages that you own',
-    });
-  }
-
-  await db.transaction(async (tx) => {
-    await lockWorkspaceAccessMutation(tx, user.id);
-    const lockedPage = await executeQuery<{ owner_id: string | null }>(
-      tx,
-      sql`select ${deletedPageOwnerSql} as owner_id
-       from pages p
-       where p.id = ${pageId} and p.is_deleted = true
-       for update`,
-    );
-    const ownerId = lockedPage.rows[0]?.owner_id;
-    if (!ownerId) {
-      throw new HTTPException(404, { message: 'Page not found' });
-    }
-    if (ownerId !== user.id) {
-      throw new HTTPException(403, {
-        message: 'You can only permanently delete pages that you own',
-      });
-    }
-    await purgeUnreferencedUploadsForPages(tx, [pageId]);
-    await purgeEntityAccessMetadata(tx, 'page', [pageId]);
-    await executeQuery(tx, sql`delete from pages where id = ${pageId} and is_deleted = true`);
-  });
-  await processUploadDeletionQueue();
+  await permanentlyDeletePage(pageId, user.id);
 
   return c.json({ deleted: true });
 });
