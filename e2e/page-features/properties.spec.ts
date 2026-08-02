@@ -275,7 +275,16 @@ test.describe('Properties panel', () => {
     await createNewPage(page);
     await page.getByTestId('add-property').click();
     await page.getByTestId('key-input').fill('tags');
+
+    const emptyTagsUpdate = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'PATCH' &&
+        /^\/api\/pages\/[^/]+$/.test(new URL(response.url()).pathname) &&
+        response.ok() &&
+        response.request().postData()?.includes('"tags":[]') === true,
+    );
     await page.getByTestId('key-input').press('Enter');
+    await emptyTagsUpdate;
 
     const tagInput = page.getByTestId('tag-input');
     await expect(tagInput).toBeVisible();
