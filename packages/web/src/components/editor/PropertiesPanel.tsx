@@ -38,6 +38,7 @@ import { useIsReadOnly } from '../../contexts/EditorReadOnlyContext';
 import { useUpdatePage } from '../../hooks/use-pages';
 import { usePropertyMetadata } from '../../hooks/usePropertyMetadata';
 import { cleanTagName, tagIdentity } from '../../utils/tags';
+import { showErrorToast } from '../../utils/toast';
 
 interface PropertiesPanelProps {
   pageId: string;
@@ -73,6 +74,27 @@ const getIconForKey = (key: string) => {
 };
 
 const isUrl = (val: string) => val.startsWith('http://') || val.startsWith('https://');
+
+const isTagPropertyKey = (key: string) => {
+  const normalizedKey = key.toLowerCase();
+  return normalizedKey === 'tags' || normalizedKey === 'tag';
+};
+
+const normalizeTagPropertyValue = (value: unknown): string[] | null => {
+  if (Array.isArray(value)) {
+    const stringValues = value.filter(
+      (candidate): candidate is string => typeof candidate === 'string',
+    );
+    if (stringValues.length !== value.length) {
+      return null;
+    }
+    return stringValues;
+  }
+  if (value === null || value === undefined) return [];
+  if (typeof value === 'string') return value.trim().length > 0 ? [value] : [];
+  if (typeof value === 'number' || typeof value === 'boolean') return [String(value)];
+  return null;
+};
 
 // --- Sub-components ---
 
@@ -498,14 +520,14 @@ function SortablePropertyRow({
     }
   }, [isEditingValue]);
 
-  const isTagsProperty = item.key.toLowerCase() === 'tags' || item.key.toLowerCase() === 'tag';
+  const isTagsProperty = isTagPropertyKey(item.key);
 
   const handleKeySelect = useCallback(
     (newKey: string) => {
       if (readOnlyRef.current) return;
       onRename(item.id, newKey);
       // Auto-focus the value area after selecting a property key
-      const isTag = newKey.toLowerCase() === 'tags' || newKey.toLowerCase() === 'tag';
+      const isTag = isTagPropertyKey(newKey);
       if (isTag) {
         setTimeout(() => tagEditorRef.current?.focus(), 0);
       } else {
@@ -769,11 +791,28 @@ export function PropertiesPanel({ pageId, properties }: PropertiesPanelProps) {
 
   const renameProperty = (id: string, newKey: string) => {
     if (panelReadOnlyRef.current) return;
+    const currentItem = items.find((item) => item.id === id);
+    const nextValue = isTagPropertyKey(newKey)
+      ? normalizeTagPropertyValue(currentItem?.value)
+      : currentItem?.value;
+    if (isTagPropertyKey(newKey) && nextValue === null) {
+      showErrorToast('Tags can only contain string values');
+      return;
+    }
+
     setItems((currentItems) => {
       if (!newKey || currentItems.some((it) => it.id !== id && it.key === newKey)) {
         return [...currentItems]; // Trigger re-render to revert invalid input
       }
-      const next = currentItems.map((it) => (it.id === id ? { ...it, key: newKey } : it));
+      const next = currentItems.map((it) =>
+        it.id === id
+          ? {
+              ...it,
+              key: newKey,
+              value: isTagPropertyKey(newKey) ? nextValue : it.value,
+            }
+          : it,
+      );
       persistChanges(next);
       return next;
     });

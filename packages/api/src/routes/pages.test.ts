@@ -2501,6 +2501,28 @@ describe('pages API', () => {
       expect(body.properties).toEqual({ status: 'done', priority: 1 });
     });
 
+    it('rejects a scalar tags property', async () => {
+      const app = await createTestApp();
+      const user = await createTestUser();
+      const session = await createTestSession(user.id);
+      const page = await createTestPage(user.id);
+
+      const res = await app.request(`/api/pages/${page.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: session.Cookie,
+          Origin: 'http://localhost:5173',
+        },
+        body: JSON.stringify({ properties: { tags: '' } }),
+      });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        message: 'properties.tags must be an array of strings',
+      });
+    });
+
     it('replaces tag connections when properties change', async () => {
       const app = await createTestApp();
       const user = await createTestUser();
