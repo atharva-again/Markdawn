@@ -10,7 +10,7 @@ export const isImageFile = (filename: string): boolean => {
 };
 
 export const isMarkdownFile = (filename: string): boolean => {
-  return filename.endsWith('.md');
+  return getExtension(filename) === 'md';
 };
 
 export const parseFrontmatter = parseMarkdownFrontmatter;

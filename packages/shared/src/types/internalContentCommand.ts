@@ -27,6 +27,10 @@ export type InternalContentPrincipal = {
 export type ApiTokenAuditOperation =
   | 'page.create'
   | 'page.update'
+  | 'page.lifecycle'
+  | 'folder.lifecycle'
+  | 'trash.lifecycle'
+  | 'import.lifecycle'
   | 'page.content.edit'
   | 'page.content.replace';
 export type ApiTokenAuditResult = 'success' | 'conflict';

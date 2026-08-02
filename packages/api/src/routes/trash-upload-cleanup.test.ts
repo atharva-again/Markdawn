@@ -14,6 +14,7 @@ import {
   createTestUser,
 } from '../test-utils';
 import {
+  drainUploadDeletionQueueBestEffort,
   processUploadDeletionQueue,
   purgeUnreferencedUploadsForPages,
 } from '../utils/uploadCleanup';
@@ -110,6 +111,14 @@ async function expectUploadPurged(
 }
 
 describe('permanent purge upload cleanup', () => {
+  it('does not propagate unexpected post-commit queue-drain failures', async () => {
+    const result = await drainUploadDeletionQueueBestEffort(async () => {
+      throw new Error('simulated queue query failure');
+    });
+
+    expect(result).toBe(false);
+  });
+
   it('deletes the last-reference upload row and file when a page is permanently deleted', async () => {
     const app = await createTestApp();
     const owner = await createTestUser();

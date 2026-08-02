@@ -10,6 +10,7 @@ type page struct {
 	Properties map[string]any `json:"properties"`
 	CreatedAt  *string        `json:"createdAt"`
 	UpdatedAt  *string        `json:"updatedAt"`
+	DeletedAt  *string        `json:"deletedAt"`
 }
 
 type pageList struct {
@@ -35,6 +36,7 @@ type folder struct {
 	Permission *string `json:"permission"`
 	CreatedAt  *string `json:"createdAt"`
 	UpdatedAt  *string `json:"updatedAt"`
+	DeletedAt  *string `json:"deletedAt"`
 }
 
 type folderList struct {

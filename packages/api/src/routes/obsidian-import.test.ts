@@ -49,6 +49,20 @@ describe('obsidian import API', () => {
       expect(res.status).toBe(400);
     });
 
+    it('returns 400 for Markdown files without content', async () => {
+      const app = await createTestApp();
+      const user = await createTestUser();
+      const session = await createTestSession(user.id);
+
+      const res = await app.request('/api/import/obsidian', {
+        method: 'POST',
+        headers: { Cookie: session.Cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: [{ path: 'missing.md' }] }),
+      });
+
+      expect(res.status).toBe(400);
+    });
+
     it('imports a simple markdown file (happy path)', async () => {
       const app = await createTestApp();
       const user = await createTestUser();

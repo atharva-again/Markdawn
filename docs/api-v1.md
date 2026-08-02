@@ -12,9 +12,26 @@ Browser clients may use their Better Auth session cookie. CLI and agent clients 
 Authorization: Bearer mdn_...
 ```
 
-Tokens start with `pages:read`. A human must explicitly grant `pages:write`. Tokens inherit the owner's page access but never gain sharing, deletion, workspace-administration, folder-management, or token-management authority. Token secrets are shown only once. Expiry is optional and defaults to no expiry. Operational token audit events are retained for 90 days; they are not durable page-version history.
+Tokens start with `pages:read`. A human must explicitly grant `pages:write`. Write-capable tokens can perform page and folder lifecycle actions only where the token owner has the corresponding existing effective permission; a token never grants extra access. They never gain sharing, workspace-administration, or token-management authority. Token secrets are shown only once. Expiry is optional and defaults to no expiry. Operational token audit events are retained for 90 days; they are not durable page-version history.
 
 API tokens authenticate `/api/v1` only. They are not collaboration WebSocket credentials; API content changes are validated by the versioned API and then broadcast to connected browser editors through Markdawn's private service boundary.
+
+## Lifecycle, Trash, import, and export paths
+
+Lifecycle actions use resource-oriented paths. They are not grouped beneath a generic lifecycle
+namespace:
+
+- Pages: `POST /pages/:id/copy`, `PATCH /pages/:id/move`, `DELETE /pages/:id/trash`,
+  `PATCH /pages/:id/restore`, `DELETE /pages/:id/permanent`, and
+  `GET /pages/:id/export/markdown`.
+- Folders: `POST /folders/:id/copy`, `DELETE /folders/:id/trash`,
+  `PATCH /folders/:id/restore`, and `DELETE /folders/:id/permanent`. Folder rename and move use
+  the standard `PATCH /folders/:id` endpoint.
+- Trash: `GET /trash/pages`, `GET /trash/folders`, and `DELETE /trash/empty`.
+- Imports: `POST /imports/markdown` and `POST /imports/obsidian`.
+- Workspace export: `GET /exports/workspace`.
+
+All paths above are relative to `/api/v1`.
 
 ## Markdown representation
 

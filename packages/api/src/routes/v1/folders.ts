@@ -1,9 +1,23 @@
+import { getUnicodeCodePointLength, MAX_FOLDER_NAME_LENGTH } from '@markdawn/shared';
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import { query } from '../../db/query';
-import { requireV1Auth, requireV1Scope } from '../../middleware/v1Auth';
-import { jsonContent, type V1OperationContract } from './apiContract';
+import {
+  recordTokenAuditEventBestEffort,
+  requireV1Auth,
+  requireV1Scope,
+} from '../../middleware/v1Auth';
+import { enumerableFolderPathsCte } from '../../utils/enumerableFolderPaths';
+import {
+  createFolderForActor,
+  getFolderForUser,
+  updateFolderForUser,
+} from '../../utils/folderLifecycle';
+import { jsonContent, uuidPathParameter, type V1OperationContract } from './apiContract';
+import { v1JsonBodyLimit } from './requestLimits';
+import { parseJsonRequest } from './requestValidation';
 import {
   decodeResourceCursor,
   encodeResourceCursor,
@@ -22,41 +36,239 @@ type FolderRow = {
   updated_at: Date | string | null;
 } & ResourceCursorRow;
 
-const folderResponseSchema = z.object({
-  id: z.uuid(),
-  parentId: z.uuid().nullable(),
-  name: z.string(),
-  icon: z.string().nullable(),
-  ownerId: z.uuid().nullable(),
-  permission: z.enum(['view', 'edit', 'admin']).nullable(),
-  createdAt: z.string().nullable(),
-  updatedAt: z.string().nullable(),
-});
-
-export const listFoldersOperation = {
-  method: 'get',
-  routePath: '/',
-  openApiPath: '/folders',
-  summary: 'List accessible folders',
-  parameters: [
-    { name: 'cursor', in: 'query', schema: { type: 'string' } },
-    { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
+const uuidSchema = z.uuid();
+export const createFolderRequestSchema = z
+  .object({
+    parentId: uuidSchema.nullable().optional(),
+    name: z.string().optional(),
+  })
+  .strict();
+export const updateFolderRequestSchema = z.union(
+  [
+    z
+      .object({
+        name: z.string(),
+        parentId: uuidSchema.nullable().optional(),
+      })
+      .strict(),
+    z
+      .object({
+        name: z.string().optional(),
+        parentId: uuidSchema.nullable(),
+      })
+      .strict(),
   ],
-  responses: {
-    '200': {
-      description: 'Flat folder list',
-      content: jsonContent(
-        z.object({ data: z.array(folderResponseSchema), nextCursor: z.string().nullable() }),
-      ),
+  {
+    error: (issue) => {
+      const { input } = issue;
+      if (input !== null && typeof input === 'object' && !Array.isArray(input)) {
+        return Object.keys(input).length === 0 ? 'No supported fields were provided' : undefined;
+      }
+      return undefined;
     },
   },
-} as const satisfies V1OperationContract;
+);
+
+export const folderResponseSchema = z
+  .object({
+    id: z.uuid(),
+    parentId: z.uuid().nullable(),
+    name: z.string(),
+    icon: z.string().nullable(),
+    ownerId: z.uuid().nullable(),
+    permission: z.enum(['view', 'edit', 'admin']).nullable(),
+    createdAt: z.string().nullable(),
+    updatedAt: z.string().nullable(),
+  })
+  .strict();
+
+export type FolderResponse = z.infer<typeof folderResponseSchema>;
+
+type FolderResponseInput = {
+  id: string;
+  parentId: string | null;
+  name: string;
+  icon: string | null;
+  ownerId: string | null;
+  permission: string | null | undefined;
+  createdAt: Date | string | null | undefined;
+  updatedAt: Date | string | null | undefined;
+};
+
+export function toFolderResponse(input: FolderResponseInput): FolderResponse {
+  return {
+    id: input.id,
+    parentId: input.parentId,
+    name: input.name,
+    icon: input.icon,
+    ownerId: input.ownerId,
+    permission:
+      input.permission === 'view' || input.permission === 'edit' || input.permission === 'admin'
+        ? input.permission
+        : null,
+    createdAt:
+      input.createdAt === null || input.createdAt === undefined
+        ? null
+        : new Date(input.createdAt).toISOString(),
+    updatedAt:
+      input.updatedAt === null || input.updatedAt === undefined
+        ? null
+        : new Date(input.updatedAt).toISOString(),
+  };
+}
+
+const folderPathResponseSchema = folderResponseSchema.extend({ folderPath: z.string() }).strict();
+const folderId = uuidPathParameter('folderId');
+
+export const folderOperations = {
+  create: {
+    method: 'post',
+    routePath: '/',
+    openApiPath: '/folders',
+    summary: 'Create a folder',
+    request: { required: true, ...jsonContent(createFolderRequestSchema) },
+    responses: {
+      '201': { description: 'Created folder', content: jsonContent(folderResponseSchema) },
+    },
+  },
+  resolve: {
+    method: 'get',
+    routePath: '/resolve',
+    openApiPath: '/folders/resolve',
+    summary: 'Resolve an exact folder name',
+    parameters: [
+      { name: 'name', in: 'query', required: true, schema: { type: 'string', maxLength: 250 } },
+    ],
+    responses: {
+      '200': {
+        description: 'Permission-filtered exact-name matches',
+        content: jsonContent(z.object({ data: z.array(folderPathResponseSchema) }).strict()),
+      },
+    },
+  },
+  get: {
+    method: 'get',
+    routePath: '/:id',
+    openApiPath: '/folders/{folderId}',
+    summary: 'Get folder metadata',
+    parameters: [folderId],
+    responses: {
+      '200': { description: 'Folder metadata', content: jsonContent(folderResponseSchema) },
+    },
+  },
+  update: {
+    method: 'patch',
+    routePath: '/:id',
+    openApiPath: '/folders/{folderId}',
+    summary: 'Rename or move a folder',
+    parameters: [folderId],
+    request: { required: true, ...jsonContent(updateFolderRequestSchema) },
+    responses: {
+      '200': { description: 'Updated folder', content: jsonContent(folderResponseSchema) },
+    },
+  },
+  list: {
+    method: 'get',
+    routePath: '/',
+    openApiPath: '/folders',
+    summary: 'List accessible folders',
+    parameters: [
+      { name: 'cursor', in: 'query', schema: { type: 'string' } },
+      { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
+    ],
+    responses: {
+      '200': {
+        description: 'Flat folder list',
+        content: jsonContent(
+          z
+            .object({ data: z.array(folderResponseSchema), nextCursor: z.string().nullable() })
+            .strict(),
+        ),
+      },
+    },
+  },
+} as const satisfies Record<string, V1OperationContract>;
 
 const foldersV1Route = new Hono();
 foldersV1Route.use('*', requireV1Auth);
 foldersV1Route.use('*', requireV1Scope('pages:read'));
 
-foldersV1Route.get(listFoldersOperation.routePath, async (c) => {
+foldersV1Route.post('/', requireV1Scope('pages:write'), v1JsonBodyLimit, async (c) => {
+  const principal = c.get('v1Principal');
+  const request = await parseJsonRequest(c, createFolderRequestSchema);
+  const created = await createFolderForActor(
+    { kind: 'user', id: principal.userId },
+    {
+      parentId: request.parentId ?? null,
+      ...(request.name === undefined ? {} : { name: request.name }),
+    },
+  );
+  await recordTokenAuditEventBestEffort(principal, 'folder.lifecycle', 'success', null);
+  return c.json(toFolderResponse({ ...created.folder, permission: created.permission }), 201);
+});
+
+foldersV1Route.get('/resolve', async (c) => {
+  const principal = c.get('v1Principal');
+  const name = c.req.query('name')?.trim();
+  if (!name || getUnicodeCodePointLength(name) > MAX_FOLDER_NAME_LENGTH) {
+    throw new HTTPException(400, {
+      message: `name must be between 1 and ${MAX_FOLDER_NAME_LENGTH} characters`,
+    });
+  }
+  const result = await query<
+    FolderRow & { folder_path: string }
+  >(sql`${enumerableFolderPathsCte(principal.userId)}
+    select f.id, f.name, f.icon, f.created_at, f.updated_at,
+      case when paths.id is null then null else f.parent_id end as enumerable_parent_id,
+      get_root_folder_owner(f.id) as owner_id, access.permission,
+      case when paths.path is null then '/' else '/' || paths.path end as folder_path
+    from folders f
+    join lateral get_effective_folder_permission(f.id, ${principal.userId}) access on true
+    left join folder_paths paths on paths.id = f.id
+    where f.is_deleted = false and lower(f.name) = lower(${name})
+      and f.id in (select folder_id from get_enumerable_folder_ids(${principal.userId}))
+      and access.permission is not null
+    order by folder_path, f.id`);
+  return c.json({
+    data: result.rows.map((row) => ({
+      ...toFolderResponse({
+        id: row.id,
+        parentId: row.enumerable_parent_id,
+        name: row.name,
+        icon: row.icon,
+        ownerId: row.owner_id,
+        permission: row.permission,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }),
+      folderPath: row.folder_path,
+    })),
+  });
+});
+
+foldersV1Route.get('/:id', async (c) => {
+  const principal = c.get('v1Principal');
+  const folderId = c.req.param('id');
+  if (!uuidSchema.safeParse(folderId).success) {
+    throw new HTTPException(400, { message: 'folder ID must be a UUID' });
+  }
+  const result = await getFolderForUser(folderId, principal.userId);
+  return c.json(toFolderResponse({ ...result.folder, permission: result.permission }));
+});
+
+foldersV1Route.patch('/:id', requireV1Scope('pages:write'), v1JsonBodyLimit, async (c) => {
+  const principal = c.get('v1Principal');
+  const folderId = c.req.param('id');
+  if (!uuidSchema.safeParse(folderId).success) {
+    throw new HTTPException(400, { message: 'folder ID must be a UUID' });
+  }
+  const request = await parseJsonRequest(c, updateFolderRequestSchema);
+  const updated = await updateFolderForUser(folderId, principal.userId, request);
+  await recordTokenAuditEventBestEffort(principal, 'folder.lifecycle', 'success', null);
+  return c.json(toFolderResponse({ ...updated, permission: 'admin' }));
+});
+
+foldersV1Route.get(folderOperations.list.routePath, async (c) => {
   const principal = c.get('v1Principal');
   const cursor = decodeResourceCursor(c.req.query('cursor'));
   const parsedLimit = parseResourceLimit(c.req.query('limit'));
@@ -85,16 +297,18 @@ foldersV1Route.get(listFoldersOperation.routePath, async (c) => {
   const rows = result.rows.slice(0, parsedLimit);
   const last = rows.at(-1);
   return c.json({
-    data: rows.map((row) => ({
-      id: row.id,
-      parentId: row.enumerable_parent_id,
-      name: row.name,
-      icon: row.icon,
-      ownerId: row.owner_id,
-      permission: row.permission,
-      createdAt: row.created_at === null ? null : new Date(row.created_at).toISOString(),
-      updatedAt: row.updated_at === null ? null : new Date(row.updated_at).toISOString(),
-    })),
+    data: rows.map((row) =>
+      toFolderResponse({
+        id: row.id,
+        parentId: row.enumerable_parent_id,
+        name: row.name,
+        icon: row.icon,
+        ownerId: row.owner_id,
+        permission: row.permission,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }),
+    ),
     nextCursor: hasMore && last ? encodeResourceCursor(last) : null,
   });
 });
