@@ -28,6 +28,27 @@ describe('v1 lifecycle API', () => {
     expect(response.status).toBe(401);
   });
 
+  it('authenticates protected lifecycle operations before parsing requests', async () => {
+    const app = await createTestApp();
+
+    const writeResponse = await app.request('/api/v1/pages/not-a-uuid/move', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{',
+    });
+    expect(writeResponse.status).toBe(401);
+
+    const importResponse = await app.request('/api/v1/imports/obsidian', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{',
+    });
+    expect(importResponse.status).toBe(401);
+
+    const exportResponse = await app.request('/api/v1/exports/workspace');
+    expect(exportResponse.status).toBe(401);
+  });
+
   it('resolves enumerable folder and page paths through the shared path CTE', async () => {
     const app = await createTestApp();
     const user = await createTestUser();
