@@ -28,6 +28,7 @@ import { useLeaveWorkspace, useWorkspaceMemberships } from '../../hooks/use-work
 import { useAuth } from '../../hooks/useAuth';
 import { useEntityCreationActions } from '../../hooks/useEntityCreationActions';
 import { useStableValueWhile } from '../../hooks/useStableValue';
+import { formatShortcut, SHORTCUT_PATTERNS } from '../../utils/keyboardShortcuts';
 import { showErrorToast } from '../../utils/toast';
 import { buildPagePath, extractUuidFromSlug } from '../../utils/url';
 import { SidebarEntityRow } from './SidebarEntityRow';
@@ -53,6 +54,8 @@ export function PageTree() {
   const { isAnonymous } = useShareContext();
   const { data: session } = useAuth();
   const currentUserId = session?.user?.id;
+  const createFolderShortcut = formatShortcut(SHORTCUT_PATTERNS.createFolder);
+  const createNoteShortcut = formatShortcut(SHORTCUT_PATTERNS.createNote);
 
   const {
     data: refreshedPages,
@@ -363,7 +366,7 @@ export function PageTree() {
               void handleCreateRootFolder();
             }}
             className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-all text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 cursor-pointer"
-            title="Create folder (Ctrl/Cmd+Shift+N)"
+            title={`Create folder (${createFolderShortcut})`}
             data-testid="new-folder-btn"
           >
             <FolderPlus size={16} />
@@ -374,7 +377,7 @@ export function PageTree() {
               void handleCreateRootPage();
             }}
             className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-all text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 cursor-pointer"
-            title="Create note (Ctrl/Cmd+N)"
+            title={`Create note (${createNoteShortcut})`}
             data-testid="new-page-btn"
           >
             <FilePlus2 size={16} />

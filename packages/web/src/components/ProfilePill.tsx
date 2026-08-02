@@ -13,6 +13,7 @@ import { useTrashFolders } from '../hooks/use-folders';
 import { useTrashPages } from '../hooks/use-pages';
 import { useAuth } from '../hooks/useAuth';
 import { authClient } from '../lib/auth-client';
+import { formatShortcut, SHORTCUT_PATTERNS } from '../utils/keyboardShortcuts';
 import { ThemeToggle } from './ThemeToggle';
 import { Tooltip } from './Tooltip';
 
@@ -36,6 +37,8 @@ export function ProfilePill({
   const { data: trashPages } = useTrashPages();
   const { data: trashFolders } = useTrashFolders();
   const hasTrashItems = (trashPages?.length ?? 0) + (trashFolders?.length ?? 0) > 0;
+  const sidebarShortcut = formatShortcut(SHORTCUT_PATTERNS.toggleSidebar);
+  const searchShortcut = formatShortcut(SHORTCUT_PATTERNS.commandPalette);
 
   const handleSignOut = async () => {
     await authClient.signOut({
@@ -66,7 +69,7 @@ export function ProfilePill({
       >
         <div className="flex flex-col items-center gap-4 w-full">
           <ThemeToggle />
-          <Tooltip label="Open Sidebar (Ctrl+/)" position="right">
+          <Tooltip label={`Open Sidebar (${sidebarShortcut})`} position="right">
             <button
               type="button"
               onClick={onToggleCollapsed}
@@ -133,7 +136,7 @@ export function ProfilePill({
               )}
             </button>
           </Tooltip>
-          <Tooltip label="Search (Ctrl+K)" position="top">
+          <Tooltip label={`Search (${searchShortcut})`} position="top">
             <button
               type="button"
               onClick={() => window.dispatchEvent(new Event('open-search'))}
@@ -143,7 +146,7 @@ export function ProfilePill({
             </button>
           </Tooltip>
           <Tooltip
-            label={`${(isActuallyCollapsed ?? collapsed) ? 'Open' : 'Close'} Sidebar (Ctrl+/)`}
+            label={`${(isActuallyCollapsed ?? collapsed) ? 'Open' : 'Close'} Sidebar (${sidebarShortcut})`}
             position="top"
           >
             <button
