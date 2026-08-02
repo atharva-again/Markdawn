@@ -242,38 +242,50 @@ test.describe('Keyboard shortcuts', () => {
 
       await expect(page.locator('.ProseMirror em')).toHaveText('italic text');
     });
+
+    test('Ctrl+Shift+F makes selected text inline code', async ({ page }) => {
+      await createNewPage(page);
+      await focusEditor(page);
+
+      await page.keyboard.type('code text');
+      await page.keyboard.press('Control+a');
+
+      await page.keyboard.press('Control+Shift+f');
+
+      await expect(page.locator('.ProseMirror code')).toHaveText('code text');
+    });
   });
 
   test.describe('List shortcuts', () => {
-    test('Ctrl+Shift+8 inserts a bullet list', async ({ page }) => {
+    test('Ctrl+Alt+8 inserts a bullet list', async ({ page }) => {
       await createNewPage(page);
       await focusEditor(page);
 
       await page.keyboard.type('List item');
 
-      await page.keyboard.press('Control+Shift+8');
+      await page.keyboard.press('Control+Alt+8');
 
       await expect(page.locator('.ProseMirror ul')).toBeVisible({ timeout: 5000 });
     });
 
-    test('Ctrl+Shift+7 inserts an ordered list', async ({ page }) => {
+    test('Ctrl+Alt+7 inserts an ordered list', async ({ page }) => {
       await createNewPage(page);
       await focusEditor(page);
 
       await page.keyboard.type('Numbered item');
 
-      await page.keyboard.press('Control+Shift+7');
+      await page.keyboard.press('Control+Alt+7');
 
       await expect(page.locator('.ProseMirror ol')).toBeVisible({ timeout: 5000 });
     });
 
-    test('Ctrl+Shift+[ inserts a task list', async ({ page }) => {
+    test('Ctrl+Alt+9 inserts a task list', async ({ page }) => {
       await createNewPage(page);
       await focusEditor(page);
 
       await page.keyboard.type('Task item');
 
-      await page.keyboard.press('Control+Shift+[');
+      await page.keyboard.press('Control+Alt+9');
 
       await expect(page.locator('.ProseMirror li[data-item-type="task"]')).toBeVisible({
         timeout: 5000,
@@ -303,7 +315,7 @@ test.describe('Keyboard shortcuts', () => {
       await page.keyboard.press('Control+b');
       await page.keyboard.press('Control+i');
       await page.keyboard.press('Control+Shift+x');
-      await page.keyboard.press('Control+`');
+      await page.keyboard.press('Control+Shift+f');
 
       // Editor should still be usable
       await page.keyboard.type('still works');

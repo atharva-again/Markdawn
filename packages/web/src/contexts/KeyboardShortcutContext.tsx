@@ -13,6 +13,7 @@ import {
   keyboardRegistry,
   shouldIgnoreKeyboardEvent,
 } from '../hooks/useKeyboardShortcuts';
+import { formatShortcut } from '../utils/keyboardShortcuts';
 
 type Scope = string;
 
@@ -49,48 +50,14 @@ export function KeyboardShortcutProvider({ children }: { children: React.ReactNo
   }, [activeScopes]);
 
   useEffect(() => {
-    // Tracks events that the capture handler already prevented — the bubble
-    // handler must still process them despite event.defaultPrevented being set.
-    const browserIntercepted = new WeakSet<KeyboardEvent>();
-
-    // Capture-phase handler for browser-conflicted shortcuts
-    // (Ctrl+Shift+8 → Zen browser split pane). Browsers intercept these
-    // before the bubble phase — calling preventDefault() in capture phase
-    // tells the browser to treat the keypress as a web shortcut, not an
-    // accelerator. The actual command dispatch happens in the bubble handler
-    // so that normal shortcut logic (scope, priority, input-focus checks) still
-    // applies.
-    const captureHandler = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
-      const key = keyboardRegistry.normalizeKey(event);
-      if (knownBrowserShortcuts.has(key)) {
-        browserIntercepted.add(event);
-        event.preventDefault();
-      }
-    };
-
     const handler = (event: KeyboardEvent) => {
-      if (!browserIntercepted.has(event) && shouldIgnoreKeyboardEvent(event)) return;
+      if (shouldIgnoreKeyboardEvent(event)) return;
       keyboardRegistry.dispatch(event, isEditableFocused());
     };
 
-    // Zen browser emits the shifted character (event.key = '*') instead of the
-    // raw digit ('8') when Shift is held. Register both forms for each shortcut
-    // so the capture handler intercepts them regardless of browser behavior.
-    const knownBrowserShortcuts = new Set<string>([
-      'mod+shift+8',
-      'mod+shift+*',
-      'mod+shift+7',
-      'mod+shift+&',
-      'mod+shift+[',
-      'mod+shift+{',
-    ]);
-
     document.addEventListener('keydown', handler);
-    window.addEventListener('keydown', captureHandler, { capture: true });
     return () => {
       document.removeEventListener('keydown', handler);
-      window.removeEventListener('keydown', captureHandler, { capture: true });
     };
   }, []);
 
@@ -110,7 +77,7 @@ export function KeyboardShortcutProvider({ children }: { children: React.ReactNo
     return keyboardRegistry
       .getBindingsForScope(scope)
       .filter((b) => b.description)
-      .map((b) => ({ key: b.key, description: b.description }));
+      .map((b) => ({ key: formatShortcut(b.shortcutPattern), description: b.description }));
   }, []);
 
   const value = useMemo<ShortcutContextValue>(
@@ -149,11 +116,10 @@ export function useShortcut(def: ShortcutDefinition): void {
   useEffect(() => {
     const id = idRef.current;
     if (!id) return;
-    const normalizedKey = keyboardRegistry.patternToKey(def.key);
 
     const unregister = keyboardRegistry.register({
       id,
-      key: normalizedKey,
+      shortcutPattern: def.key,
       handler: (event) => {
         return handlerRef.current(event);
       },
@@ -198,7 +164,7 @@ export function useShortcuts(definitions: readonly ShortcutDefinition[]): void {
     const unregister = definitionsRef.current.map((definition, index) =>
       keyboardRegistry.register({
         id: idsRef.current[index] ?? `hook-${++hookIdCounter}`,
-        key: keyboardRegistry.patternToKey(definition.key),
+        shortcutPattern: definition.key,
         handler: (event) => definitionsRef.current[index]?.handler(event),
         scope: definition.scope ?? '*',
         priority: definition.priority ?? 'normal',

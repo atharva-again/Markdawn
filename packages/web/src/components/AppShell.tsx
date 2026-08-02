@@ -8,6 +8,7 @@ import { useShareContext } from '../contexts/ShareContext';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useSidebarCollapsed } from '../hooks/useSidebarCollapsed';
 import { useTheme } from '../hooks/useTheme';
+import { SHORTCUT_PATTERNS } from '../utils/keyboardShortcuts';
 import { CommandPalette } from './CommandPalette';
 import { ProfilePill } from './ProfilePill';
 import { Sidebar } from './Sidebar';
@@ -30,25 +31,25 @@ function AppShellContent() {
   const entityCommands = useEntityCommands();
 
   useShortcut({
-    key: 'mod+/',
+    key: SHORTCUT_PATTERNS.toggleSidebar,
     handler: toggleCollapsed,
     whenInputFocused: 'allow',
     description: 'Toggle sidebar',
   });
   useShortcut({
-    key: 'alt+n',
+    key: SHORTCUT_PATTERNS.createNote,
     handler: entityCommands.createNote,
     whenInputFocused: 'allow',
     description: 'Create new note',
   });
   useShortcut({
-    key: 'alt+shift+n',
+    key: SHORTCUT_PATTERNS.createFolder,
     handler: entityCommands.createFolder,
     whenInputFocused: 'allow',
     description: 'Create new folder',
   });
   useShortcut({
-    key: 'mod+shift+d',
+    key: SHORTCUT_PATTERNS.toggleTheme,
     handler: () => setTheme(isDark ? 'light' : 'dark'),
     whenInputFocused: 'allow',
     description: 'Toggle dark mode',

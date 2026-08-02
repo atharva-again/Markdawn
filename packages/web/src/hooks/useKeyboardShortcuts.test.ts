@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -6,6 +6,7 @@ import {
   useShortcut,
   useShortcutScope,
 } from '../contexts/KeyboardShortcutContext';
+import { normalizeShortcutPattern } from '../utils/keyboardShortcuts';
 import { keyboardRegistry, shouldIgnoreKeyboardEvent } from './useKeyboardShortcuts';
 
 // ---------------------------------------------------------------------------
@@ -21,7 +22,7 @@ describe('KeyboardRegistry', () => {
     const handler = vi.fn();
     const unreg = keyboardRegistry.register({
       id: 'test-1',
-      key: 'mod+/',
+      shortcutPattern: 'mod+/',
       handler,
       scope: '*',
       priority: 'normal',
@@ -43,7 +44,7 @@ describe('KeyboardRegistry', () => {
     const handler = vi.fn();
     const unreg = keyboardRegistry.register({
       id: 'test-2',
-      key: 'mod+n',
+      shortcutPattern: 'mod+n',
       handler,
       scope: 'global',
       priority: 'normal',
@@ -64,7 +65,7 @@ describe('KeyboardRegistry', () => {
     const handler = vi.fn();
     const unreg = keyboardRegistry.register({
       id: 'test-3',
-      key: 'mod+n',
+      shortcutPattern: 'mod+n',
       handler,
       scope: '*',
       priority: 'normal',
@@ -85,7 +86,7 @@ describe('KeyboardRegistry', () => {
     const handler = vi.fn();
     const unreg = keyboardRegistry.register({
       id: 'test-4',
-      key: 'mod+/',
+      shortcutPattern: 'mod+/',
       handler,
       scope: '*',
       priority: 'normal',
@@ -108,7 +109,7 @@ describe('KeyboardRegistry', () => {
 
     keyboardRegistry.register({
       id: 'test-low',
-      key: 'mod+k',
+      shortcutPattern: 'mod+k',
       handler: lowHandler,
       scope: '*',
       priority: 'low',
@@ -118,7 +119,7 @@ describe('KeyboardRegistry', () => {
     });
     keyboardRegistry.register({
       id: 'test-high',
-      key: 'mod+k',
+      shortcutPattern: 'mod+k',
       handler: highHandler,
       scope: '*',
       priority: 'high',
@@ -135,18 +136,99 @@ describe('KeyboardRegistry', () => {
   });
 
   it('normalizes key patterns correctly', () => {
-    expect(keyboardRegistry.patternToKey('mod+/')).toBe('mod+/');
-    expect(keyboardRegistry.patternToKey('Ctrl+N')).toBe('mod+n');
-    expect(keyboardRegistry.patternToKey('Cmd+Shift+K')).toBe('mod+shift+k');
-    expect(keyboardRegistry.patternToKey('mod+shift+d')).toBe('mod+shift+d');
-    expect(keyboardRegistry.patternToKey('Escape')).toBe('escape');
+    expect(normalizeShortcutPattern('mod+/')).toBe('mod+/');
+    expect(normalizeShortcutPattern('Ctrl+N')).toBe('mod+n');
+    expect(normalizeShortcutPattern('Cmd+Shift+K')).toBe('mod+shift+k');
+    expect(normalizeShortcutPattern('Command+N')).toBe('mod+n');
+    expect(normalizeShortcutPattern('Option+N')).toBe('alt+n');
+    expect(normalizeShortcutPattern('mod+shift+d')).toBe('mod+shift+d');
+    expect(normalizeShortcutPattern('mod+alt+7')).toBe('alt+mod+digit7');
+    expect(normalizeShortcutPattern('Escape')).toBe('escape');
+  });
+
+  it('matches digit shortcuts by physical key across keyboard layouts', () => {
+    const handler = vi.fn();
+    const unreg = keyboardRegistry.register({
+      id: 'test-physical-digit',
+      shortcutPattern: 'mod+alt+7',
+      handler,
+      scope: '*',
+      priority: 'normal',
+      preventDefault: true,
+      description: '',
+      whenInputFocused: 'allow',
+    });
+
+    const event = new KeyboardEvent('keydown', {
+      key: '¶',
+      code: 'Digit7',
+      ctrlKey: true,
+      altKey: true,
+      bubbles: true,
+    });
+
+    expect(keyboardRegistry.dispatch(event, false)).toBe(true);
+    expect(handler).toHaveBeenCalledTimes(1);
+    unreg();
+  });
+
+  it('preserves symbol shortcuts when the key uses a digit-row physical key', () => {
+    const handler = vi.fn();
+    const unreg = keyboardRegistry.register({
+      id: 'test-symbol-digit-row',
+      shortcutPattern: 'mod+shift+#',
+      handler,
+      scope: '*',
+      priority: 'normal',
+      preventDefault: true,
+      description: '',
+      whenInputFocused: 'allow',
+    });
+
+    const event = new KeyboardEvent('keydown', {
+      key: '#',
+      code: 'Digit3',
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+    });
+
+    expect(keyboardRegistry.dispatch(event, false)).toBe(true);
+    expect(handler).toHaveBeenCalledTimes(1);
+    unreg();
+  });
+
+  it('matches shifted numeric shortcuts by their physical digit key', () => {
+    const handler = vi.fn();
+    const unreg = keyboardRegistry.register({
+      id: 'test-shifted-physical-digit',
+      shortcutPattern: 'mod+shift+7',
+      handler,
+      scope: '*',
+      priority: 'normal',
+      preventDefault: true,
+      description: '',
+      whenInputFocused: 'allow',
+    });
+
+    const event = new KeyboardEvent('keydown', {
+      key: '&',
+      code: 'Digit7',
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+    });
+
+    expect(keyboardRegistry.dispatch(event, false)).toBe(true);
+    expect(handler).toHaveBeenCalledTimes(1);
+    unreg();
   });
 
   it('cleans up bindings via unregister function', () => {
     const handler = vi.fn();
     const unreg = keyboardRegistry.register({
       id: 'test-cleanup',
-      key: 'mod+/',
+      shortcutPattern: 'mod+/',
       handler,
       scope: '*',
       priority: 'normal',
@@ -242,6 +324,26 @@ describe('useShortcut', () => {
     );
 
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes formatted shortcut labels instead of normalized matching tokens', async () => {
+    Object.defineProperty(navigator, 'platform', {
+      configurable: true,
+      value: 'Linux x86_64',
+    });
+    const { result } = renderHook(
+      () => {
+        useShortcut({ key: 'mod+alt+7', handler: vi.fn(), description: 'Ordered list' });
+        return useShortcutScope();
+      },
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => {
+      expect(result.current.getScopeBindings('*')).toEqual([
+        { key: 'Ctrl+Alt+7', description: 'Ordered list' },
+      ]);
+    });
   });
 
   it('supports Meta key (Mac)', () => {
