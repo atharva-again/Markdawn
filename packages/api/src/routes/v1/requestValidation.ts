@@ -32,3 +32,21 @@ export async function parseJsonRequest<T>(context: Context, schema: z.ZodType<T>
     message: parsed.error.issues[0]?.message ?? 'Invalid body',
   });
 }
+
+export async function parseMultipartRequest<T>(context: Context, schema: z.ZodType<T>): Promise<T> {
+  let formData: FormData;
+  try {
+    formData = await context.req.formData();
+  } catch (error) {
+    // Multipart decoding is an HTTP boundary. Invalid multipart framing is a
+    // client error, while transport and body-limit failures remain visible to
+    // their owning middleware.
+    if (error instanceof Error && error.name === 'BodyLimitError') throw error;
+    throw new HTTPException(400, { message: 'Invalid multipart body', cause: error });
+  }
+  const parsed = schema.safeParse(Object.fromEntries(formData.entries()));
+  if (parsed.success) return parsed.data;
+  throw new HTTPException(400, {
+    message: parsed.error.issues[0]?.message ?? 'Invalid multipart body',
+  });
+}

@@ -9,6 +9,7 @@ import { HTTPException } from 'hono/http-exception';
 import { db } from '../../db/connection';
 import { query } from '../../db/query';
 import { recordTokenAuditEvent, requireV1Scope } from '../../middleware/v1Auth';
+import { enumerableFolderPathsCte } from '../../utils/enumerableFolderPaths';
 import { createPage } from '../../utils/pageCreation';
 import { notifyPageRename, updatePageMetadata } from '../../utils/pageMutation';
 import { getAccessiblePageById, pageMetadataSelection } from '../../utils/pageRepository';
@@ -109,26 +110,9 @@ pageResourcesRoute.get(pageOperations.resolveTitle.routePath, async (c) => {
       message: `title must be between 1 and ${MAX_PAGE_TITLE_LENGTH} characters`,
     });
   }
-  const result = await query<PageRow & { folder_path: string }>(sql`with recursive
-      enumerable_folders as (
-        select f.id, f.parent_id, f.name
-        from folders f
-        where f.is_deleted = false
-          and f.id in (select folder_id from get_enumerable_folder_ids(${principal.userId}))
-      ),
-      folder_paths as (
-        select f.id, f.parent_id, f.name, f.name::text as path, array[f.id] as visited
-        from enumerable_folders f
-        where f.parent_id is null
-          or not exists (select 1 from enumerable_folders parent where parent.id = f.parent_id)
-        union all
-        select child.id, child.parent_id, child.name,
-          parent.path || '/' || child.name,
-          parent.visited || child.id
-        from enumerable_folders child
-        join folder_paths parent on parent.id = child.parent_id
-        where not child.id = any(parent.visited)
-      )
+  const result = await query<
+    PageRow & { folder_path: string }
+  >(sql`${enumerableFolderPathsCte(principal.userId)}
     select ${pageMetadataSelection},
       coalesce(get_root_folder_owner(p.parent_id), p.created_by) as owner_id,
       case when paths.id is null then null else p.parent_id end as enumerable_parent_id,

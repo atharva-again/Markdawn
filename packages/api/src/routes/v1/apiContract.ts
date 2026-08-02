@@ -3,13 +3,15 @@ import { z } from 'zod';
 type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 type SchemaContent = {
-  mediaType: 'application/json' | 'text/markdown';
+  mediaType: 'application/json' | 'application/zip' | 'multipart/form-data' | 'text/markdown';
   schema: z.ZodType;
 };
 
+export const binaryResponseSchema = z.string().meta({ format: 'binary' });
+
 type ResponseContract = {
   description: string;
-  content?: SchemaContent;
+  content?: SchemaContent | readonly SchemaContent[];
   headers?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 };
 
@@ -24,12 +26,18 @@ export type V1OperationContract = {
   security?: readonly Readonly<Record<string, readonly string[]>>[];
 };
 
-function contentDocument(content: SchemaContent): Record<string, unknown> {
-  return {
-    [content.mediaType]: {
-      schema: z.toJSONSchema(content.schema),
-    },
-  };
+function contentDocument(
+  content: SchemaContent | readonly SchemaContent[],
+): Record<string, unknown> {
+  const entries = Array.isArray(content) ? content : [content];
+  return Object.fromEntries(
+    entries.map((entry) => [
+      entry.mediaType,
+      {
+        schema: z.toJSONSchema(entry.schema),
+      },
+    ]),
+  );
 }
 
 export function buildOpenApiPaths(
@@ -82,5 +90,15 @@ export const jsonContent = (schema: z.ZodType): SchemaContent => ({
 
 export const markdownContent = (schema: z.ZodType): SchemaContent => ({
   mediaType: 'text/markdown',
+  schema,
+});
+
+export const multipartContent = (schema: z.ZodType): SchemaContent => ({
+  mediaType: 'multipart/form-data',
+  schema,
+});
+
+export const zipContent = (schema: z.ZodType): SchemaContent => ({
+  mediaType: 'application/zip',
   schema,
 });

@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { buildOpenApiPaths } from './apiContract';
-import { listFoldersOperation } from './folders';
+import { folderOperations } from './folders';
+import { lifecycleOperations } from './lifecycleContracts';
 import { getMeOperation } from './me';
 import { pageOperations, pageResponseSchema } from './pageContracts';
 import { tokenOperations } from './tokenContracts';
@@ -39,7 +40,8 @@ export const openApiV1 = {
   paths: buildOpenApiPaths([
     getMeOperation,
     ...Object.values(pageOperations),
-    listFoldersOperation,
+    ...Object.values(folderOperations),
+    ...lifecycleOperations,
     ...Object.values(tokenOperations),
   ]),
 } as const;

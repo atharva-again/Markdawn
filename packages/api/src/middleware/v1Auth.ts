@@ -142,3 +142,26 @@ export async function recordTokenAuditEvent(
   if (executor) await executeQuery(executor, statement);
   else await query(statement);
 }
+
+/**
+ * Lifecycle services commit before route-level token audit persistence.
+ * Audit persistence is therefore an observability boundary: a failed insert is
+ * logged but must not turn an already-completed, non-idempotent mutation into a
+ * retry-unsafe error response.
+ */
+export async function recordTokenAuditEventBestEffort(
+  principal: V1Principal,
+  operation: ApiTokenAuditOperation,
+  result: ApiTokenAuditResult,
+  pageId: string | null,
+): Promise<void> {
+  try {
+    await recordTokenAuditEvent(principal, operation, result, pageId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    getApiLogger().error('Failed to record API token audit event after lifecycle mutation', {
+      operation,
+      error: message,
+    });
+  }
+}
