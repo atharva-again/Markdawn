@@ -17,6 +17,12 @@ Use the CLI. Do not access raw Yjs data, the database, or browser-only routes.
 If `markdawn whoami --json` reports that the client is not logged in, ask the user to create a named API token in Markdawn settings and run:
 
 ```bash
+markdawn login
+```
+
+This will use the official server. If the user has their own self-hosted server, then they can run:
+
+```bash
 markdawn login --url https://their-markdawn-host.example
 ```
 
