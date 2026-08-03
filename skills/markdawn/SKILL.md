@@ -1,6 +1,6 @@
 ---
 name: markdawn
-description: Use this skill when a user asks to work in their Markdawn workspace through the official CLI: find, read, create, organize, edit, move, copy, delete, restore, import, or export pages and folders. Apply it for requests about Markdawn content, workspace organization, or safe agent-driven changes, even when the user does not mention the CLI.
+description: Use this skill when a user asks to use the official CLI to find, read, create, organize, edit, move, copy, delete, restore, import, or export Markdawn pages and folders. Apply it for requests about Markdawn content, workspace organization, or safe agent-driven changes, even when the user does not mention the CLI.
 compatibility: Requires the markdawn CLI and a named Markdawn API token with appropriate page scopes.
 ---
 
