@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { formatShortcut } from '../../utils/keyboardShortcuts';
+import {
+  formatProseMirrorShortcut,
+  formatShortcut,
+  SHORTCUT_PATTERNS,
+} from '../../utils/keyboardShortcuts';
 import { createEditorCommandRegistry } from './editorCommandRegistry';
 import type { EditorFormattingCommands } from './editorFormattingCommands';
 import type { EditorTableCommands } from './editorTableCommands';
@@ -65,6 +69,10 @@ describe('editor command shortcuts', () => {
     expect(formatShortcut('Option+N')).toBe('⌥+N');
   });
 
+  it('formats the canonical blockquote shortcut for ProseMirror', () => {
+    expect(formatProseMirrorShortcut(SHORTCUT_PATTERNS.blockquote)).toBe('Mod-Shift-b');
+  });
+
   it('uses the new contiguous list and code shortcut families', () => {
     const registry = createEditorCommandRegistry(createActions(), false);
 
@@ -83,6 +91,10 @@ describe('editor command shortcuts', () => {
     expect(registry.command('code')).toMatchObject({
       shortcut: 'Ctrl+Shift+F',
       shortcutKeys: ['mod+shift+f'],
+    });
+    expect(registry.command('blockquote')).toMatchObject({
+      shortcut: 'Ctrl+Shift+B',
+      shortcutKeys: ['mod+shift+b'],
     });
   });
 

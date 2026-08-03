@@ -22,7 +22,7 @@ export const SHORTCUT_PATTERNS = {
   italic: 'mod+i',
   strikethrough: 'mod+shift+x',
   code: 'mod+shift+f',
-  blockquote: 'mod+shift+>',
+  blockquote: 'mod+shift+b',
   link: MOD_K_SHORTCUT,
   bulletList: 'mod+alt+8',
   orderedList: 'mod+alt+7',
@@ -70,4 +70,21 @@ export function formatShortcut(pattern: string): string {
   const key = /^digit[0-9]$/.test(parsedKey) ? parsedKey.slice(5) : parsedKey;
   const displayKey = key.length === 1 ? key.toUpperCase() : key;
   return [...modifiers, displayKey].join('+');
+}
+
+export function formatProseMirrorShortcut(pattern: string): string {
+  const { modifiers, key } = parseShortcutPattern(pattern);
+  const modifierNames: Record<string, string> = {
+    alt: 'Alt',
+    mod: 'Mod',
+    shift: 'Shift',
+  };
+  const modifierOrder = ['mod', 'alt', 'shift'];
+  const orderedModifiers = [
+    ...modifierOrder.filter((modifier) => modifiers.includes(modifier)),
+    ...modifiers.filter((modifier) => !modifierOrder.includes(modifier)),
+  ];
+  return [...orderedModifiers.map((modifier) => modifierNames[modifier] ?? modifier), key].join(
+    '-',
+  );
 }

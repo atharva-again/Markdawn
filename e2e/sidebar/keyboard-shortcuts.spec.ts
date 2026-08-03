@@ -243,6 +243,35 @@ test.describe('Keyboard shortcuts', () => {
       await expect(page.locator('.ProseMirror em')).toHaveText('italic text');
     });
 
+    test('Ctrl+Shift+B toggles a blockquote with the cursor', async ({ page }) => {
+      await createNewPage(page);
+      await focusEditor(page);
+
+      await page.keyboard.type('quoted text');
+      await page.keyboard.press('Control+Shift+b');
+
+      await expect(page.locator('.ProseMirror blockquote')).toHaveText('quoted text');
+
+      await page.keyboard.press('Control+Shift+b');
+      await expect(page.locator('.ProseMirror blockquote')).toHaveCount(0);
+    });
+
+    test('Ctrl+Shift+B toggles multiple selected blocks', async ({ page }) => {
+      await createNewPage(page);
+      await focusEditor(page);
+
+      await page.keyboard.type('first block');
+      await page.keyboard.press('Enter');
+      await page.keyboard.type('second block');
+      await page.keyboard.press('Control+a');
+      await page.keyboard.press('Control+Shift+b');
+
+      await expect(page.locator('.ProseMirror blockquote p')).toHaveCount(2);
+
+      await page.keyboard.press('Control+Shift+b');
+      await expect(page.locator('.ProseMirror blockquote')).toHaveCount(0);
+    });
+
     test('Ctrl+Shift+F makes selected text inline code', async ({ page }) => {
       await createNewPage(page);
       await focusEditor(page);

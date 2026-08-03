@@ -1,11 +1,12 @@
 import type { Editor } from '@milkdown/core';
 import { editorViewCtx } from '@milkdown/core';
-import { lift, setBlockType, toggleMark, wrapIn } from 'prosemirror-commands';
+import { setBlockType, toggleMark } from 'prosemirror-commands';
 import type { MarkType, NodeType } from 'prosemirror-model';
+import { toggleBlockquote } from '../../editor/utils/blockquote';
 import { showInfoToast } from '../../utils/toast';
 import { ensureAbsoluteUrl } from '../../utils/url';
 import { getClosestListType, switchListType, unwrapList, wrapBlocksInList } from './listCommands';
-import { hasBlockType, hasParentBlockType } from './useEditorActiveStates';
+import { hasBlockType } from './useEditorActiveStates';
 
 interface EditorFormattingCommandOptions {
   editor: Editor | null;
@@ -190,12 +191,8 @@ export function createEditorFormattingCommands({
     keepVisible();
     editor.action((ctx) => {
       const view = ctx.get(editorViewCtx);
-      const blockquoteType = view?.state.schema.nodes.blockquote;
-      if (!view || !blockquoteType) return;
-      const command = hasParentBlockType(view.state, blockquoteType)
-        ? lift
-        : wrapIn(blockquoteType as never);
-      command(view.state, view.dispatch);
+      if (!view) return;
+      toggleBlockquote(view.state, view.dispatch);
     });
     updateSoon();
   };
