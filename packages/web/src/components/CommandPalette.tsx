@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIdentityNavigate } from '../contexts/IdentityLifecycleContext';
 import { useShortcut, useShortcutScope } from '../contexts/KeyboardShortcutContext';
 import { useEntityCreationActions } from '../hooks/useEntityCreationActions';
+import { SHORTCUT_PATTERNS } from '../utils/keyboardShortcuts';
 import { buildPagePath } from '../utils/url';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
@@ -42,9 +43,9 @@ export function CommandPalette() {
     return () => window.removeEventListener('open-search', handleOpenSearch);
   }, []);
 
-  // Toggle palette with Ctrl+K / Cmd+K — high priority to resolve conflicts
+  // Toggle the command palette with the canonical Mod+K shortcut.
   useShortcut({
-    key: 'mod+k',
+    key: SHORTCUT_PATTERNS.commandPalette,
     handler: () => setIsOpen((prev) => !prev),
     description: 'Open command palette',
   });

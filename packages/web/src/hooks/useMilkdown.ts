@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from 'react';
 import { linkEditor } from '../editor/components/LinkEditor';
 import { autolink } from '../editor/plugins/autolink';
 import { handleUrlPasteIntent } from '../editor/plugins/autolinkPaste';
+import { blockquoteShortcut } from '../editor/plugins/blockquoteShortcut';
 import { callout } from '../editor/plugins/callout';
 import { codeBlockExitShortcut } from '../editor/plugins/codeBlockExit';
 import {
@@ -622,6 +623,7 @@ export function useMilkdown({
             },
           }));
         })
+        .use(blockquoteShortcut)
         .use(commonmark)
         .use(gfm)
         .use(codeBlockExitShortcut)

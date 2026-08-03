@@ -4,6 +4,7 @@ import type { MarkType, NodeType } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { isInTable } from 'prosemirror-tables';
 import { type RefObject, useCallback, useState } from 'react';
+import { isBlockquoteActive } from '../../editor/utils/blockquote';
 import { getClosestListType } from './listCommands';
 
 export type EditorActiveStates = {
@@ -67,19 +68,6 @@ export function hasBlockType(
   return false;
 }
 
-export function hasParentBlockType(state: EditorState, nodeType?: NodeType): boolean {
-  if (!nodeType) return false;
-  const { $from } = state.selection;
-  for (let depth = $from.depth; depth > 0; depth--) {
-    if ($from.node(depth).type === nodeType) return true;
-  }
-  if ($from.depth !== 0) return false;
-  for (let index = 0; index < state.doc.content.childCount; index++) {
-    if (state.doc.content.child(index).type === nodeType) return true;
-  }
-  return false;
-}
-
 function deriveActiveStates(state: EditorState): EditorActiveStates {
   const marks = state.schema.marks;
   const nodes = state.schema.nodes;
@@ -90,7 +78,7 @@ function deriveActiveStates(state: EditorState): EditorActiveStates {
     isStrikeActive: hasMark(state, marks.strike_through),
     isCodeActive: hasMark(state, marks.inlineCode) || hasBlockType(state, nodes.code_block),
     isLinkActive: hasMark(state, marks.link),
-    isBlockquoteActive: hasParentBlockType(state, nodes.blockquote),
+    isBlockquoteActive: isBlockquoteActive(state, nodes.blockquote),
     isH1Active: hasBlockType(state, nodes.heading, { level: 1 }),
     isH2Active: hasBlockType(state, nodes.heading, { level: 2 }),
     isH3Active: hasBlockType(state, nodes.heading, { level: 3 }),

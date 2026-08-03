@@ -18,6 +18,7 @@ import {
   IconTable,
 } from '@tabler/icons-react';
 import { createElement, type ReactNode } from 'react';
+import { formatShortcut, SHORTCUT_PATTERNS } from '../../utils/keyboardShortcuts';
 import type { EditorFormattingCommands } from './editorFormattingCommands';
 import type { EditorTableCommands } from './editorTableCommands';
 
@@ -76,13 +77,21 @@ type CommandDefinition = Omit<EditorCommand, 'available' | 'execute' | 'showInSl
   run(actions: EditorCommandActions): void;
 };
 
+const headingShortcuts = {
+  1: SHORTCUT_PATTERNS.heading1,
+  2: SHORTCUT_PATTERNS.heading2,
+  3: SHORTCUT_PATTERNS.heading3,
+  4: SHORTCUT_PATTERNS.heading4,
+  5: SHORTCUT_PATTERNS.heading5,
+  6: SHORTCUT_PATTERNS.heading6,
+} as const;
+
 const definitions: CommandDefinition[] = [
   {
     id: 'paragraph',
     label: 'Paragraph',
     hint: 'P',
-    shortcut: 'Ctrl+Alt+0',
-    shortcutKeys: ['mod+alt+0'],
+    shortcutKeys: [SHORTCUT_PATTERNS.paragraph],
     keywords: ['paragraph', 'text', 'p'],
     icon: createElement('span', { className: 'text-xs' }, '¶'),
     run: (actions) => actions.runBlockCommand('paragraph'),
@@ -101,8 +110,7 @@ const definitions: CommandDefinition[] = [
       id: `h${level}` as EditorCommandId,
       label: `Heading ${level}`,
       hint: `H${level}`,
-      shortcut: `Ctrl+Alt+${level}`,
-      shortcutKeys: [`mod+alt+${level}`],
+      shortcutKeys: [headingShortcuts[level]],
       keywords: ['heading', `h${level}`, ...(level === 1 ? ['title'] : [])],
       icon: createElement(icons[level], { size: 16 }),
       run: (actions: EditorCommandActions) => actions[handlers[level]](),
@@ -112,8 +120,7 @@ const definitions: CommandDefinition[] = [
     id: 'bold',
     label: 'Bold',
     hint: 'Bold',
-    shortcut: 'Ctrl+B',
-    shortcutKeys: ['mod+b'],
+    shortcutKeys: [SHORTCUT_PATTERNS.bold],
     keywords: ['bold', 'strong'],
     icon: createElement(IconBold, { size: 16 }),
     run: (actions) => actions.handleBold(),
@@ -122,8 +129,7 @@ const definitions: CommandDefinition[] = [
     id: 'italic',
     label: 'Italic',
     hint: 'Italic',
-    shortcut: 'Ctrl+I',
-    shortcutKeys: ['mod+i'],
+    shortcutKeys: [SHORTCUT_PATTERNS.italic],
     keywords: ['italic', 'emphasis'],
     icon: createElement(IconItalic, { size: 16 }),
     run: (actions) => actions.handleItalic(),
@@ -132,8 +138,7 @@ const definitions: CommandDefinition[] = [
     id: 'strikethrough',
     label: 'Strikethrough',
     hint: 'Strike',
-    shortcut: 'Ctrl+Shift+X',
-    shortcutKeys: ['mod+shift+x'],
+    shortcutKeys: [SHORTCUT_PATTERNS.strikethrough],
     keywords: ['strikethrough', 'strike'],
     icon: createElement(IconStrikethrough, { size: 16 }),
     run: (actions) => actions.handleStrike(),
@@ -142,9 +147,8 @@ const definitions: CommandDefinition[] = [
     id: 'code',
     label: 'Code',
     hint: 'Code',
-    shortcut: 'Ctrl+`',
-    shortcutKeys: ['mod+`'],
-    keywords: ['code', 'inline'],
+    shortcutKeys: [SHORTCUT_PATTERNS.code],
+    keywords: ['code', 'inline', 'block', 'fenced'],
     icon: createElement(IconCode, { size: 16 }),
     run: (actions) => actions.handleCode(),
   },
@@ -152,8 +156,7 @@ const definitions: CommandDefinition[] = [
     id: 'blockquote',
     label: 'Blockquote',
     hint: 'Quote',
-    shortcut: 'Ctrl+Shift+>',
-    shortcutKeys: ['mod+shift+>'],
+    shortcutKeys: [SHORTCUT_PATTERNS.blockquote],
     keywords: ['quote', 'blockquote', 'citation'],
     icon: createElement(IconBlockquote, { size: 16 }),
     run: (actions) => actions.handleBlockquote(),
@@ -162,8 +165,7 @@ const definitions: CommandDefinition[] = [
     id: 'link',
     label: 'Link',
     hint: 'Link',
-    shortcut: 'Ctrl+K',
-    shortcutKeys: ['mod+k'],
+    shortcutKeys: [SHORTCUT_PATTERNS.link],
     requiresSelection: true,
     keywords: ['link', 'url'],
     icon: createElement(IconLink, { size: 16 }),
@@ -173,8 +175,7 @@ const definitions: CommandDefinition[] = [
     id: 'bullet-list',
     label: 'Bullet List',
     hint: 'Bullet',
-    shortcut: 'Ctrl+Shift+8',
-    shortcutKeys: ['mod+shift+8', 'mod+shift+*'],
+    shortcutKeys: [SHORTCUT_PATTERNS.bulletList],
     keywords: ['bullet', 'list', 'unordered'],
     icon: createElement(IconList, { size: 16 }),
     run: (actions) => actions.handleBulletList(),
@@ -183,8 +184,7 @@ const definitions: CommandDefinition[] = [
     id: 'ordered-list',
     label: 'Ordered List',
     hint: 'Ordered',
-    shortcut: 'Ctrl+Shift+7',
-    shortcutKeys: ['mod+shift+7', 'mod+shift+&'],
+    shortcutKeys: [SHORTCUT_PATTERNS.orderedList],
     keywords: ['ordered', 'list', 'number', 'numbered'],
     icon: createElement(IconListNumbers, { size: 16 }),
     run: (actions) => actions.handleOrderedList(),
@@ -193,8 +193,7 @@ const definitions: CommandDefinition[] = [
     id: 'task-list',
     label: 'Task List',
     hint: 'Check',
-    shortcut: 'Ctrl+Shift+[',
-    shortcutKeys: ['mod+shift+[', 'mod+shift+{'],
+    shortcutKeys: [SHORTCUT_PATTERNS.taskList],
     keywords: ['task', 'check', 'list', 'todo', 'checkbox'],
     icon: createElement(IconListCheck, { size: 16 }),
     run: (actions) => actions.handleTaskList(),
@@ -212,8 +211,7 @@ const definitions: CommandDefinition[] = [
     id: 'image',
     label: 'Image',
     hint: 'Img',
-    shortcut: 'Ctrl+Shift+I',
-    shortcutKeys: ['mod+shift+i'],
+    shortcutKeys: [SHORTCUT_PATTERNS.image],
     keywords: ['image', 'photo', 'upload'],
     icon: createElement(IconPhoto, { size: 16 }),
     run: (actions) => actions.handleImageUploadFromSlash(),
@@ -231,8 +229,7 @@ const definitions: CommandDefinition[] = [
     id: 'tag',
     label: 'Tag',
     hint: 'Tag',
-    shortcut: 'Ctrl+Shift+#',
-    shortcutKeys: ['mod+shift+#'],
+    shortcutKeys: [SHORTCUT_PATTERNS.tag],
     keywords: ['tag', 'label', 'property', '#'],
     icon: createElement('span', { className: 'text-sm' }, '#'),
     run: (actions) => actions.handleInsertTag(),
@@ -313,12 +310,16 @@ export function createEditorCommandRegistry(
   actions: EditorCommandActions,
   canUploadImages: boolean,
 ): EditorCommandRegistry {
-  const all = definitions.map((definition) => ({
-    ...definition,
-    available: definition.id !== 'image' || canUploadImages,
-    showInSlashMenu: definition.showInSlashMenu ?? true,
-    execute: () => definition.run(actions),
-  }));
+  const all = definitions.map((definition) => {
+    const primaryShortcut = definition.shortcutKeys[0];
+    return {
+      ...definition,
+      ...(primaryShortcut ? { shortcut: formatShortcut(primaryShortcut) } : {}),
+      available: definition.id !== 'image' || canUploadImages,
+      showInSlashMenu: definition.showInSlashMenu ?? true,
+      execute: () => definition.run(actions),
+    };
+  });
   return {
     all,
     command: (id) => {

@@ -1,17 +1,11 @@
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
+import { formatShortcut, SHORTCUT_PATTERNS } from '../utils/keyboardShortcuts';
 import { Tooltip } from './Tooltip';
-
-function getModLabel(): string {
-  if (typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform)) {
-    return '⌘+Shift+D';
-  }
-  return 'Ctrl+Shift+D';
-}
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const modLabel = getModLabel();
+  const shortcutLabel = formatShortcut(SHORTCUT_PATTERNS.toggleTheme);
 
   const toggleTheme = () => {
     if (theme === 'light') setTheme('dark');
@@ -20,9 +14,9 @@ export function ThemeToggle() {
   };
 
   const labels: Record<string, string> = {
-    light: `Switch to dark theme (${modLabel})`,
-    dark: `Switch to system theme (${modLabel})`,
-    system: `Switch to light theme (${modLabel})`,
+    light: `Switch to dark theme (${shortcutLabel})`,
+    dark: `Switch to system theme (${shortcutLabel})`,
+    system: `Switch to light theme (${shortcutLabel})`,
   };
 
   return (

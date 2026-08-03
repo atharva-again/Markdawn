@@ -25,6 +25,7 @@ import {
   IconTrash,
 } from '@tabler/icons-react';
 import { useEffect, useMemo } from 'react';
+import { formatShortcut, SHORTCUT_PATTERNS } from '../../utils/keyboardShortcuts';
 
 export interface FloatingToolbarProps {
   onBold: () => void;
@@ -115,6 +116,8 @@ export function FloatingToolbar({
   isTaskListActive,
   isInTableActive,
 }: FloatingToolbarProps) {
+  const boldShortcut = formatShortcut(SHORTCUT_PATTERNS.bold);
+  const italicShortcut = formatShortcut(SHORTCUT_PATTERNS.italic);
   const virtualReference = useMemo(() => {
     if (!position) return null;
 
@@ -152,7 +155,7 @@ export function FloatingToolbar({
         type="button"
         onClick={onBold}
         className={`floating-toolbar-btn p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors cursor-pointer ${isBoldActive ? 'bg-zinc-100 dark:bg-zinc-600 text-zinc-900 dark:text-white' : ''}`}
-        title="Bold (Ctrl+B)"
+        title={`Bold (${boldShortcut})`}
       >
         <IconBold size={16} />
       </button>
@@ -160,7 +163,7 @@ export function FloatingToolbar({
         type="button"
         onClick={onItalic}
         className={`floating-toolbar-btn p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors cursor-pointer ${isItalicActive ? 'bg-zinc-100 dark:bg-zinc-600 text-zinc-900 dark:text-white' : ''}`}
-        title="Italic (Ctrl+I)"
+        title={`Italic (${italicShortcut})`}
       >
         <IconItalic size={16} />
       </button>

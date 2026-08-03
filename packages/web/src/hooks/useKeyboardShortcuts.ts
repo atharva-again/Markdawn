@@ -1,4 +1,5 @@
 import { getLogger } from '../logger-init';
+import { normalizeShortcutPattern } from '../utils/keyboardShortcuts';
 
 export type Priority = 'high' | 'normal' | 'low';
 
@@ -6,7 +7,10 @@ const PRIORITY_RANK: Record<Priority, number> = { high: 0, normal: 1, low: 2 };
 
 export interface HotkeyBinding {
   id: string;
+  /** Normalized token used for matching keyboard events. */
   key: string;
+  /** Original shortcut pattern used when presenting the binding to users. */
+  shortcutPattern: string;
   // biome-ignore lint/suspicious/noConfusingVoidType: void allows simple arrow functions like () => fn()
   handler: (event: KeyboardEvent) => boolean | void;
   scope: string;
@@ -17,6 +21,8 @@ export interface HotkeyBinding {
    *  'block' — suppressed when an editable element is focused. */
   whenInputFocused: 'allow' | 'block';
 }
+
+type HotkeyRegistration = Omit<HotkeyBinding, 'id' | 'key'> & { id?: string };
 
 let bindingCounter = 0;
 
@@ -34,9 +40,13 @@ export class KeyboardRegistry {
   /**
    * Register a keyboard binding. Returns an unregister function.
    */
-  register(binding: Omit<HotkeyBinding, 'id'> & { id?: string }): () => void {
+  register(binding: HotkeyRegistration): () => void {
     const id = binding.id ?? `kb-${++bindingCounter}`;
-    const entry: HotkeyBinding = { ...binding, id };
+    const entry: HotkeyBinding = {
+      ...binding,
+      id,
+      key: normalizeShortcutPattern(binding.shortcutPattern),
+    };
     this.bindings.push(entry);
     this.bindings.sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]);
     return () => {
@@ -49,10 +59,10 @@ export class KeyboardRegistry {
    * Returns true if a binding handled the event.
    */
   dispatch(event: KeyboardEvent, isEditableFocused: boolean): boolean {
-    const key = this.normalizeKey(event);
+    const keys = this.normalizeKeys(event);
 
     for (const b of this.bindings) {
-      if (b.key !== key) continue;
+      if (!keys.includes(b.key)) continue;
 
       if (b.whenInputFocused === 'block' && isEditableFocused) continue;
       if (!this.activeScopes.has(b.scope) && !this.activeScopes.has('*')) continue;
@@ -96,7 +106,7 @@ export class KeyboardRegistry {
     bindingCounter = 0;
   }
 
-  normalizeKey(event: KeyboardEvent): string {
+  normalizeKeys(event: KeyboardEvent): string[] {
     const parts: string[] = [];
 
     if (event.metaKey || event.ctrlKey) parts.push('mod');
@@ -105,31 +115,33 @@ export class KeyboardRegistry {
     // Sort modifiers deterministically so key order never breaks matching
     parts.sort();
 
-    const key = event.key;
-    if (['Control', 'Meta', 'Alt', 'AltGraph', 'Shift', 'OS'].includes(key)) {
-      return parts.join('+') || key.toLowerCase();
-    }
+    return eventKeyTokens(event).map((key) => {
+      if (['Control', 'Meta', 'Alt', 'AltGraph', 'Shift', 'OS'].includes(key)) {
+        return parts.join('+') || key.toLowerCase();
+      }
 
-    if (key === ' ') return [...parts, 'space'].join('+');
+      if (key === ' ') return [...parts, 'space'].join('+');
 
-    return [...parts, key.toLowerCase()].join('+');
+      return [...parts, key.toLowerCase()].join('+');
+    });
   }
+}
 
-  /** Convert a user-facing pattern like "mod+shift+n" to normalized form. */
-  patternToKey(pattern: string): string {
-    const parts = pattern
-      .toLowerCase()
-      .replace(/\bctrl\b/g, 'mod')
-      .replace(/\bcmd\b/g, 'mod')
-      .replace(/\bcommand\b/g, 'mod')
-      .replace(/\boption\b/g, 'alt')
-      .split('+');
-    // Sort modifier segments so registration order never matters
-    const key = parts.pop() ?? '';
-    parts.sort();
-    parts.push(key);
-    return parts.join('+');
+function digitKeyToken(code: string): string | undefined {
+  return /^Digit[0-9]$/.test(code) ? code.toLowerCase() : undefined;
+}
+
+function digitKeyTokenFromPattern(key: string): string {
+  return /^[0-9]$/.test(key) ? `digit${key}` : key;
+}
+
+function eventKeyTokens(event: KeyboardEvent): string[] {
+  const tokens = [digitKeyTokenFromPattern(event.key)];
+  const physicalDigit = digitKeyToken(event.code);
+  if (physicalDigit && !tokens.includes(physicalDigit)) {
+    tokens.push(physicalDigit);
   }
+  return tokens;
 }
 
 /** App-wide singleton registry. */
