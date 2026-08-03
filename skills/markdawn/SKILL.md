@@ -141,3 +141,8 @@ markdawn --json page update PAGE_ID --clear-icon
 ```
 
 `page update` changes only page title and icon. `title:` in markdown frontmatter is ordinary frontmatter and does not rename a page. An `icon:` frontmatter change is also valid when the icon is being changed together with page content or properties.
+
+## Notes For Good User Experience
+
+1. Don't include an H1 as page title in the markdown content directly. The title is a separate metadata which can be altered via the CLI.
+2. Don't give the human raw page or folder IDs until they ask for it. 
