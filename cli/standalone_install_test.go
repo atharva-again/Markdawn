@@ -1,12 +1,29 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestNewUpdateProgressDisablesPlainOutput(t *testing.T) {
+	output := &bytes.Buffer{}
+	runtime := &runtimeState{
+		cli:       &CLI{Plain: true},
+		stderr:    output,
+		stderrTTY: true,
+	}
+	progress := newUpdateProgress(runtime)
+	progress.phase("Checking for updates...")
+	progress.download("markdawn.tar.gz", 1, 2)
+	progress.finish()
+	if output.Len() != 0 {
+		t.Fatalf("plain progress output = %q", output.String())
+	}
+}
 
 func TestLoadInstallReceiptRejectsUnknownFields(t *testing.T) {
 	dir := t.TempDir()

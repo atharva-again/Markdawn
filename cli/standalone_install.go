@@ -190,14 +190,21 @@ func unmanagedInstallError() error {
 }
 
 func (cmd *UpdateCmd) Run(r *runtimeState) error {
-	if cmd.Version != "" && !releaseVersionPattern.MatchString(cmd.Version) {
-		return usageError("version must be a semantic version such as v1.2.3")
+	if err := validateReleaseVersion(cmd.Version); err != nil {
+		return err
 	}
 	receipt, _, err := managedInstall()
 	if err != nil {
 		return err
 	}
-	deferred, err := updateStandalone(r.ctx, receipt, cmd.Version, &http.Client{Timeout: r.cli.Timeout})
+	progress := newUpdateProgress(r)
+	outcome, err := updateStandaloneWithProgress(
+		r.ctx,
+		receipt,
+		cmd.Version,
+		&http.Client{Timeout: r.cli.Timeout},
+		progress,
+	)
 	if err != nil {
 		if errorCode(err) == "invalid_arguments" {
 			return err
@@ -205,12 +212,17 @@ func (cmd *UpdateCmd) Run(r *runtimeState) error {
 		return &cliError{Code: "update_failed", Message: "standalone update failed", Cause: err}
 	}
 	if r.cli.JSON {
-		return r.printJSON(updateResult{Updated: !deferred, Scheduled: deferred})
+		return r.printJSON(outcome.jsonResult())
 	}
-	if deferred {
+	switch outcome.status {
+	case updateStatusScheduled:
 		_, err = fmt.Fprintln(r.stdout, "Markdawn update is scheduled and will finish after this command exits.")
-	} else {
+	case updateStatusUpdated:
 		_, err = fmt.Fprintln(r.stdout, "Markdawn updated successfully.")
+	case updateStatusUpToDate:
+		_, err = fmt.Fprintln(r.stdout, "Markdawn is already up to date.")
+	default:
+		return fmt.Errorf("unknown standalone update status %q", outcome.status)
 	}
 	if err != nil {
 		return err
@@ -219,6 +231,7 @@ func (cmd *UpdateCmd) Run(r *runtimeState) error {
 }
 
 type updateResult struct {
-	Updated   bool `json:"updated"`
-	Scheduled bool `json:"scheduled"`
+	Updated   bool         `json:"updated"`
+	Scheduled bool         `json:"scheduled"`
+	Status    updateStatus `json:"status"`
 }

@@ -97,7 +97,12 @@ func (r *runtimeState) interactive() bool {
 }
 
 func (r *runtimeState) colorEnabled() bool {
-	return r.stdoutTTY && !r.cli.Plain && !r.cli.JSON && os.Getenv("NO_COLOR") == ""
+	return r.stdoutTTY && !r.cli.Plain && !r.cli.JSON && !noColor()
+}
+
+func noColor() bool {
+	_, present := os.LookupEnv("NO_COLOR")
+	return present
 }
 
 func (r *runtimeState) style(style lipgloss.Style, value string) string {

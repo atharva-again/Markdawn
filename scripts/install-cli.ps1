@@ -16,6 +16,22 @@ function Fail([string]$Message) {
   throw "markdawn installer: $Message"
 }
 
+function Test-InteractiveOutput {
+  return -not [Console]::IsOutputRedirected
+}
+
+function Write-Phase([string]$Message) {
+  if (Test-InteractiveOutput) {
+    if (Test-Path Env:NO_COLOR) {
+      Write-Host "==> $Message"
+    } else {
+      Write-Host "==> $Message" -ForegroundColor Cyan
+    }
+  } else {
+    Write-Output "==> $Message"
+  }
+}
+
 function Download-ReleaseAsset([string]$Uri, [string]$Path, [long]$MaximumBytes, [int]$TimeoutSeconds, [string]$Label) {
   Add-Type -AssemblyName System.Net.Http
   $client = [Net.Http.HttpClient]::new()
@@ -26,6 +42,7 @@ function Download-ReleaseAsset([string]$Uri, [string]$Path, [long]$MaximumBytes,
     if (-not $response.IsSuccessStatusCode) { Fail "could not download ${Label}: unexpected HTTP status $($response.StatusCode)" }
     $contentLength = $response.Content.Headers.ContentLength
     if ($null -ne $contentLength -and $contentLength -gt $MaximumBytes) { Fail "$Label exceeds $MaximumBytes bytes" }
+    $showProgress = (Test-InteractiveOutput) -and ($null -ne $contentLength) -and ($contentLength -gt 0)
     $source = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
     try {
       $destination = [IO.File]::Open($Path, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
@@ -36,7 +53,12 @@ function Download-ReleaseAsset([string]$Uri, [string]$Path, [long]$MaximumBytes,
           $written += $read
           if ($written -gt $MaximumBytes) { Fail "$Label exceeds $MaximumBytes bytes" }
           $destination.Write($buffer, 0, $read)
+          if ($showProgress) {
+            $percent = [Math]::Min(100, [Math]::Floor(($written * 100) / $contentLength))
+            Write-Progress -Activity 'Downloading Markdawn CLI' -Status $Label -PercentComplete $percent
+          }
         }
+        if ($showProgress) { Write-Progress -Activity 'Downloading Markdawn CLI' -Completed }
       } finally {
         $destination.Dispose()
       }
@@ -158,9 +180,11 @@ $finalizerBinary = $null
 try {
   $archivePath = Join-Path $temporaryDir $archive
   $checksumsPath = Join-Path $temporaryDir 'checksums.txt'
+  Write-Phase 'Downloading Markdawn CLI release...'
   Download-ReleaseAsset "$downloadBase/$archive" $archivePath $maxReleaseArchiveBytes $parsedHttpTimeoutSeconds $archive
   Download-ReleaseAsset "$downloadBase/checksums.txt" $checksumsPath 1MB $parsedHttpTimeoutSeconds 'checksums.txt'
 
+  Write-Phase 'Verifying Markdawn CLI release...'
   $checksumLines = @(Get-Content -LiteralPath $checksumsPath | Where-Object { $_ -match ("\s\s" + [Regex]::Escape($archive) + '$') })
   if ($checksumLines.Count -ne 1) { Fail "checksums.txt must contain exactly one entry for $archive" }
   $checksumLine = $checksumLines[0]
@@ -170,6 +194,7 @@ try {
   $actualChecksum = (Get-FileHash -Algorithm SHA256 -LiteralPath $archivePath).Hash
   if ($actualChecksum -ne $expectedChecksum) { Fail "SHA-256 verification failed for $archive" }
 
+  Write-Phase 'Installing Markdawn CLI...'
   $newBinary = Join-Path $temporaryDir 'markdawn.exe'
   Extract-ReleaseBinary $archivePath $newBinary
   if (Test-Path -LiteralPath $installDir) {

@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,167 @@ import (
 	"strings"
 	"testing"
 )
+
+type recordingUpdateProgress struct {
+	phaseMessages  []string
+	downloadLabels []string
+	finishCount    int
+}
+
+func (progress *recordingUpdateProgress) phase(message string) {
+	progress.phaseMessages = append(progress.phaseMessages, message)
+}
+
+func (progress *recordingUpdateProgress) download(label string, _, _ int64) {
+	progress.downloadLabels = append(progress.downloadLabels, label)
+}
+
+func (progress *recordingUpdateProgress) finish() {
+	progress.finishCount++
+}
+
+type failingProgressWriter struct{}
+
+func (failingProgressWriter) Write([]byte) (int, error) {
+	return 0, fmt.Errorf("progress output is closed")
+}
+
+func TestUpdateOutcomeJSONIncludesStatus(t *testing.T) {
+	cases := []struct {
+		status    updateStatus
+		updated   bool
+		scheduled bool
+	}{
+		{status: updateStatusUpToDate},
+		{status: updateStatusUpdated, updated: true},
+		{status: updateStatusScheduled, scheduled: true},
+	}
+	for _, testCase := range cases {
+		t.Run(string(testCase.status), func(t *testing.T) {
+			data, err := json.Marshal((updateOutcome{status: testCase.status}).jsonResult())
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(data, &fields); err != nil {
+				t.Fatal(err)
+			}
+			status, ok := fields["status"]
+			if !ok {
+				t.Fatalf("JSON result omitted status: %s", data)
+			}
+			var actualStatus updateStatus
+			if err := json.Unmarshal(status, &actualStatus); err != nil {
+				t.Fatal(err)
+			}
+			if actualStatus != testCase.status {
+				t.Fatalf("status = %q, want %q", actualStatus, testCase.status)
+			}
+			var result updateResult
+			if err := json.Unmarshal(data, &result); err != nil {
+				t.Fatal(err)
+			}
+			if result.Updated != testCase.updated || result.Scheduled != testCase.scheduled {
+				t.Fatalf("compatibility fields = %#v, want updated=%t scheduled=%t", result, testCase.updated, testCase.scheduled)
+			}
+		})
+	}
+}
+
+func TestDownloadReleaseAssetWithProgressFinishesReporter(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		_, _ = response.Write([]byte("release asset"))
+	}))
+	t.Cleanup(server.Close)
+	progress := &recordingUpdateProgress{}
+	asset, err := downloadReleaseAssetWithProgress(
+		context.Background(),
+		server.Client(),
+		server.URL,
+		1024,
+		"asset.tar.gz",
+		progress,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(asset) != "release asset" {
+		t.Fatalf("downloaded asset = %q", asset)
+	}
+	if len(progress.downloadLabels) == 0 || progress.downloadLabels[0] != "asset.tar.gz" {
+		t.Fatalf("download progress labels = %#v", progress.downloadLabels)
+	}
+	if progress.finishCount != 1 {
+		t.Fatalf("finish called %d times, want 1", progress.finishCount)
+	}
+}
+
+func TestDownloadReleaseAssetIgnoresProgressWriteErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		_, _ = response.Write([]byte("release asset"))
+	}))
+	t.Cleanup(server.Close)
+	progress := &updateProgressRenderer{writer: failingProgressWriter{}, marker: "==>"}
+	asset, err := downloadReleaseAssetWithProgress(
+		context.Background(),
+		server.Client(),
+		server.URL,
+		1024,
+		"asset.tar.gz",
+		progress,
+	)
+	if err != nil {
+		t.Fatalf("download failed because progress output failed: %v", err)
+	}
+	if string(asset) != "release asset" {
+		t.Fatalf("downloaded asset = %q", asset)
+	}
+}
+
+func TestUpdateProgressRendererRedrawsOnlyWhenPercentChanges(t *testing.T) {
+	output := &bytes.Buffer{}
+	renderer := &updateProgressRenderer{writer: output, marker: "==>"}
+	renderer.download("asset.tar.gz", 1, 100)
+	firstDraw := output.Len()
+	renderer.download("asset.tar.gz", 1, 100)
+	if output.Len() != firstDraw {
+		t.Fatal("progress redrew without a percentage change")
+	}
+	renderer.download("asset.tar.gz", 2, 100)
+	if output.Len() <= firstDraw {
+		t.Fatal("progress did not redraw after a percentage change")
+	}
+}
+
+func TestBinariesMatchStreamsContents(t *testing.T) {
+	directory := t.TempDir()
+	leftPath := filepath.Join(directory, "left")
+	rightPath := filepath.Join(directory, "right")
+	payload := bytes.Repeat([]byte("markdawn"), 8192)
+	if err := os.WriteFile(leftPath, payload, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(rightPath, payload, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	match, err := binariesMatch(leftPath, rightPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !match {
+		t.Fatal("identical binaries did not match")
+	}
+	if err := os.WriteFile(rightPath, append(payload, '!'), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	match, err = binariesMatch(leftPath, rightPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if match {
+		t.Fatal("different binaries matched")
+	}
+}
 
 func TestExtractReleaseBinaryAcceptsDotSlashTarPath(t *testing.T) {
 	var archive bytes.Buffer
@@ -72,12 +234,16 @@ func TestUpdateStandaloneVerifiesAndReplacesBinary(t *testing.T) {
 	if err := os.WriteFile(binaryPath, []byte("old binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	deferred, err := updateStandalone(context.Background(), installReceipt{InstallDir: installDir, BinaryPath: binaryPath}, "", server.Client())
+	receipt := installReceipt{InstallDir: installDir, BinaryPath: binaryPath}
+	outcome, err := updateStandalone(context.Background(), receipt, "", server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if deferred {
+	if outcome.status == updateStatusScheduled {
 		t.Fatal("Unix update was deferred")
+	}
+	if outcome.status != updateStatusUpdated {
+		t.Fatal("Unix update was not applied")
 	}
 	contents, err := os.ReadFile(binaryPath)
 	if err != nil {
@@ -85,6 +251,13 @@ func TestUpdateStandaloneVerifiesAndReplacesBinary(t *testing.T) {
 	}
 	if string(contents) != "new binary" {
 		t.Fatalf("updated binary = %q", contents)
+	}
+	outcome, err = updateStandalone(context.Background(), receipt, "", server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.status != updateStatusUpToDate {
+		t.Fatalf("identical update was applied: %#v", outcome)
 	}
 }
 

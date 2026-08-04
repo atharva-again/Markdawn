@@ -13,11 +13,21 @@ path_block_start='# >>> markdawn >>>'
 path_block_end='# <<< markdawn <<<'
 command_color=''
 color_reset=''
+phase_color=''
+phase_reset=''
 
 if [ -t 1 ] && [ -z "${NO_COLOR+x}" ]; then
   command_color='\033[1;36m'
   color_reset='\033[0m'
 fi
+if [ -t 2 ] && [ -z "${NO_COLOR+x}" ]; then
+  phase_color='\033[1;36m'
+  phase_reset='\033[0m'
+fi
+
+phase() {
+  printf '%b==>%b %s\n' "$phase_color" "$phase_reset" "$*" >&2
+}
 
 fail() {
   printf '%s\n' "markdawn installer: $*" >&2
@@ -221,9 +231,19 @@ download_with_limit() {
   fi
 }
 
-download_with_limit "$archive_path" "$download_base/$archive" "$max_release_archive_bytes" "$archive"
-download_with_limit "$checksums_path" "$download_base/checksums.txt" 1048576 "checksums.txt"
+download_asset() {
+  destination=$1
+  url=$2
+  limit=$3
+  label=$4
+  phase "Downloading $label..."
+  download_with_limit "$destination" "$url" "$limit" "$label"
+}
 
+download_asset "$archive_path" "$download_base/$archive" "$max_release_archive_bytes" "$archive"
+download_asset "$checksums_path" "$download_base/checksums.txt" 1048576 "checksums.txt"
+
+phase "Verifying Markdawn CLI release..."
 checksum_line=$(grep -F "  $archive" "$checksums_path" || true)
 [ -n "$checksum_line" ] || fail "checksums.txt does not contain $archive"
 expected_checksum=${checksum_line%% *}
@@ -267,6 +287,7 @@ binary_member=$(tar -tzf "$archive_path" | awk -v max_entries="$max_release_arch
     print member
   }
 ') || fail "release archive must contain exactly one markdawn binary"
+phase "Installing Markdawn CLI..."
 tar -xzf "$archive_path" -C "$extract_dir" "$binary_member" || fail "could not extract markdawn from $archive"
 binary_path="$extract_dir/markdawn"
 [ -f "$binary_path" ] && [ ! -L "$binary_path" ] || fail "release archive does not contain a regular markdawn binary"
