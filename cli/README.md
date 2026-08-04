@@ -220,8 +220,8 @@ source <(markdawn completion zsh)
 markdawn completion fish | source
 ```
 
-`markdawn doctor` reports the resolved server, authentication status, and standalone-install
-health without printing the token.
+`markdawn doctor` reports the config location, resolved server, authentication status, token
+access, and standalone-install health without printing the token.
 
 `markdawn update` downloads a checksum-verified standalone release. Go-installed binaries should
 be updated with `go install github.com/atharva-again/Markdawn/cli@latest` instead.

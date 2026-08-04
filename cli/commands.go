@@ -229,6 +229,14 @@ func (cmd *WhoamiCmd) Run(r *runtimeState) error {
 		terminalText(user.Email),
 		terminalText(server),
 	)
+	if err != nil {
+		return err
+	}
+	if user.Authentication == "token" {
+		if access := tokenAccess(user.Scopes); access != "" {
+			_, err = fmt.Fprintf(r.stdout, "Token access: %s\n", terminalText(access))
+		}
+	}
 	return err
 }
 

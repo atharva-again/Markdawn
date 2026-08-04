@@ -16,7 +16,7 @@ func TestDoctorChecksSavedAuthentication(t *testing.T) {
 		if request.Method != http.MethodGet || request.URL.Path != "/api/v1/me" {
 			t.Fatalf("unexpected request %s %s", request.Method, request.URL.Path)
 		}
-		fmt.Fprint(response, `{"id":"user","name":"Ada","email":"ada@example.com"}`)
+		fmt.Fprint(response, `{"id":"user","name":"Ada","email":"ada@example.com","authentication":"token","scopes":["pages:read"]}`)
 	}))
 	t.Cleanup(server.Close)
 	client, err := newClient(t.Context(), server.URL, "secret", time.Second)
@@ -38,7 +38,7 @@ func TestDoctorChecksSavedAuthentication(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.Authentication.Status != "authenticated" || result.Authentication.Source != "saved configuration" || result.Authentication.User != "ada@example.com" {
+	if result.Authentication.Status != "authenticated" || result.Authentication.Source != "saved configuration" || result.Authentication.User != "ada@example.com" || tokenAccess(result.Authentication.Scopes) != "read-only" {
 		t.Fatalf("unexpected authentication result %#v", result.Authentication)
 	}
 }

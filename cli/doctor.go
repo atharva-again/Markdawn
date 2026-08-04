@@ -12,6 +12,7 @@ type DoctorCmd struct{}
 
 type doctorResult struct {
 	Version        string               `json:"version"`
+	ConfigPath     string               `json:"configPath"`
 	Server         string               `json:"server"`
 	Authentication doctorAuthentication `json:"authentication"`
 	Standalone     doctorCheck          `json:"standalone"`
@@ -19,10 +20,11 @@ type doctorResult struct {
 }
 
 type doctorAuthentication struct {
-	Status  string `json:"status"`
-	Source  string `json:"source,omitempty"`
-	User    string `json:"user,omitempty"`
-	Message string `json:"message,omitempty"`
+	Status  string       `json:"status"`
+	Source  string       `json:"source,omitempty"`
+	User    string       `json:"user,omitempty"`
+	Scopes  []tokenScope `json:"scopes,omitempty"`
+	Message string       `json:"message,omitempty"`
 }
 
 type doctorCheck struct {
@@ -42,6 +44,12 @@ func (cmd *DoctorCmd) Run(r *runtimeState) error {
 		Version:    buildVersion(),
 		Standalone: inspectStandaloneInstall(),
 		Skills:     inspectSkillsTool(),
+	}
+	resolvedConfigPath, configPathErr := configPath()
+	if configPathErr != nil {
+		result.ConfigPath = "unavailable"
+	} else {
+		result.ConfigPath = resolvedConfigPath
 	}
 	server, err := r.serverURL()
 	if err != nil {
@@ -84,6 +92,7 @@ func (cmd *DoctorCmd) Run(r *runtimeState) error {
 		Status: "authenticated",
 		Source: tokenSource,
 		User:   user.Email,
+		Scopes: user.Scopes,
 	}
 	return renderDoctorResult(r, result)
 }
@@ -137,6 +146,9 @@ func renderDoctorResult(r *runtimeState, result doctorResult) error {
 	if _, err := fmt.Fprintf(r.stdout, "Markdawn %s\n", terminalText(result.Version)); err != nil {
 		return err
 	}
+	if _, err := fmt.Fprintf(r.stdout, "Configuration: %s\n", terminalText(result.ConfigPath)); err != nil {
+		return err
+	}
 	if _, err := fmt.Fprintf(r.stdout, "Server: %s\n", terminalText(result.Server)); err != nil {
 		return err
 	}
@@ -152,6 +164,11 @@ func renderDoctorResult(r *runtimeState, result doctorResult) error {
 	}
 	if _, err := fmt.Fprintf(r.stdout, "Authentication: %s\n", terminalText(authentication)); err != nil {
 		return err
+	}
+	if access := tokenAccess(result.Authentication.Scopes); access != "" {
+		if _, err := fmt.Fprintf(r.stdout, "Token access: %s\n", terminalText(access)); err != nil {
+			return err
+		}
 	}
 	if _, err := fmt.Fprintf(r.stdout, "Standalone: %s — %s\n", terminalText(result.Standalone.Status), terminalText(result.Standalone.Message)); err != nil {
 		return err

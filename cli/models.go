@@ -56,11 +56,48 @@ type editResponse struct {
 }
 
 type authenticatedUser struct {
-	ID             string  `json:"id"`
-	Name           string  `json:"name"`
-	Email          string  `json:"email"`
-	Image          *string `json:"image"`
-	Authentication string  `json:"authentication"`
+	ID             string       `json:"id"`
+	Name           string       `json:"name"`
+	Email          string       `json:"email"`
+	Image          *string      `json:"image"`
+	Authentication string       `json:"authentication"`
+	Scopes         []tokenScope `json:"scopes,omitempty"`
+}
+
+type tokenScope string
+
+const (
+	tokenScopePagesRead  tokenScope = "pages:read"
+	tokenScopePagesWrite tokenScope = "pages:write"
+)
+
+func tokenAccess(scopes []tokenScope) string {
+	hasRead := false
+	hasWrite := false
+	hasUnknown := false
+	for _, scope := range scopes {
+		switch scope {
+		case tokenScopePagesRead:
+			hasRead = true
+		case tokenScopePagesWrite:
+			hasWrite = true
+		default:
+			hasUnknown = true
+		}
+	}
+	if hasUnknown {
+		return "unknown"
+	}
+	if hasRead && hasWrite {
+		return "read and write"
+	}
+	if hasRead {
+		return "read-only"
+	}
+	if len(scopes) > 0 {
+		return "unknown"
+	}
+	return ""
 }
 
 type loginResult struct {
