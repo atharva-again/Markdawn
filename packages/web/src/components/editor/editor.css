@@ -44,6 +44,19 @@
   margin-top: 1.5rem;
   margin-bottom: 0.5rem;
   font-weight: 600;
+  /* Keep anchored headings below Page's sticky breadcrumb/action bar. */
+  scroll-margin-top: 3.25rem;
+}
+
+@media (min-width: 768px) {
+  .milkdown-editor-view h1,
+  .milkdown-editor-view h2,
+  .milkdown-editor-view h3,
+  .milkdown-editor-view h4,
+  .milkdown-editor-view h5,
+  .milkdown-editor-view h6 {
+    scroll-margin-top: 4.5rem;
+  }
 }
 
 .milkdown-editor-view h1 {
