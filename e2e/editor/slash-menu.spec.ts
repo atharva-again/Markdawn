@@ -192,6 +192,16 @@ test.describe('Slash menu', () => {
       await expect(page.locator('.ProseMirror > hr + p')).toHaveText('Text below the divider');
     });
 
+    test('places the caret in a new paragraph below a typed divider', async ({ page }) => {
+      await createNewPage(page);
+      await focusEditor(page);
+      await page.keyboard.type('---');
+
+      await expect(page.locator('.ProseMirror hr')).toBeVisible({ timeout: 5000 });
+      await page.keyboard.type('Text below the divider');
+
+      await expect(page.locator('.ProseMirror > hr + p')).toHaveText('Text below the divider');
+    });
   });
 
   test.describe('Inline mark commands', () => {
