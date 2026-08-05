@@ -1,0 +1,213 @@
+name: CI (CLI)
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  GO_VERSION: "1.24.x"
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
+      cli_ubuntu: ${{ steps.scope.outputs.cli_ubuntu }}
+      cli_all: ${{ steps.scope.outputs.cli_all }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changed components
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: .github/filters.yml
+
+      - name: Detect protected CI changes
+        id: protected
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            protected:
+              - '.github/workflows/**'
+              - '.github/filters.yml'
+
+      - name: Compute validation scope
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          CODE_CHANGED: ${{ steps.filter.outputs.code }}
+          PROTECTED_CHANGED: ${{ steps.protected.outputs.protected }}
+          SHARED_CHANGED: ${{ steps.filter.outputs.shared }}
+          API_CHANGED: ${{ steps.filter.outputs.api }}
+          CLI_CHANGED: ${{ steps.filter.outputs.cli }}
+        run: |
+          set -euo pipefail
+
+          full=false
+          if [[ "$EVENT_NAME" == "push" && "$REF" == "refs/heads/master" && "$CODE_CHANGED" == "true" ]]; then
+            full=true
+          fi
+          if [[ "$PROTECTED_CHANGED" == "true" ]]; then
+            full=true
+          fi
+
+          cli_ubuntu="$full"
+          if [[ "$SHARED_CHANGED" == "true" || "$API_CHANGED" == "true" || "$CLI_CHANGED" == "true" ]]; then
+            cli_ubuntu=true
+          fi
+
+          cli_all="$full"
+          if [[ "$CLI_CHANGED" == "true" ]]; then cli_all=true; fi
+
+          printf '%s\n' \
+            "full=$full" \
+            "cli_ubuntu=$cli_ubuntu" \
+            "cli_all=$cli_all" >>"$GITHUB_OUTPUT"
+
+  cli:
+    name: CLI
+    needs: changes
+    if: needs.changes.outputs.cli_ubuntu == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: cli/go.sum
+
+      - name: Test
+        working-directory: cli
+        run: |
+          go test -race ./...
+          bash ../scripts/install-cli.test.sh
+          sh ../scripts/standalone-cli.e2e.sh
+
+      - name: Vet
+        working-directory: cli
+        run: go vet ./...
+
+      - name: Build
+        working-directory: cli
+        run: go build -trimpath ./...
+
+  cli-macos:
+    name: CLI (macOS)
+    needs: changes
+    if: needs.changes.outputs.cli_all == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: cli/go.sum
+
+      - name: Test CLI and bootstrap installer
+        working-directory: cli
+        run: |
+          go test -race ./...
+          bash ../scripts/install-cli.test.sh
+          sh ../scripts/standalone-cli.e2e.sh
+
+      - name: Vet
+        working-directory: cli
+        run: go vet ./...
+
+      - name: Build
+        working-directory: cli
+        run: go build -trimpath ./...
+
+  cli-windows:
+    name: CLI (Windows)
+    needs: changes
+    if: needs.changes.outputs.cli_all == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: cli/go.sum
+
+      - name: Test CLI
+        working-directory: cli
+        run: go test ./...
+
+      - name: Vet
+        working-directory: cli
+        run: go vet ./...
+
+      - name: Build
+        working-directory: cli
+        run: go build -trimpath ./...
+
+      - name: Parse PowerShell bootstrap installer
+        shell: pwsh
+        run: |
+          $errors = $null
+          [Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'scripts/install-cli.ps1'), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+
+      - name: Test PowerShell bootstrap installer
+        shell: pwsh
+        run: |
+          ./scripts/install-cli.ps1.test.ps1
+          ./scripts/standalone-cli.e2e.ps1
+
+  cli-gate:
+    name: CLI gate
+    needs: [changes, cli, cli-macos, cli-windows]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify applicable CLI jobs
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          CLI_UBUNTU: ${{ needs.changes.outputs.cli_ubuntu }}
+          CLI_ALL: ${{ needs.changes.outputs.cli_all }}
+          CLI_RESULT: ${{ needs.cli.result }}
+          CLI_MACOS_RESULT: ${{ needs.cli-macos.result }}
+          CLI_WINDOWS_RESULT: ${{ needs.cli-windows.result }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$CHANGES_RESULT" != "success" ]]; then
+            echo "Change detection did not complete successfully: $CHANGES_RESULT" >&2
+            exit 1
+          fi
+
+          require_success() {
+            local job_name="$1"
+            local result="$2"
+            if [[ "$result" != "success" ]]; then
+              echo "$job_name did not pass: $result" >&2
+              exit 1
+            fi
+          }
+
+          if [[ "$CLI_ALL" == "true" ]]; then
+            require_success "CLI" "$CLI_RESULT"
+            require_success "CLI (macOS)" "$CLI_MACOS_RESULT"
+            require_success "CLI (Windows)" "$CLI_WINDOWS_RESULT"
+          elif [[ "$CLI_UBUNTU" == "true" ]]; then
+            require_success "CLI" "$CLI_RESULT"
+          else
+            echo "No CLI jobs were applicable"
+          fi
