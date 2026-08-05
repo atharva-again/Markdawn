@@ -198,6 +198,9 @@ jobs:
 
       - name: Test collaboration unit suite
         if: needs.changes.outputs.test_collab_unit == 'true'
+        env:
+          DATABASE_URL: postgresql://markdawn:password@localhost:5432/markdawn_test
+          COLLAB_INTERNAL_SECRET: test-collaboration-internal-secret
         run: pnpm --filter @markdawn/collab run test:unit
 
       - name: Test web
