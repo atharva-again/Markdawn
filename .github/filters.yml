@@ -1,0 +1,45 @@
+shared:
+  - 'packages/shared/**'
+
+api:
+  - 'packages/api/**'
+
+collab:
+  - 'packages/collab/**'
+
+web:
+  - 'packages/web/**'
+
+e2e:
+  - 'e2e/**'
+
+cli:
+  - 'cli/**'
+  - 'scripts/install-cli*'
+  - 'scripts/standalone-cli*'
+  - 'LICENSE'
+
+global:
+  - 'package.json'
+  - 'pnpm-lock.yaml'
+  - 'pnpm-workspace.yaml'
+  - 'biome.json'
+  - 'tsconfig*.json'
+  - 'patches/**'
+  - '.github/filters.yml'
+
+code:
+  - 'packages/**'
+  - 'e2e/**'
+  - 'cli/**'
+  - 'scripts/install-cli*'
+  - 'scripts/standalone-cli*'
+  - 'package.json'
+  - 'pnpm-lock.yaml'
+  - 'pnpm-workspace.yaml'
+  - 'biome.json'
+  - 'tsconfig*.json'
+  - 'patches/**'
+  - '.github/workflows/**'
+  - '.github/filters.yml'
+  - 'LICENSE'

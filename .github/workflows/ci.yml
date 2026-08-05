@@ -6,13 +6,132 @@ on:
   pull_request:
     branches: [master]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 env:
   NODE_VERSION: "22"
-  GO_VERSION: "1.24.x"
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
+      js: ${{ steps.scope.outputs.js }}
+      test_shared: ${{ steps.scope.outputs.test_shared }}
+      test_api_unit: ${{ steps.scope.outputs.test_api_unit }}
+      test_collab_unit: ${{ steps.scope.outputs.test_collab_unit }}
+      test_web: ${{ steps.scope.outputs.test_web }}
+      test_e2e: ${{ steps.scope.outputs.test_e2e }}
+      integration: ${{ steps.scope.outputs.integration }}
+      build: ${{ steps.scope.outputs.build }}
+      build_shared: ${{ steps.scope.outputs.build_shared }}
+      build_api: ${{ steps.scope.outputs.build_api }}
+      build_collab: ${{ steps.scope.outputs.build_collab }}
+      build_web: ${{ steps.scope.outputs.build_web }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changed components
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: .github/filters.yml
+
+      - name: Detect protected CI changes
+        id: protected
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            protected:
+              - '.github/workflows/**'
+              - '.github/filters.yml'
+
+      - name: Compute validation scope
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          CODE_CHANGED: ${{ steps.filter.outputs.code }}
+          GLOBAL_CHANGED: ${{ steps.filter.outputs.global }}
+          PROTECTED_CHANGED: ${{ steps.protected.outputs.protected }}
+          SHARED_CHANGED: ${{ steps.filter.outputs.shared }}
+          API_CHANGED: ${{ steps.filter.outputs.api }}
+          COLLAB_CHANGED: ${{ steps.filter.outputs.collab }}
+          WEB_CHANGED: ${{ steps.filter.outputs.web }}
+          E2E_CHANGED: ${{ steps.filter.outputs.e2e }}
+        run: |
+          set -euo pipefail
+
+          full=false
+          if [[ "$EVENT_NAME" == "push" && "$REF" == "refs/heads/master" && "$CODE_CHANGED" == "true" ]]; then
+            full=true
+          fi
+          if [[ "$GLOBAL_CHANGED" == "true" || "$PROTECTED_CHANGED" == "true" ]]; then
+            full=true
+          fi
+
+          js="$full"
+          if [[ "$SHARED_CHANGED" == "true" || "$API_CHANGED" == "true" || "$COLLAB_CHANGED" == "true" || "$WEB_CHANGED" == "true" || "$E2E_CHANGED" == "true" ]]; then
+            js=true
+          fi
+
+          test_shared="$full"
+          if [[ "$SHARED_CHANGED" == "true" ]]; then test_shared=true; fi
+
+          test_api_unit="$full"
+          if [[ "$SHARED_CHANGED" == "true" || "$API_CHANGED" == "true" ]]; then test_api_unit=true; fi
+
+          test_collab_unit="$full"
+          if [[ "$SHARED_CHANGED" == "true" || "$COLLAB_CHANGED" == "true" ]]; then test_collab_unit=true; fi
+
+          test_web="$full"
+          if [[ "$SHARED_CHANGED" == "true" || "$API_CHANGED" == "true" || "$WEB_CHANGED" == "true" ]]; then test_web=true; fi
+
+          test_e2e="$full"
+          if [[ "$E2E_CHANGED" == "true" ]]; then test_e2e=true; fi
+
+          integration="$full"
+          if [[ "$SHARED_CHANGED" == "true" || "$API_CHANGED" == "true" || "$COLLAB_CHANGED" == "true" ]]; then integration=true; fi
+
+          build="$full"
+          if [[ "$SHARED_CHANGED" == "true" || "$API_CHANGED" == "true" || "$COLLAB_CHANGED" == "true" || "$WEB_CHANGED" == "true" ]]; then build=true; fi
+
+          build_shared="$build"
+          build_api="$full"
+          if [[ "$SHARED_CHANGED" == "true" || "$API_CHANGED" == "true" ]]; then build_api=true; fi
+
+          build_collab="$full"
+          if [[ "$SHARED_CHANGED" == "true" || "$COLLAB_CHANGED" == "true" ]]; then build_collab=true; fi
+
+          build_web="$full"
+          if [[ "$SHARED_CHANGED" == "true" || "$WEB_CHANGED" == "true" ]]; then build_web=true; fi
+
+          printf '%s\n' \
+            "full=$full" \
+            "js=$js" \
+            "test_shared=$test_shared" \
+            "test_api_unit=$test_api_unit" \
+            "test_collab_unit=$test_collab_unit" \
+            "test_web=$test_web" \
+            "test_e2e=$test_e2e" \
+            "integration=$integration" \
+            "build=$build" \
+            "build_shared=$build_shared" \
+            "build_api=$build_api" \
+            "build_collab=$build_collab" \
+            "build_web=$build_web" >>"$GITHUB_OUTPUT"
+
   lint:
     name: Lint
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +151,8 @@ jobs:
 
   typecheck:
     name: Typecheck
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -49,86 +170,48 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-  cli:
-    name: CLI
+  test:
+    name: Test
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v4
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: cli/go.sum
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
 
-      - name: Test
-        working-directory: cli
-        run: |
-          go test -race ./...
-          bash ../scripts/install-cli.test.sh
-          sh ../scripts/standalone-cli.e2e.sh
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Vet
-        working-directory: cli
-        run: go vet ./...
+      - name: Test shared
+        if: needs.changes.outputs.test_shared == 'true'
+        run: pnpm --filter @markdawn/shared run test
 
-      - name: Build
-        working-directory: cli
-        run: go build -trimpath ./...
+      - name: Test API unit suite
+        if: needs.changes.outputs.test_api_unit == 'true'
+        run: pnpm --filter @markdawn/api run test:unit
 
-  cli-macos:
-    name: CLI (macOS)
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: cli/go.sum
-      - name: Test CLI and bootstrap installer
-        working-directory: cli
-        run: |
-          go test -race ./...
-          bash ../scripts/install-cli.test.sh
-          sh ../scripts/standalone-cli.e2e.sh
-      - name: Vet
-        working-directory: cli
-        run: go vet ./...
-      - name: Build
-        working-directory: cli
-        run: go build -trimpath ./...
+      - name: Test collaboration unit suite
+        if: needs.changes.outputs.test_collab_unit == 'true'
+        run: pnpm --filter @markdawn/collab run test:unit
 
-  cli-windows:
-    name: CLI (Windows)
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: cli/go.sum
-      - name: Test CLI
-        working-directory: cli
-        run: go test ./...
-      - name: Vet
-        working-directory: cli
-        run: go vet ./...
-      - name: Build
-        working-directory: cli
-        run: go build -trimpath ./...
-      - name: Parse PowerShell bootstrap installer
-        shell: pwsh
-        run: |
-          $errors = $null
-          [Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'scripts/install-cli.ps1'), [ref]$null, [ref]$errors) | Out-Null
-          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
-      - name: Test PowerShell bootstrap installer
-        shell: pwsh
-        run: |
-          ./scripts/install-cli.ps1.test.ps1
-          ./scripts/standalone-cli.e2e.ps1
+      - name: Test web
+        if: needs.changes.outputs.test_web == 'true'
+        run: pnpm --filter @markdawn/web run test
 
-  test:
-    name: Test
+      - name: Typecheck E2E package
+        if: needs.changes.outputs.test_e2e == 'true'
+        run: pnpm --filter @markdawn/e2e run test
+
+  integration:
+    name: API and collaboration integration
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -166,17 +249,25 @@ jobs:
       - name: Check database migration history
         run: pnpm --filter @markdawn/api db:check
         env:
-          # drizzle-kit check is snapshot-only, but the shared config requires
-          # a syntactically valid URL before it can load.
           DATABASE_URL: postgresql://markdawn:password@localhost:5432/markdawn
 
-      - name: Run all tests
-        run: pnpm test
+      - name: Test API integration suite
+        run: pnpm --filter @markdawn/api run test:integration
+
+      - name: Test collaboration integration suite
+        run: pnpm --filter @markdawn/collab run test:integration
 
   build:
     name: Build
+    needs: [changes, lint, typecheck, test, integration]
+    if: >-
+      always() &&
+      needs.lint.result == 'success' &&
+      needs.typecheck.result == 'success' &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (needs.integration.result == 'success' || needs.integration.result == 'skipped') &&
+      needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test, cli, cli-macos, cli-windows]
     steps:
       - uses: actions/checkout@v4
 
@@ -190,5 +281,83 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm build
+      - name: Build shared
+        if: needs.changes.outputs.build_shared == 'true'
+        run: pnpm --filter @markdawn/shared run build
+
+      - name: Build API
+        if: needs.changes.outputs.build_api == 'true'
+        run: pnpm --filter @markdawn/api run build
+
+      - name: Build collaboration server
+        if: needs.changes.outputs.build_collab == 'true'
+        run: pnpm --filter @markdawn/collab run build
+
+      - name: Build web
+        if: needs.changes.outputs.build_web == 'true'
+        run: pnpm --filter @markdawn/web run build
+
+  ci-gate:
+    name: CI gate
+    needs: [changes, lint, typecheck, test, integration, build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify main CI jobs
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          JS_SCOPE: ${{ needs.changes.outputs.js }}
+          INTEGRATION_SCOPE: ${{ needs.changes.outputs.integration }}
+          BUILD_SCOPE: ${{ needs.changes.outputs.build }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          TYPECHECK_RESULT: ${{ needs.typecheck.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          INTEGRATION_RESULT: ${{ needs.integration.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$CHANGES_RESULT" != "success" ]]; then
+            echo "Change detection did not complete successfully: $CHANGES_RESULT" >&2
+            exit 1
+          fi
+
+          require_success() {
+            local job_name="$1"
+            local result="$2"
+            if [[ "$result" != "success" ]]; then
+              echo "$job_name did not pass: $result" >&2
+              exit 1
+            fi
+          }
+
+          require_success_or_skip() {
+            local job_name="$1"
+            local result="$2"
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "$job_name did not pass: $result" >&2
+              exit 1
+            fi
+          }
+
+          if [[ "$JS_SCOPE" == "true" ]]; then
+            require_success "Lint" "$LINT_RESULT"
+            require_success "Typecheck" "$TYPECHECK_RESULT"
+            require_success "Test" "$TEST_RESULT"
+          else
+            require_success_or_skip "Lint" "$LINT_RESULT"
+            require_success_or_skip "Typecheck" "$TYPECHECK_RESULT"
+            require_success_or_skip "Test" "$TEST_RESULT"
+          fi
+
+          if [[ "$INTEGRATION_SCOPE" == "true" ]]; then
+            require_success "API and collaboration integration" "$INTEGRATION_RESULT"
+          else
+            require_success_or_skip "API and collaboration integration" "$INTEGRATION_RESULT"
+          fi
+
+          if [[ "$BUILD_SCOPE" == "true" ]]; then
+            require_success "Build" "$BUILD_RESULT"
+          else
+            require_success_or_skip "Build" "$BUILD_RESULT"
+          fi
