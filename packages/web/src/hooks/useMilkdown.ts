@@ -42,6 +42,7 @@ import 'katex/dist/katex.min.css';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import { getContrastColor } from '@markdawn/shared';
 import type * as Y from 'yjs';
+import { createDividerInputTransaction } from '../components/editor/dividerCommands';
 import { getLogger } from '../logger-init';
 import { getInitial } from '../utils/avatar';
 
@@ -418,6 +419,12 @@ export function useMilkdown({
             markViews: {
               ...prev.markViews,
               link: createSafeLinkView,
+            },
+            handleTextInput: (view, from, to, text) => {
+              const transaction = createDividerInputTransaction(view.state, from, to, text);
+              if (!transaction) return false;
+              view.dispatch(transaction.scrollIntoView());
+              return true;
             },
             handlePaste: (view, event) => {
               if (readOnly) return false;
