@@ -5,6 +5,7 @@ import type { MarkType, NodeType } from 'prosemirror-model';
 import { toggleBlockquote } from '../../editor/utils/blockquote';
 import { showInfoToast } from '../../utils/toast';
 import { ensureAbsoluteUrl } from '../../utils/url';
+import { createDividerTransaction } from './dividerCommands';
 import { getClosestListType, switchListType, unwrapList, wrapBlocksInList } from './listCommands';
 import { hasBlockType } from './useEditorActiveStates';
 
@@ -260,9 +261,9 @@ export function createEditorFormattingCommands({
     if (!editor) return;
     editor.action((ctx) => {
       const view = ctx.get(editorViewCtx);
-      const dividerType = view?.state.schema.nodes.hr;
-      if (!view || !dividerType) return;
-      view.dispatch(view.state.tr.insert(view.state.selection.$from.pos, dividerType.create()));
+      if (!view) return;
+      const transaction = createDividerTransaction(view.state);
+      if (transaction) view.dispatch(transaction.scrollIntoView());
     });
   };
 
