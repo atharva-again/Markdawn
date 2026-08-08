@@ -208,6 +208,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://markdawn:password@localhost:5432/markdawn
           BETTER_AUTH_SECRET: test-secret-that-is-at-least-32-characters-long
+          COLLAB_INTERNAL_SECRET: test-collaboration-internal-secret
           FRONTEND_URL: http://localhost:5173
           PORT: 3001
           NODE_ENV: development
