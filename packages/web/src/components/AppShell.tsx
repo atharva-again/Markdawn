@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Menu } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { type ReactElement, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { EntityCommandProvider, useEntityCommands } from '../contexts/EntityCommandContext';
 import { useShortcut } from '../contexts/KeyboardShortcutContext';
@@ -13,15 +13,23 @@ import { CommandPalette } from './CommandPalette';
 import { ProfilePill } from './ProfilePill';
 import { Sidebar } from './Sidebar';
 
-export function AppShell() {
+export type AppShellContentState =
+  | { status: 'ready' }
+  | { status: 'loading'; content: ReactElement };
+
+export function AppShell({
+  contentState = { status: 'ready' },
+}: {
+  contentState?: AppShellContentState | undefined;
+} = {}) {
   return (
     <EntityCommandProvider>
-      <AppShellContent />
+      <AppShellContent contentState={contentState} />
     </EntityCommandProvider>
   );
 }
 
-function AppShellContent() {
+function AppShellContent({ contentState }: { contentState: AppShellContentState }) {
   const { collapsed, toggleCollapsed } = useSidebarCollapsed();
   const [isHovered, setIsHovered] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -29,6 +37,7 @@ function AppShellContent() {
   const location = useLocation();
   const { isAnonymous } = useShareContext();
   const entityCommands = useEntityCommands();
+  const isLoading = contentState.status === 'loading';
 
   useShortcut({
     key: SHORTCUT_PATTERNS.toggleSidebar,
@@ -151,8 +160,23 @@ function AppShellContent() {
         )}
 
         <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto scroll-smooth pb-8">
-          <div className="mx-auto min-h-full w-full min-w-0 max-w-4xl p-6 md:p-12 animate-fade-in">
-            <Outlet />
+          <div
+            className={clsx(
+              'mx-auto w-full min-w-0 max-w-4xl',
+              isLoading
+                ? isAnonymous
+                  ? 'flex min-h-[100dvh] flex-col p-6 md:p-12'
+                  : 'flex min-h-[calc(100dvh-3.5rem)] flex-col p-6 md:min-h-[100dvh] md:p-12'
+                : 'min-h-full p-6 md:p-12',
+            )}
+          >
+            {contentState.status === 'loading' ? (
+              <div className="flex min-h-0 flex-1 items-center justify-center">
+                {contentState.content}
+              </div>
+            ) : (
+              <Outlet />
+            )}
           </div>
         </div>
         {!isAnonymous && <CommandPalette />}

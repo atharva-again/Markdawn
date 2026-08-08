@@ -1,10 +1,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileQuestion, RefreshCw, ShieldOff } from 'lucide-react';
-import { type ReactNode, useEffect, useMemo, useRef } from 'react';
+import { type ReactElement, useEffect, useMemo, useRef } from 'react';
 import { Navigate, useLocation, useParams } from 'react-router-dom';
 import { ShareProvider } from '../../contexts/ShareContext';
 import { invalidateWorkspaceAccessQueries } from '../../hooks/use-workspace';
 import { useAuth } from '../../hooks/useAuth';
+import {
+  type ShareableSessionRevalidation,
+  useShareableSessionRevalidation,
+} from '../../hooks/useShareableSessionRevalidation';
 import { ApiError } from '../../utils/api';
 import {
   isFolderDetailPayload,
@@ -12,6 +16,7 @@ import {
   type ShareableEntityPayload,
   type ShareableEntityType,
 } from '../../utils/shareableEntityPayload';
+import { AppShell, type AppShellContentState } from '../AppShell';
 
 type EntityType = ShareableEntityType;
 type PublicEntityPayload = ShareableEntityPayload;
@@ -24,7 +29,7 @@ function extractUuid(slugAndId: string): string | null {
 async function fetchEntity(entityType: EntityType, entityId: string): Promise<PublicEntityPayload> {
   const res = await fetch(`/api/${entityType === 'folder' ? 'folders' : 'pages'}/${entityId}`);
   if (!res.ok) {
-    const body = await res.json().catch(() => null);
+    const body: unknown = await res.json();
     const message =
       body && typeof body === 'object' && 'message' in body && typeof body.message === 'string'
         ? body.message
@@ -37,20 +42,47 @@ async function fetchEntity(entityType: EntityType, entityId: string): Promise<Pu
 
 type ShareablePageRouteProps = {
   entityType: EntityType;
-  children: ReactNode;
+  loadingState: ReactElement;
 };
+
+function RouteRetryState({
+  entityType,
+  reason,
+  onRetry,
+}: {
+  entityType: ShareableEntityType;
+  reason: 'paused' | 'server';
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex max-w-md flex-col items-center gap-4 p-8 text-center">
+      <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+        Couldn&apos;t load this {entityType}
+      </h2>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+        {reason === 'paused'
+          ? 'Check your connection and try again.'
+          : 'The server returned an error. Try again in a moment.'}
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
+      >
+        <RefreshCw size={14} /> Retry
+      </button>
+    </div>
+  );
+}
 
 function RouteErrorState({
   kind,
   entityType,
-  onRetry,
 }: {
-  kind: 'forbidden' | 'not-found' | 'server';
+  kind: 'forbidden' | 'not-found';
   entityType: EntityType;
-  onRetry?: (() => void) | undefined;
 }) {
   const isForbidden = kind === 'forbidden';
-  const isNotFound = kind === 'not-found';
   return (
     <div className="flex min-h-screen items-center justify-center bg-white dark:bg-zinc-950">
       <div className="flex max-w-md flex-col items-center gap-4 p-8 text-center">
@@ -62,40 +94,119 @@ function RouteErrorState({
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
           {isForbidden
             ? `You don't have access`
-            : isNotFound
-              ? `${entityType === 'folder' ? 'Folder' : 'Page'} not found`
-              : `Couldn't load this ${entityType}`}
+            : `${entityType === 'folder' ? 'Folder' : 'Page'} not found`}
         </h2>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
           {isForbidden
             ? 'Your access may have been removed or the item may now be restricted.'
-            : isNotFound
-              ? 'It may have been deleted.'
-              : 'The server returned an error. Your sharing settings have not been changed.'}
+            : 'It may have been deleted.'}
         </p>
-        {kind === 'server' && onRetry ? (
-          <button
-            type="button"
-            onClick={onRetry}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
-          >
-            <RefreshCw size={14} /> Retry
-          </button>
-        ) : null}
       </div>
     </div>
   );
 }
 
-export function ShareablePageRoute({ entityType, children }: ShareablePageRouteProps) {
-  const { isPending: authPending } = useAuth();
+type EntityQueryState =
+  | { kind: 'loading' }
+  | { kind: 'paused' }
+  | { kind: 'unauthorized' }
+  | { kind: 'not-found' }
+  | { kind: 'error'; errorKind: 'forbidden' | 'not-found' | 'server' }
+  | { kind: 'ready' };
+
+type ShareableRouteState =
+  | { kind: 'loading' }
+  | { kind: 'retryable-error'; reason: 'paused' | 'server'; onRetry: () => void }
+  | { kind: 'ready' }
+  | { kind: 'redirect-login' }
+  | { kind: 'not-found' }
+  | {
+      kind: 'error';
+      errorKind: 'forbidden' | 'not-found';
+    };
+
+function resolveEntityQueryState({
+  authPending,
+  entityId,
+  entity,
+  isPending,
+  isFetching,
+  fetchStatus,
+  isFetchedAfterMount,
+  error,
+}: {
+  authPending: boolean;
+  entityId: string | null;
+  entity: PublicEntityPayload | undefined;
+  isPending: boolean;
+  isFetching: boolean;
+  fetchStatus: 'fetching' | 'paused' | 'idle';
+  isFetchedAfterMount: boolean;
+  error: unknown;
+}): EntityQueryState {
+  if (authPending) return { kind: 'loading' };
+  if (!entityId) return { kind: 'not-found' };
+
+  const hasUsableEntity = entity !== undefined && (isFetchedAfterMount || fetchStatus !== 'paused');
+  if (!hasUsableEntity && fetchStatus === 'paused') return { kind: 'paused' };
+  if (!hasUsableEntity && (isPending || (isFetching && !isFetchedAfterMount))) {
+    return { kind: 'loading' };
+  }
+  if (error) {
+    const status = error instanceof ApiError ? error.status : 500;
+    if (status === 401) return { kind: 'unauthorized' };
+    const errorKind = status === 403 ? 'forbidden' : status === 404 ? 'not-found' : 'server';
+    return { kind: 'error', errorKind };
+  }
+  return entity === undefined ? { kind: 'loading' } : { kind: 'ready' };
+}
+
+function resolveShareableRouteState(
+  entityState: EntityQueryState,
+  sessionState: ShareableSessionRevalidation,
+  retryEntity: () => void,
+): ShareableRouteState {
+  if (entityState.kind === 'unauthorized') {
+    if (sessionState.status === 'error') {
+      return {
+        kind: 'retryable-error',
+        reason: 'paused',
+        onRetry: () => void sessionState.retry(),
+      };
+    }
+    if (sessionState.status === 'logged-out') return { kind: 'redirect-login' };
+    if (sessionState.status === 'forbidden') return { kind: 'error', errorKind: 'forbidden' };
+    return { kind: 'loading' };
+  }
+  if (entityState.kind === 'paused') {
+    return { kind: 'retryable-error', reason: 'paused', onRetry: retryEntity };
+  }
+  if (entityState.kind === 'not-found') return { kind: 'not-found' };
+  if (entityState.kind === 'error') {
+    if (entityState.errorKind === 'server') {
+      return { kind: 'retryable-error', reason: 'server', onRetry: retryEntity };
+    }
+    return {
+      kind: 'error',
+      errorKind: entityState.errorKind,
+    };
+  }
+  return entityState;
+}
+
+export function ShareablePageRoute({ entityType, loadingState }: ShareablePageRouteProps) {
+  const auth = useAuth();
+  const { isPending: authPending } = auth;
   const queryClient = useQueryClient();
   const location = useLocation();
   const { slugAndId } = useParams<{ slugAndId: string }>();
   const entityId = slugAndId ? extractUuid(slugAndId) : null;
   const {
     data: entity,
-    isLoading,
+    isPending: isEntityPending,
+    isFetching: isEntityFetching,
+    fetchStatus: entityFetchStatus,
+    isFetchedAfterMount: isEntityFetchedAfterMount,
     error,
     refetch,
   } = useQuery({
@@ -109,7 +220,6 @@ export function ShareablePageRoute({ entityType, children }: ShareablePageRouteP
     refetchInterval: entityType === 'folder' ? 5_000 : false,
     refetchIntervalInBackground: entityType === 'folder',
   });
-
   const folderAccessSignature = useMemo(() => {
     if (entityType !== 'folder' || !entityId || !entity) return null;
     return JSON.stringify({
@@ -130,45 +240,63 @@ export function ShareablePageRoute({ entityType, children }: ShareablePageRouteP
     }
   }, [entityId, folderAccessSignature, queryClient]);
 
-  if (authPending || isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white dark:bg-zinc-950">
-        <div className="flex w-full max-w-md flex-col items-center gap-4 p-8">
-          <div className="h-12 w-12 animate-shimmer rounded-full bg-zinc-200 dark:bg-zinc-800" />
-          <div className="h-4 w-32 animate-shimmer rounded bg-zinc-200 dark:bg-zinc-800" />
-          <div className="h-3 w-48 animate-shimmer rounded bg-zinc-100 dark:bg-zinc-900" />
-        </div>
-      </div>
-    );
-  }
+  const entityState = resolveEntityQueryState({
+    authPending,
+    entityId,
+    entity,
+    isPending: isEntityPending,
+    isFetching: isEntityFetching,
+    fetchStatus: entityFetchStatus,
+    isFetchedAfterMount: isEntityFetchedAfterMount,
+    error,
+  });
+  const sessionState = useShareableSessionRevalidation(
+    entityId,
+    entityState.kind === 'unauthorized',
+    auth,
+    refetch,
+  );
+  const routeState = resolveShareableRouteState(entityState, sessionState, () => void refetch());
 
-  if (!entityId) {
-    return <RouteErrorState kind="not-found" entityType={entityType} />;
-  }
-
-  if (error instanceof ApiError && error.status === 401) {
+  if (routeState.kind === 'redirect-login') {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
-
-  if (error) {
-    const status = error instanceof ApiError ? error.status : 500;
-    const kind = status === 403 ? 'forbidden' : status === 404 ? 'not-found' : 'server';
-    return (
-      <RouteErrorState
-        kind={kind}
-        entityType={entityType}
-        onRetry={kind === 'server' ? () => void refetch() : undefined}
-      />
-    );
+  if (routeState.kind === 'not-found') {
+    return <RouteErrorState kind="not-found" entityType={entityType} />;
   }
+  if (routeState.kind === 'error') {
+    return <RouteErrorState kind={routeState.errorKind} entityType={entityType} />;
+  }
+
+  const providerEntity = routeState.kind === 'ready' ? entity : undefined;
+  const shellContentState: AppShellContentState =
+    routeState.kind === 'ready'
+      ? { status: 'ready' }
+      : {
+          status: 'loading',
+          content:
+            routeState.kind === 'loading' ? (
+              loadingState
+            ) : (
+              <RouteRetryState
+                entityType={entityType}
+                reason={routeState.reason}
+                onRetry={routeState.onRetry}
+              />
+            ),
+        };
 
   return (
     <ShareProvider
-      publicPermission={entity?.publicPermission ?? null}
-      {...(entity?.capabilities ? { capabilities: entity.capabilities } : {})}
-      publicEntity={entityType === 'folder' && isFolderDetailPayload(entity) ? entity : null}
+      key={`${entityType}:${entityId ?? 'invalid'}`}
+      accessPending={routeState.kind !== 'ready'}
+      publicPermission={providerEntity?.publicPermission ?? null}
+      {...(providerEntity?.capabilities ? { capabilities: providerEntity.capabilities } : {})}
+      publicEntity={
+        entityType === 'folder' && isFolderDetailPayload(providerEntity) ? providerEntity : null
+      }
     >
-      {children}
+      <AppShell contentState={shellContentState} />
     </ShareProvider>
   );
 }

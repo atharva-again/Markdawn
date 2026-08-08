@@ -5,7 +5,15 @@ import {
   getAnonymousName,
   type PublicPermission,
 } from '@markdawn/shared';
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { getAnonymousId } from '../utils/anonymous-cookie';
 
@@ -41,6 +49,7 @@ interface ShareProviderProps {
   publicPermission?: AccessPermission;
   capabilities?: CapabilitySet;
   publicEntity?: FolderDetailPayload | null;
+  accessPending?: boolean;
 }
 
 export function ShareProvider({
@@ -48,24 +57,60 @@ export function ShareProvider({
   publicPermission: initial = null,
   capabilities: initialCapabilities,
   publicEntity = null,
+  accessPending = false,
 }: ShareProviderProps) {
   const { data: session } = useAuth();
   const isAnonymous = !session?.user;
-  const [accessPermission, setAccessPermission] = useState(initial);
-  // Default to no capabilities while loading to prevent flash of editable content
-  const [capabilities, setCapabilities] = useState<CapabilitySet>(
-    initialCapabilities ?? DEFAULT_CAPABILITIES,
+  const capabilitySnapshot = initialCapabilities ?? DEFAULT_CAPABILITIES;
+  const accessRevisionRef = useRef({ snapshot: initial, revision: 0 });
+  if (accessRevisionRef.current.snapshot !== initial) {
+    accessRevisionRef.current = {
+      snapshot: initial,
+      revision: accessRevisionRef.current.revision + 1,
+    };
+  }
+  const capabilityRevisionRef = useRef({ snapshot: capabilitySnapshot, revision: 0 });
+  if (capabilityRevisionRef.current.snapshot !== capabilitySnapshot) {
+    capabilityRevisionRef.current = {
+      snapshot: capabilitySnapshot,
+      revision: capabilityRevisionRef.current.revision + 1,
+    };
+  }
+  const accessRevision = accessRevisionRef.current.revision;
+  const capabilityRevision = capabilityRevisionRef.current.revision;
+  const [accessState, setAccessState] = useState({ revision: accessRevision, value: initial });
+  const [capabilityState, setCapabilityState] = useState({
+    revision: capabilityRevision,
+    value: capabilitySnapshot,
+  });
+  const accessPermission = accessState.revision === accessRevision ? accessState.value : initial;
+  const capabilities =
+    capabilityState.revision === capabilityRevision ? capabilityState.value : capabilitySnapshot;
+
+  const setAccessPermission = useCallback<React.Dispatch<React.SetStateAction<AccessPermission>>>(
+    (update) => {
+      setAccessState((current) => {
+        const currentValue = current.revision === accessRevision ? current.value : initial;
+        const value = typeof update === 'function' ? update(currentValue) : update;
+        return { revision: accessRevision, value };
+      });
+    },
+    [accessRevision, initial],
+  );
+  const setCapabilities = useCallback<React.Dispatch<React.SetStateAction<CapabilitySet>>>(
+    (update) => {
+      setCapabilityState((current) => {
+        const currentValue =
+          current.revision === capabilityRevision ? current.value : capabilitySnapshot;
+        const value = typeof update === 'function' ? update(currentValue) : update;
+        return { revision: capabilityRevision, value };
+      });
+    },
+    [capabilityRevision, capabilitySnapshot],
   );
 
-  useEffect(() => {
-    setAccessPermission(initial);
-  }, [initial]);
-
-  useEffect(() => {
-    if (initialCapabilities) {
-      setCapabilities(initialCapabilities);
-    }
-  }, [initialCapabilities]);
+  const effectiveAccessPermission = accessPending ? null : accessPermission;
+  const effectiveCapabilities = accessPending ? DEFAULT_CAPABILITIES : capabilities;
 
   const value = useMemo(() => {
     if (!isAnonymous) {
@@ -73,27 +118,27 @@ export function ShareProvider({
         isAnonymous: false,
         anonymousId: null,
         anonymousName: null,
-        accessPermission,
-        capabilities,
-        publicEntity,
-        canEdit: capabilities.canEdit,
+        accessPermission: effectiveAccessPermission,
+        capabilities: effectiveCapabilities,
+        publicEntity: accessPending ? null : publicEntity,
+        canEdit: effectiveCapabilities.canEdit,
       };
     }
 
     const anonymousId = getAnonymousId();
     const anonymousName = getAnonymousName(anonymousId);
-    const anonymousCapabilities = deriveCapabilities(accessPermission);
+    const anonymousCapabilities = deriveCapabilities(effectiveAccessPermission);
 
     return {
       isAnonymous: true,
       anonymousId,
       anonymousName,
-      accessPermission,
+      accessPermission: effectiveAccessPermission,
       capabilities: anonymousCapabilities,
-      publicEntity,
+      publicEntity: accessPending ? null : publicEntity,
       canEdit: anonymousCapabilities.canEdit,
     };
-  }, [isAnonymous, accessPermission, capabilities, publicEntity]);
+  }, [accessPending, effectiveAccessPermission, effectiveCapabilities, isAnonymous, publicEntity]);
 
   return (
     <SetCapabilitiesContext.Provider value={setCapabilities}>

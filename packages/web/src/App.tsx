@@ -4,6 +4,9 @@ import { AuthIdentityBoundary } from './components/auth/AuthIdentityBoundary';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ShareablePageRoute } from './components/auth/ShareablePageRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { PageLoadingState } from './components/editor/PageLoadingState';
+import { ExplorerLoadingState } from './components/workspace/ExplorerLoadingState';
+import { AuthSessionProvider } from './hooks/useAuth';
 import Dashboard from './routes/Dashboard';
 import FolderEntry from './routes/FolderEntry';
 import Home from './routes/Home';
@@ -18,50 +21,51 @@ function App() {
     <ErrorBoundary>
       <div className="bg-white dark:bg-zinc-950 min-h-screen text-zinc-900 dark:text-zinc-50">
         <BrowserRouter>
-          <AuthIdentityBoundary>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
+          <AuthSessionProvider>
+            <AuthIdentityBoundary>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
 
-              <Route
-                path="/app"
-                element={
-                  <ProtectedRoute>
-                    <AppShell />
-                  </ProtectedRoute>
-                }
-              >
-                <Route index element={<Dashboard />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="trash" element={<Trash />} />
-                <Route path="shared-with-me" element={<SharedWithMe />} />
-              </Route>
+                <Route
+                  path="/app"
+                  element={
+                    <ProtectedRoute>
+                      <AppShell />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route index element={<Dashboard />} />
+                  <Route path="settings" element={<Settings />} />
+                  <Route path="trash" element={<Trash />} />
+                  <Route path="shared-with-me" element={<SharedWithMe />} />
+                </Route>
 
-              <Route
-                path="/app/:slugAndId"
-                element={
-                  <ShareablePageRoute entityType="page">
-                    <AppShell />
-                  </ShareablePageRoute>
-                }
-              >
-                <Route index element={<PageEntry />} />
-              </Route>
+                <Route
+                  path="/app/:slugAndId"
+                  element={
+                    <ShareablePageRoute entityType="page" loadingState={<PageLoadingState />} />
+                  }
+                >
+                  <Route index element={<PageEntry />} />
+                </Route>
 
-              <Route
-                path="/app/folder/:slugAndId"
-                element={
-                  <ShareablePageRoute entityType="folder">
-                    <AppShell />
-                  </ShareablePageRoute>
-                }
-              >
-                <Route index element={<FolderEntry />} />
-              </Route>
+                <Route
+                  path="/app/folder/:slugAndId"
+                  element={
+                    <ShareablePageRoute
+                      entityType="folder"
+                      loadingState={<ExplorerLoadingState />}
+                    />
+                  }
+                >
+                  <Route index element={<FolderEntry />} />
+                </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </AuthIdentityBoundary>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </AuthIdentityBoundary>
+          </AuthSessionProvider>
         </BrowserRouter>
       </div>
     </ErrorBoundary>

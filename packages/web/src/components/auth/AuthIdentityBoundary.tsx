@@ -11,16 +11,35 @@ import { resetDocumentMetadata } from '../../utils/documentMeta';
 import { resetSelfLeaveState } from '../../utils/leave-page';
 import { clearToasts } from '../../utils/toast';
 import { AppProviders } from '../AppProviders';
+import { LoadingIndicator } from '../ui/LoadingIndicator';
 
 const ANONYMOUS_IDENTITY = 'anonymous';
 
 function IdentityLoadingState() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-white dark:bg-zinc-950">
-      <div className="flex w-full max-w-md flex-col items-center gap-4 p-8">
-        <div className="h-12 w-12 animate-shimmer rounded-full bg-zinc-200 dark:bg-zinc-800" />
-        <div className="h-4 w-32 animate-shimmer rounded bg-zinc-200 dark:bg-zinc-800" />
-        <div className="h-3 w-48 animate-shimmer rounded bg-zinc-100 dark:bg-zinc-900" />
+      <LoadingIndicator label="Loading application" size="md" />
+    </div>
+  );
+}
+
+function IdentityErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-white dark:bg-zinc-950">
+      <div className="flex max-w-md flex-col items-center gap-4 p-8 text-center">
+        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+          Couldn&apos;t load your session
+        </h2>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          Check your connection and try again.
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="cursor-pointer rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
+        >
+          Retry
+        </button>
       </div>
     </div>
   );
@@ -33,14 +52,24 @@ function IdentityLoadingState() {
  * UI state are retired before the new route tree can be painted.
  */
 export function AuthIdentityBoundary({ children }: { children: ReactNode }) {
-  const { data: session, isPending, isRefetching } = useAuth();
+  const {
+    data: session,
+    error: sessionError = null,
+    isInitialError = false,
+    isPending,
+    isRefetching,
+    refetch,
+  } = useAuth();
   const parentQueryClient = useQueryClient();
   const sessionIdentity = session?.user?.id ?? ANONYMOUS_IDENTITY;
+  const isTransientSessionError = sessionError !== null && sessionError.status !== 401;
   const lastSettledIdentityRef = useRef<string | null>(
-    !isPending && !isRefetching ? sessionIdentity : null,
+    !isPending && !isRefetching && !isTransientSessionError ? sessionIdentity : null,
   );
   const resolvedIdentity =
-    isPending || isRefetching ? lastSettledIdentityRef.current : sessionIdentity;
+    isPending || isRefetching || isTransientSessionError
+      ? lastSettledIdentityRef.current
+      : sessionIdentity;
   const identityUncertain = resolvedIdentity === null;
   const identityQueryClient = useMemo(
     () =>
@@ -56,10 +85,10 @@ export function AuthIdentityBoundary({ children }: { children: ReactNode }) {
   const previousLifecycleRef = useRef(identityLifecycle);
 
   useLayoutEffect(() => {
-    if (!isPending && !isRefetching) {
+    if (!isPending && !isRefetching && !isTransientSessionError) {
       lastSettledIdentityRef.current = sessionIdentity;
     }
-  }, [isPending, isRefetching, sessionIdentity]);
+  }, [isPending, isRefetching, isTransientSessionError, sessionIdentity]);
 
   useLayoutEffect(() => {
     const previousLifecycle = previousLifecycleRef.current;
@@ -84,6 +113,14 @@ export function AuthIdentityBoundary({ children }: { children: ReactNode }) {
       window.getSelection()?.removeAllRanges();
     }
   }, [identityLifecycle, identityQueryClient, resolvedIdentity]);
+
+  if (
+    !isPending &&
+    !isRefetching &&
+    (isInitialError || (identityUncertain && isTransientSessionError))
+  ) {
+    return <IdentityErrorState onRetry={() => void refetch()} />;
+  }
 
   if (
     identityUncertain ||
