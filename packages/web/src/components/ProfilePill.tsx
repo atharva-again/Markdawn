@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import {
+  Github,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -16,6 +17,8 @@ import { authClient } from '../lib/auth-client';
 import { formatShortcut, SHORTCUT_PATTERNS } from '../utils/keyboardShortcuts';
 import { ThemeToggle } from './ThemeToggle';
 import { Tooltip } from './Tooltip';
+
+const GITHUB_REPO = 'https://github.com/atharva-again/Markdawn';
 
 interface ProfilePillProps {
   className?: string;
@@ -113,8 +116,19 @@ export function ProfilePill({
             : 'opacity-100 translate-x-0 pointer-events-auto delay-100 relative',
         )}
       >
-        <div className="flex items-center justify-between px-1 mb-2">
+        <div className="flex items-center justify-between mb-2">
           <ThemeToggle />
+          <Tooltip label="Please Star Us!" position="top">
+            <a
+              href={GITHUB_REPO}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Please Star Us!"
+              className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <Github size={18} />
+            </a>
+          </Tooltip>
           <Tooltip label="Settings" position="top">
             <button
               type="button"
