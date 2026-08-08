@@ -55,12 +55,15 @@ vi.mock('@hocuspocus/provider', () => {
 
 vi.mock('../lib/auth-client', () => ({
   authClient: {
-    useSession: () => ({
-      data: { user: { id: mocks.userId } },
-      refetch: mocks.refetchSession,
-    }),
     getSession: mocks.getSession,
   },
+}));
+
+vi.mock('./useAuth', () => ({
+  useAuth: () => ({
+    data: { user: { id: mocks.userId } },
+    refetch: mocks.refetchSession,
+  }),
 }));
 
 vi.mock('../logger-init', () => ({

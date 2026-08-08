@@ -29,8 +29,10 @@ import { useAuth } from '../../hooks/useAuth';
 import { useEntityCreationActions } from '../../hooks/useEntityCreationActions';
 import { useStableValueWhile } from '../../hooks/useStableValue';
 import { formatShortcut, SHORTCUT_PATTERNS } from '../../utils/keyboardShortcuts';
+import { getInitialQueriesState } from '../../utils/queryState';
 import { showErrorToast } from '../../utils/toast';
 import { buildPagePath, extractUuidFromSlug } from '../../utils/url';
+import { LoadingIndicator } from '../ui/LoadingIndicator';
 import { SidebarEntityRow } from './SidebarEntityRow';
 import { SidebarAliasSection } from './SidebarSections';
 import {
@@ -57,38 +59,20 @@ export function PageTree() {
   const createFolderShortcut = formatShortcut(SHORTCUT_PATTERNS.createFolder);
   const createNoteShortcut = formatShortcut(SHORTCUT_PATTERNS.createNote);
 
-  const {
-    data: refreshedPages,
-    isLoading: isPagesLoading,
-    error: pagesError,
-    refetch: refetchPages,
-  } = usePageTree();
-  const {
-    data: refreshedFolders,
-    isLoading: isFoldersLoading,
-    error: foldersError,
-    refetch: refetchFolders,
-  } = useFolderTree();
-  const {
-    data: refreshedFavorites,
-    error: favoritesError,
-    refetch: refetchFavorites,
-  } = useFavorites();
-  const {
-    data: refreshedRecentPages,
-    error: recentsError,
-    refetch: refetchRecents,
-  } = useRecentPages(SIDEBAR_PREVIEW_LIMIT);
-  const {
-    data: refreshedSharedNavigation,
-    error: sharedNavigationError,
-    refetch: refetchSharedNavigation,
-  } = useSharedWithMeTree();
-  const {
-    data: refreshedWorkspaceMemberships,
-    error: workspaceMembershipsError,
-    refetch: refetchWorkspaceMemberships,
-  } = useWorkspaceMemberships();
+  const pagesQuery = usePageTree();
+  const { data: refreshedPages, refetch: refetchPages } = pagesQuery;
+  const foldersQuery = useFolderTree();
+  const { data: refreshedFolders, refetch: refetchFolders } = foldersQuery;
+  const favoritesQuery = useFavorites();
+  const { data: refreshedFavorites, refetch: refetchFavorites } = favoritesQuery;
+  const recentsQuery = useRecentPages(SIDEBAR_PREVIEW_LIMIT);
+  const { data: refreshedRecentPages, refetch: refetchRecents } = recentsQuery;
+  const sharedNavigationQuery = useSharedWithMeTree();
+  const { data: refreshedSharedNavigation, refetch: refetchSharedNavigation } =
+    sharedNavigationQuery;
+  const workspaceMembershipsQuery = useWorkspaceMemberships();
+  const { data: refreshedWorkspaceMemberships, refetch: refetchWorkspaceMemberships } =
+    workspaceMembershipsQuery;
   const leaveWorkspaceMutation = useLeaveWorkspace();
   const isBulkRemovalPending = useIsBulkRemovalPending();
   const pages = useStableValueWhile(refreshedPages, isBulkRemovalPending);
@@ -257,12 +241,19 @@ export function PageTree() {
     ],
   );
 
-  if (isPagesLoading || isFoldersLoading) {
+  const initialQueriesState = getInitialQueriesState([
+    pagesQuery,
+    foldersQuery,
+    favoritesQuery,
+    recentsQuery,
+    sharedNavigationQuery,
+    workspaceMembershipsQuery,
+  ]);
+
+  if (initialQueriesState.status === 'loading') {
     return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center justify-center h-24 text-zinc-500 dark:text-zinc-400 text-sm">
-          Loading...
-        </div>
+      <div className="flex h-full items-center justify-center">
+        <LoadingIndicator label="Loading sidebar" />
       </div>
     );
   }
@@ -298,20 +289,17 @@ export function PageTree() {
     );
   }
 
-  if (
-    pagesError ||
-    foldersError ||
-    favoritesError ||
-    recentsError ||
-    sharedNavigationError ||
-    workspaceMembershipsError
-  ) {
+  if (initialQueriesState.status === 'paused' || initialQueriesState.status === 'error') {
     return (
       <div
         role="alert"
         className="m-4 space-y-2 rounded-md border border-red-200 bg-zinc-100 p-3 text-sm text-red-500 dark:border-red-900/30 dark:bg-zinc-800/50"
       >
-        <p>Failed to load navigation.</p>
+        <p>
+          {initialQueriesState.status === 'paused'
+            ? 'Navigation is paused. Check your connection.'
+            : 'Failed to load navigation.'}
+        </p>
         <button
           type="button"
           onClick={() => {

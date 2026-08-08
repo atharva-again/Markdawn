@@ -12,7 +12,7 @@ import { gfm } from '@milkdown/preset-gfm';
 import { insert } from '@milkdown/utils';
 import Papa from 'papaparse';
 import { goToNextCell, isInTable } from 'prosemirror-tables';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { linkEditor } from '../editor/components/LinkEditor';
 import { autolink } from '../editor/plugins/autolink';
 import { handleUrlPasteIntent } from '../editor/plugins/autolinkPaste';
@@ -45,6 +45,58 @@ import type * as Y from 'yjs';
 import { createDividerInputTransaction } from '../components/editor/dividerCommands';
 import { getLogger } from '../logger-init';
 import { getInitial } from '../utils/avatar';
+
+const EDITOR_INITIALIZATION_TIMEOUT_MS = 10_000;
+
+type DestroyableEditor = { destroy: () => unknown | Promise<unknown> };
+
+class EditorOperationTimeoutError extends Error {}
+
+async function runWithTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<T> {
+  let timeout: number | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => {
+        timeout = window.setTimeout(
+          () => reject(new EditorOperationTimeoutError(timeoutMessage)),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) window.clearTimeout(timeout);
+  }
+}
+
+export async function createEditorWithTimeout<T extends DestroyableEditor>(
+  createEditor: () => Promise<T>,
+  timeoutMs = EDITOR_INITIALIZATION_TIMEOUT_MS,
+  disposeLateEditor: (editor: T) => unknown | Promise<unknown> = (editor) => editor.destroy(),
+): Promise<T> {
+  // Resolve through a promise so synchronous configuration failures and
+  // asynchronous create failures share the same initialization boundary.
+  const editorPromise = Promise.resolve().then(createEditor);
+  try {
+    return await runWithTimeout(editorPromise, timeoutMs, 'Editor initialization timed out');
+  } catch (error) {
+    // A timed-out editor may still finish creating. It cannot be used by this
+    // attempt, so destroy it when it arrives and rethrow to the UI boundary.
+    void editorPromise.then(
+      (lateEditor) =>
+        Promise.resolve(disposeLateEditor(lateEditor)).catch((cleanupError: unknown) => {
+          getLogger()
+            .error`Failed to destroy an editor from a failed initialization: ${cleanupError}`;
+        }),
+      () => undefined,
+    );
+    throw error;
+  }
+}
 
 const cursorBuilder = (user: { name: string; color: string; avatar?: string; emoji?: string }) => {
   const cursor = document.createElement('span');
@@ -190,6 +242,11 @@ interface UseMilkdownProps {
   readOnly?: boolean;
 }
 
+export type MilkdownInitializationState =
+  | { status: 'initializing' }
+  | { status: 'ready' }
+  | { status: 'error'; error: unknown };
+
 function isTaskChecked(checked: unknown): boolean {
   return checked === true || checked === 'true';
 }
@@ -224,7 +281,13 @@ export function useMilkdown({
 }: UseMilkdownProps) {
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const editorRef = useRef<Editor | null>(null);
+  const initializationPromiseRef = useRef<Promise<void>>(Promise.resolve());
+  const teardownPromiseRef = useRef<Promise<void>>(Promise.resolve());
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
+  const [initializationState, setInitializationState] = useState<MilkdownInitializationState>({
+    status: 'initializing',
+  });
+  const [initializationAttempt, setInitializationAttempt] = useState(0);
   const onWikiLinkClickRef = useRef(onWikiLinkClick);
   onWikiLinkClickRef.current = onWikiLinkClick;
   const onWikiLinkSuggestRef = useRef(onWikiLinkSuggest);
@@ -233,11 +296,43 @@ export function useMilkdown({
   onSlashMenuSuggestRef.current = onSlashMenuSuggest;
   const hasCollab = Boolean(doc && provider);
   const fallbackInitialValue = hasCollab ? undefined : initialValue;
+  const retryInitialization = useCallback(() => {
+    setInitializationState({ status: 'initializing' });
+    setInitializationAttempt((attempt) => attempt + 1);
+  }, []);
+  const queueEditorTeardown = useCallback((editor: Editor, disconnectCollaboration: boolean) => {
+    const teardown = async () => {
+      if (disconnectCollaboration) {
+        try {
+          editor.action((ctx) => {
+            ctx.get(collabServiceCtx).disconnect();
+          });
+        } catch {
+          // The editor or collaboration service may already be partially torn down.
+        }
+      }
+      await runWithTimeout(
+        editor.destroy(),
+        EDITOR_INITIALIZATION_TIMEOUT_MS,
+        'Editor teardown timed out',
+      );
+    };
+    const settledTeardown = teardownPromiseRef.current.then(teardown).catch((error: unknown) => {
+      // Teardown is a cleanup boundary: report it, then allow the next
+      // initialization attempt to proceed instead of poisoning the queue.
+      getLogger().error`Failed to tear down the previous editor: ${error}`;
+    });
+    teardownPromiseRef.current = settledTeardown;
+    return settledTeardown;
+  }, []);
 
   useEffect(() => {
     if (!container) return;
     let disposed = false;
     let runtimeEditor: Editor | null = null;
+    let collabSetupTimer: number | undefined;
+    let repairTimer: number | undefined;
+    setInitializationState({ status: 'initializing' });
 
     let floatingCopyBtn: HTMLButtonElement | null = null;
     let currentPre: HTMLElement | null = null;
@@ -320,10 +415,10 @@ export function useMilkdown({
       currentPre = null;
     };
 
-    const configure = (withCollab: boolean) => {
+    const configure = (withCollab: boolean, attemptRoot: HTMLElement) => {
       let next = Editor.make()
         .config((ctx) => {
-          ctx.set(rootCtx, container);
+          ctx.set(rootCtx, attemptRoot);
           if (fallbackInitialValue) {
             ctx.set(defaultValueCtx, fallbackInitialValue);
           }
@@ -660,17 +755,79 @@ export function useMilkdown({
     const init = async () => {
       const shouldUseCollab = hasCollab;
       getLogger()
-        .debug`Init: shouldUseCollab=${shouldUseCollab}, doc=${!!doc}, provider=${!!provider}`;
+        .debug`Init attempt=${initializationAttempt}: shouldUseCollab=${shouldUseCollab}, doc=${!!doc}, provider=${!!provider}`;
+      await teardownPromiseRef.current;
+      if (disposed) return;
+      let configuredEditor: Editor | null = null;
       try {
-        runtimeEditor = await configure(shouldUseCollab).create();
-      } catch {
-        runtimeEditor = await configure(false).create();
+        // Each attempt owns a detached-capable root. If an old Milkdown
+        // operation outlives its teardown deadline, it cannot mutate the DOM
+        // of the next attempt.
+        const attemptRoot = document.createElement('div');
+        container.replaceChildren(attemptRoot);
+        configuredEditor = configure(shouldUseCollab, attemptRoot);
+        const editorToCreate = configuredEditor;
+        runtimeEditor = await createEditorWithTimeout(
+          () => editorToCreate.create(),
+          EDITOR_INITIALIZATION_TIMEOUT_MS,
+          (lateEditor) => queueEditorTeardown(lateEditor, shouldUseCollab),
+        );
+      } catch (error) {
+        // Configuration, creation, and timeout failures are safe to translate
+        // here because this hook owns the editor initialization lifecycle.
+        if (configuredEditor && !(error instanceof EditorOperationTimeoutError)) {
+          void queueEditorTeardown(configuredEditor, shouldUseCollab);
+        }
+        if (!disposed) {
+          setEditorInstance(null);
+          setInitializationState({ status: 'error', error });
+        }
+        return;
       }
 
       if (disposed || !runtimeEditor) {
-        runtimeEditor?.destroy();
+        if (runtimeEditor) void queueEditorTeardown(runtimeEditor, shouldUseCollab);
+        runtimeEditor = null;
         return;
       }
+
+      const failInitialization = (error: unknown, waitFor?: Promise<unknown>) => {
+        if (disposed) return;
+        const failedEditor = runtimeEditor;
+        runtimeEditor = null;
+        editorRef.current = null;
+        setEditorInstance(null);
+        setInitializationState({ status: 'error', error });
+        if (failedEditor) {
+          const cleanup = waitFor
+            ? waitFor
+                .catch(() => undefined)
+                .then(() => queueEditorTeardown(failedEditor, shouldUseCollab))
+            : queueEditorTeardown(failedEditor, shouldUseCollab);
+          void cleanup;
+        }
+      };
+      const finishInitialization = () => {
+        if (disposed || !runtimeEditor) return;
+        try {
+          runtimeEditor.action((ctx) => {
+            const view = ctx.get(editorViewCtx) as
+              | import('@milkdown/kit/prose/view').EditorView
+              | undefined;
+            if (view && !readOnly) {
+              repairTimer = window.setTimeout(() => {
+                if (!disposed) repairDocument(view);
+              }, 500);
+            }
+          });
+        } catch (error) {
+          failInitialization(error);
+          return;
+        }
+        editorRef.current = runtimeEditor;
+        setEditorInstance(runtimeEditor);
+        setInitializationState({ status: 'ready' });
+      };
 
       if (shouldUseCollab && doc) {
         // syncHeadingIdPlugin dispatches setNodeMarkup transactions on every
@@ -680,63 +837,94 @@ export function useMilkdown({
         // Milkdown's own vanilla-collab example removes this plugin in collab
         // mode. We also defer connect via setTimeout(0) so Milkdown processes
         // the plugin removal before ySyncPlugin is injected.
-        runtimeEditor.remove(syncHeadingIdPlugin);
-        setTimeout(() => {
+        const collabEditor = runtimeEditor;
+        const removePromise = collabEditor.remove(syncHeadingIdPlugin);
+        try {
+          await runWithTimeout(
+            removePromise,
+            EDITOR_INITIALIZATION_TIMEOUT_MS,
+            'Editor collaboration setup timed out',
+          );
+        } catch (error) {
+          failInitialization(
+            error,
+            error instanceof EditorOperationTimeoutError ? removePromise : undefined,
+          );
+          return;
+        }
+        if (disposed || runtimeEditor !== collabEditor) return;
+        collabSetupTimer = window.setTimeout(() => {
           if (disposed || !runtimeEditor) return;
-          runtimeEditor.action((ctx) => {
-            const collabService = ctx.get(collabServiceCtx);
-            collabService.bindDoc(doc);
-            if (provider) {
-              const awareness = provider.awareness;
-              if (awareness) {
-                collabService.setAwareness(awareness);
+          try {
+            runtimeEditor.action((ctx) => {
+              const collabService = ctx.get(collabServiceCtx);
+              collabService.bindDoc(doc);
+              if (provider) {
+                const awareness = provider.awareness;
+                if (awareness) {
+                  collabService.setAwareness(awareness);
+                }
+                collabService.connect();
               }
-              collabService.connect();
-            }
-          });
+            });
+          } catch (error) {
+            failInitialization(error);
+            return;
+          }
+          finishInitialization();
         }, 0);
+        return;
       }
 
-      editorRef.current = runtimeEditor;
-      setEditorInstance(runtimeEditor);
-
-      runtimeEditor.action((ctx) => {
-        const view = ctx.get(editorViewCtx) as
-          | import('@milkdown/kit/prose/view').EditorView
-          | undefined;
-        if (view && !readOnly) {
-          setTimeout(() => {
-            if (disposed) return;
-            repairDocument(view);
-          }, 500);
-        }
-      });
+      finishInitialization();
     };
 
-    void init();
+    const scheduledInitialization = initializationPromiseRef.current.then(init).catch((error) => {
+      // This is the final initialization boundary for unexpected controller
+      // failures that escaped a phase-specific translation above.
+      const failedEditor = runtimeEditor;
+      runtimeEditor = null;
+      editorRef.current = null;
+      if (!disposed) {
+        setEditorInstance(null);
+        setInitializationState({ status: 'error', error });
+      }
+      if (failedEditor) void queueEditorTeardown(failedEditor, hasCollab);
+    });
+    initializationPromiseRef.current = scheduledInitialization;
 
     return () => {
       disposed = true;
-      // Disconnect collab before destroying the editor so Yjs updates
-      // arriving as the WebSocket closes don't dispatch on destroyed context
-      if (hasCollab && runtimeEditor) {
-        try {
-          runtimeEditor.action((ctx) => {
-            ctx.get(collabServiceCtx).disconnect();
-          });
-        } catch {
-          // Editor or collab already torn down
-        }
-      }
-      runtimeEditor?.destroy();
+      if (collabSetupTimer !== undefined) window.clearTimeout(collabSetupTimer);
+      if (repairTimer !== undefined) window.clearTimeout(repairTimer);
+      const retiringEditor = runtimeEditor;
+      runtimeEditor = null;
       editorRef.current = null;
       setEditorInstance(null);
+      if (retiringEditor) {
+        void scheduledInitialization.then(() => queueEditorTeardown(retiringEditor, hasCollab));
+      }
       if (floatingCopyBtn) {
         floatingCopyBtn.remove();
         floatingCopyBtn = null;
       }
     };
-  }, [container, fallbackInitialValue, hasCollab, onChange, doc, provider, readOnly]);
+  }, [
+    container,
+    fallbackInitialValue,
+    hasCollab,
+    onChange,
+    doc,
+    provider,
+    readOnly,
+    initializationAttempt,
+    queueEditorTeardown,
+  ]);
 
-  return { setContainer, editor: editorInstance };
+  return {
+    setContainer,
+    editor: editorInstance,
+    initializationState,
+    retryInitialization,
+  };
 }

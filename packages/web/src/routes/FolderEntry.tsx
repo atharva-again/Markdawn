@@ -11,6 +11,7 @@ import {
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { ExplorerItem, type ExplorerItemData } from '../components/workspace/ExplorerItem';
+import { ExplorerLoadingState } from '../components/workspace/ExplorerLoadingState';
 import { MoveDialog } from '../components/workspace/MoveDialog';
 import { SelectionToolbar } from '../components/workspace/SelectionToolbar';
 import { useClipboard } from '../contexts/ClipboardContext';
@@ -36,6 +37,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useEntityCreationActions } from '../hooks/useEntityCreationActions';
 import { useStableValueWhile } from '../hooks/useStableValue';
 import { canRenameEntity, preservesEffectiveOwnerAtRoot } from '../utils/entity-actions';
+import { getInitialQueriesState } from '../utils/queryState';
 import { showSuccessToast } from '../utils/toast';
 import { buildFolderPath, buildPagePath, extractUuidFromSlug } from '../utils/url';
 import { getFolderContentsModel } from './folderContentsModel';
@@ -48,20 +50,12 @@ export default function FolderEntry() {
   const folderId = slugAndId ? extractUuidFromSlug(slugAndId) : undefined;
   const { capabilities, isAnonymous, publicEntity } = useShareContext();
 
-  const {
-    data: pages,
-    isLoading: isPagesLoading,
-    error: pagesError,
-    refetch: refetchPages,
-  } = usePageTree({ enabled: !isAnonymous });
-  const {
-    data: folders,
-    isLoading: isFoldersLoading,
-    error: foldersError,
-    refetch: refetchFolders,
-  } = useFolderTree({
+  const pagesQuery = usePageTree({ enabled: !isAnonymous });
+  const { data: pages, refetch: refetchPages } = pagesQuery;
+  const foldersQuery = useFolderTree({
     enabled: !isAnonymous,
   });
+  const { data: folders, refetch: refetchFolders } = foldersQuery;
   const { data: favorites } = useFavorites({ enabled: !isAnonymous });
   const { data: workspaceMemberships } = useWorkspaceMemberships({ enabled: !isAnonymous });
   const { data: session } = useAuth();
@@ -481,8 +475,11 @@ export default function FolderEntry() {
     }
   };
 
-  const isLoading = !usesPublicPayload && (isPagesLoading || isFoldersLoading);
-  const hasError = !usesPublicPayload && (pagesError || foldersError);
+  const initialQueriesState = usesPublicPayload
+    ? ({ status: 'ready' } as const)
+    : pagesQuery.error || foldersQuery.error
+      ? ({ status: 'error' } as const)
+      : getInitialQueriesState([pagesQuery, foldersQuery]);
 
   if (!folderId) {
     return (
@@ -591,9 +588,13 @@ export default function FolderEntry() {
         </div>
       </div>
 
-      {hasError ? (
+      {initialQueriesState.status === 'error' || initialQueriesState.status === 'paused' ? (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md flex items-center justify-between">
-          <span>Failed to load items.</span>
+          <span>
+            {initialQueriesState.status === 'paused'
+              ? 'Loading is paused. Check your connection.'
+              : 'Failed to load items.'}
+          </span>
           <button
             type="button"
             onClick={() => void Promise.all([refetchPages(), refetchFolders()])}
@@ -602,21 +603,8 @@ export default function FolderEntry() {
             Retry
           </button>
         </div>
-      ) : isLoading ? (
-        <div
-          className={`${viewMode === 'card' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-1'} animate-fade-in`}
-        >
-          {[1, 2, 3, 4, 5, 6].map((id) => (
-            <div
-              key={id}
-              className="block p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl"
-            >
-              <div className="h-28 bg-zinc-100 dark:bg-zinc-800 rounded-lg mb-3 animate-pulse" />
-              <div className="h-5 bg-zinc-100 dark:bg-zinc-800 rounded w-3/4 mb-2 animate-pulse" />
-              <div className="h-4 bg-zinc-100 dark:bg-zinc-800 rounded w-1/2 animate-pulse" />
-            </div>
-          ))}
-        </div>
+      ) : initialQueriesState.status === 'loading' ? (
+        <ExplorerLoadingState />
       ) : allItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <FileText size={48} className="text-zinc-300 dark:text-zinc-600 mb-4" />

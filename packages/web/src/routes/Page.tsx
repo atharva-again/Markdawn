@@ -18,6 +18,7 @@ import { Breadcrumbs } from '../components/editor/Breadcrumbs';
 import { MilkdownEditor } from '../components/editor/MilkdownEditor';
 import { PageActions } from '../components/editor/PageActions';
 import { PageIcon } from '../components/editor/PageIcon';
+import { PageLoadingState } from '../components/editor/PageLoadingState';
 import { PageStatus } from '../components/editor/PageStatus';
 import { PageTitle } from '../components/editor/PageTitle';
 import { PropertiesPanel } from '../components/editor/PropertiesPanel';
@@ -136,7 +137,6 @@ export default function Page() {
   );
   const readOnly =
     collabPermission === undefined || pagePermission === null || pagePermission === 'view';
-
   useEffect(() => {
     if (!page) return;
     setAccessPermission(contextAccessPermission);
@@ -428,7 +428,7 @@ export default function Page() {
   if (!page) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center text-zinc-400 animate-fade-in">
-        Loading page...
+        <PageLoadingState />
       </div>
     );
   }

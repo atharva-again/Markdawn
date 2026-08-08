@@ -1,5 +1,41 @@
-import { describe, expect, it } from 'vitest';
-import { convertDelimitedToMarkdown, isLikelyTableData } from './useMilkdown';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  convertDelimitedToMarkdown,
+  createEditorWithTimeout,
+  isLikelyTableData,
+} from './useMilkdown';
+
+afterEach(() => vi.useRealTimers());
+
+describe('createEditorWithTimeout', () => {
+  it('surfaces synchronous editor configuration failures', async () => {
+    const failure = new Error('invalid editor configuration');
+
+    await expect(
+      createEditorWithTimeout(() => {
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+  });
+
+  it('destroys an editor that finishes after initialization timed out', async () => {
+    vi.useFakeTimers();
+    const destroy = vi.fn(async () => undefined);
+    let resolveEditor: ((editor: { destroy: () => Promise<void> }) => void) | undefined;
+    const editorPromise = new Promise<{ destroy: () => Promise<void> }>((resolve) => {
+      resolveEditor = resolve;
+    });
+    const result = createEditorWithTimeout(() => editorPromise, 100);
+    const rejection = expect(result).rejects.toThrow('Editor initialization timed out');
+
+    await vi.advanceTimersByTimeAsync(100);
+    await rejection;
+
+    resolveEditor?.({ destroy });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(destroy).toHaveBeenCalledOnce();
+  });
+});
 
 describe('isLikelyTableData', () => {
   it('returns true for tab-separated data with 2+ columns', () => {

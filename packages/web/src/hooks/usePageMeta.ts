@@ -21,6 +21,7 @@ import { formatGrantNotification } from '../utils/grantNotification';
 import { showInfoToast } from '../utils/toast';
 import { shareQueryKeys } from './use-share';
 import { invalidateWorkspaceAccessQueries, WORKSPACE_ACCESS_QUERY_KEYS } from './use-workspace';
+import { useAuth } from './useAuth';
 
 const COLLAB_URL = getCollaborationUrl();
 function isTerminalMetaClose({ event }: onCloseParameters): boolean {
@@ -185,7 +186,7 @@ export function usePageMeta() {
   const queryClient = useQueryClient();
   const navigate = useIdentityNavigate();
   const identityLifecycle = useIdentityLifecycle();
-  const { data: session, refetch: refetchSession } = authClient.useSession();
+  const { data: session, refetch: refetchSession } = useAuth();
   const userId = session?.user?.id;
 
   const refetchSessionRef = useRef(refetchSession);

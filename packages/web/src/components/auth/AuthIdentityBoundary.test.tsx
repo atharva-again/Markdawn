@@ -23,14 +23,20 @@ const mocks = vi.hoisted(() => ({
   userId: 'user-a' as string | null,
   isPending: false,
   isRefetching: false,
+  sessionError: null as { status: number } | null,
+  isInitialError: false,
+  refetch: vi.fn(),
   lateNavigation: vi.fn(),
 }));
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => ({
     data: mocks.userId ? { user: { id: mocks.userId } } : null,
+    error: mocks.sessionError,
+    isInitialError: mocks.isInitialError,
     isPending: mocks.isPending,
     isRefetching: mocks.isRefetching,
+    refetch: mocks.refetch,
   }),
 }));
 
@@ -172,6 +178,9 @@ describe('AuthIdentityBoundary', () => {
     mocks.userId = 'user-a';
     mocks.isPending = false;
     mocks.isRefetching = false;
+    mocks.sessionError = null;
+    mocks.isInitialError = false;
+    mocks.refetch.mockReset();
     identityClients.clear();
     pendingFavoriteMutation = null;
     pendingGrantMutation = null;
@@ -308,6 +317,71 @@ describe('AuthIdentityBoundary', () => {
     });
     expect(identityClients.get('user-b')).not.toBe(userAQueryClient);
     expect(clearSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves the settled identity when session revalidation fails transiently', async () => {
+    const queryClient = createTestQueryClient();
+    const rendered = render(
+      <QueryClientProvider client={queryClient}>
+        <AuthIdentityBoundary>
+          <StatefulChild />
+        </AuthIdentityBoundary>
+      </QueryClientProvider>,
+    );
+
+    await screen.findByRole('button', { name: 'Populate state' });
+    const userAQueryClient = identityClients.get('user-a');
+    expect(userAQueryClient).toBeDefined();
+    const clearSpy = vi.spyOn(userAQueryClient as QueryClient, 'clear');
+
+    mocks.userId = null;
+    mocks.sessionError = { status: 503 };
+    act(() =>
+      rendered.rerender(
+        <QueryClientProvider client={queryClient}>
+          <AuthIdentityBoundary>
+            <StatefulChild />
+          </AuthIdentityBoundary>
+        </QueryClientProvider>,
+      ),
+    );
+
+    expect(screen.getByRole('button', { name: 'Populate state' })).toBeInTheDocument();
+    expect(identityClients.get('anonymous')).toBe(userAQueryClient);
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it('shows a retry state when the initial session request fails', async () => {
+    mocks.userId = null;
+    mocks.sessionError = { status: 503 };
+    mocks.isInitialError = true;
+    const queryClient = createTestQueryClient();
+
+    const rendered = render(
+      <QueryClientProvider client={queryClient}>
+        <AuthIdentityBoundary>
+          <StatefulChild />
+        </AuthIdentityBoundary>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText("Couldn't load your session")).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }));
+    expect(mocks.refetch).toHaveBeenCalledOnce();
+
+    mocks.isRefetching = true;
+    act(() =>
+      rendered.rerender(
+        <QueryClientProvider client={queryClient}>
+          <AuthIdentityBoundary>
+            <StatefulChild />
+          </AuthIdentityBoundary>
+        </QueryClientProvider>,
+      ),
+    );
+
+    expect(screen.getByRole('status', { name: 'Loading application' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
   });
 
   it('skips a retired identity when its optimistic mutation fails late', async () => {

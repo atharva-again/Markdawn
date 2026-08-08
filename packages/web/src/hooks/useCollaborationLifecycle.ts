@@ -47,6 +47,10 @@ function useProviderLifecycle(
   const setReadOnly = useSetReadOnly();
   const setAccessPermission = useSetAccessPermission();
   const setCapabilities = useSetCapabilities();
+  const setAccessPermissionRef = useRef(setAccessPermission);
+  const setCapabilitiesRef = useRef(setCapabilities);
+  setAccessPermissionRef.current = setAccessPermission;
+  setCapabilitiesRef.current = setCapabilities;
   const latestOptionsRef = useRef<LatestLifecycleOptions>(options);
   latestOptionsRef.current = options;
 
@@ -66,8 +70,8 @@ function useProviderLifecycle(
       navigate,
       queryClient,
       setReadOnly,
-      setAccessPermission,
-      setCapabilities,
+      setAccessPermission: (permission) => setAccessPermissionRef.current(permission),
+      setCapabilities: (capabilities) => setCapabilitiesRef.current(capabilities),
       invalidateWorkspaceAccess: () => invalidateWorkspaceAccessQueries(queryClient),
     });
     return controller.attach();

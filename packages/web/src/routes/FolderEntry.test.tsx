@@ -9,6 +9,12 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   refetchPages: vi.fn(),
   refetchFolders: vi.fn(),
+  pagesPending: false,
+  pagesFetching: false,
+  pagesFetchStatus: 'idle' as 'fetching' | 'paused' | 'idle',
+  foldersPending: false,
+  foldersFetching: false,
+  foldersFetchStatus: 'idle' as 'fetching' | 'paused' | 'idle',
   pagesError: new Error('page tree failed') as Error | null,
   foldersError: new Error('folder tree failed') as Error | null,
   folderTree: [
@@ -100,8 +106,10 @@ vi.mock('../hooks/useAuth', () => ({
 
 vi.mock('../hooks/use-pages', () => ({
   usePageTree: () => ({
-    data: [],
-    isLoading: false,
+    data: mocks.pagesPending ? undefined : [],
+    isPending: mocks.pagesPending,
+    isFetching: mocks.pagesFetching,
+    fetchStatus: mocks.pagesFetchStatus,
     error: mocks.pagesError,
     refetch: mocks.refetchPages,
   }),
@@ -111,7 +119,9 @@ vi.mock('../hooks/use-pages', () => ({
 vi.mock('../hooks/use-folders', () => ({
   useFolderTree: () => ({
     data: mocks.folderTree,
-    isLoading: false,
+    isPending: mocks.foldersPending,
+    isFetching: mocks.foldersFetching,
+    fetchStatus: mocks.foldersFetchStatus,
     error: mocks.foldersError,
     refetch: mocks.refetchFolders,
   }),
@@ -176,11 +186,35 @@ describe('FolderEntry access refresh', () => {
     ];
     mocks.pagesError = new Error('page tree failed');
     mocks.foldersError = new Error('folder tree failed');
+    mocks.pagesPending = false;
+    mocks.pagesFetching = false;
+    mocks.pagesFetchStatus = 'idle';
+    mocks.foldersPending = false;
+    mocks.foldersFetching = false;
+    mocks.foldersFetchStatus = 'idle';
     mocks.clipboardState = { action: null, items: [] };
     mocks.share.capabilities = { canEdit: true, canDelete: true, canCopy: true };
     mocks.share.isAnonymous = false;
     mocks.share.publicEntity.folders = [];
     mocks.share.publicEntity.pages = [];
+  });
+
+  it('shows a loading indicator while the page tree is pending', () => {
+    mocks.pagesError = null;
+    mocks.foldersError = null;
+    mocks.pagesFetching = true;
+    mocks.pagesFetchStatus = 'fetching';
+    mocks.pagesPending = true;
+
+    render(
+      <MemoryRouter initialEntries={[`/app/folder/fresh-${FOLDER_ID}`]}>
+        <Routes>
+          <Route path="/app/folder/:slugAndId" element={<FolderEntry />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('status', { name: 'Loading items' })).toBeInTheDocument();
   });
 
   it('uses fresh polled metadata for a router-aware canonical replace', async () => {

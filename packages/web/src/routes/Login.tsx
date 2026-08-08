@@ -1,9 +1,12 @@
-import { useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { HeaderActions } from '../components/HeaderActions';
+import { LoadingIndicator } from '../components/ui/LoadingIndicator';
 import { useIdentityLifecycle } from '../contexts/IdentityLifecycleContext';
+import { useAuth } from '../hooks/useAuth';
 import { authClient } from '../lib/auth-client';
 
 export default function Login() {
+  const { data: session, isPending, isRefetching } = useAuth();
   const identityLifecycle = useIdentityLifecycle();
   const location = useLocation();
   const returnLocation = (
@@ -15,6 +18,19 @@ export default function Login() {
     typeof returnLocation?.pathname === 'string' && returnLocation.pathname.startsWith('/')
       ? `${returnLocation.pathname}${typeof returnLocation.search === 'string' ? returnLocation.search : ''}${typeof returnLocation.hash === 'string' ? returnLocation.hash : ''}`
       : '/app';
+
+  if (isPending || isRefetching) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white dark:bg-zinc-950">
+        <LoadingIndicator label="Loading application" size="md" />
+      </div>
+    );
+  }
+
+  if (session?.user) {
+    return <Navigate to={returnPath} replace />;
+  }
+
   const handleSocialSignIn = (provider: 'github' | 'google') => async () => {
     try {
       await authClient.signIn.social({
