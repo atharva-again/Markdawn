@@ -50,7 +50,7 @@ func main() {
 		kong.Vars{"version": buildVersion()},
 	)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "markdawn:", err)
+		fmt.Fprintln(os.Stderr, terminalText(formatHumanError(err.Error())))
 		os.Exit(exitInternal)
 	}
 	arguments := os.Args[1:]
@@ -64,7 +64,7 @@ func main() {
 				Error: jsonError{Code: "invalid_arguments", Message: err.Error()},
 			})
 		} else {
-			fmt.Fprintln(os.Stderr, "markdawn:", err)
+			fmt.Fprintln(os.Stderr, terminalText(formatHumanError(err.Error())))
 			var parseError *kong.ParseError
 			if errors.As(err, &parseError) && parseError.Context != nil {
 				_ = parseError.Context.PrintUsage(false)
@@ -132,8 +132,8 @@ func hasOnlyLegacyInteractiveFlags(arguments []string) bool {
 }
 
 func reportRunError(runtime *runtimeState, err error) int {
-	var renderedDoctorError *renderedDoctorHealthError
-	if errors.As(err, &renderedDoctorError) {
+	var renderedError *cliError
+	if errors.As(err, &renderedError) && renderedError.AlreadyRendered {
 		return exitCode(err)
 	}
 	// A canceled request may have reached the server. Preserve the typed
@@ -143,7 +143,7 @@ func reportRunError(runtime *runtimeState, err error) int {
 		return exitCode(err)
 	}
 	if errors.Is(err, context.Canceled) {
-		fmt.Fprintln(os.Stderr, "markdawn: interrupted")
+		fmt.Fprintln(runtime.stderr, terminalText(formatHumanError("Interrupted.")))
 		return exitInterrupted
 	}
 	runtime.printError(err)

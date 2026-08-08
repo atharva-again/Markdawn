@@ -86,16 +86,16 @@ func tokenAccess(scopes []tokenScope) string {
 		}
 	}
 	if hasUnknown {
-		return "unknown"
+		return "Unknown"
 	}
 	if hasRead && hasWrite {
-		return "read and write"
+		return "Read and write"
 	}
 	if hasRead {
-		return "read-only"
+		return "Read-only"
 	}
 	if len(scopes) > 0 {
-		return "unknown"
+		return "Unknown"
 	}
 	return ""
 }
