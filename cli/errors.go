@@ -18,12 +18,14 @@ const (
 )
 
 type cliError struct {
-	Code       string
-	Message    string
-	StatusCode int
-	Details    any
-	Cause      error
-	RetryAfter time.Duration
+	Code            string
+	Message         string
+	StatusCode      int
+	Details         any
+	Cause           error
+	RetryAfter      time.Duration
+	Presentation    cliErrorPresentation
+	AlreadyRendered bool
 }
 
 func (e *cliError) Error() string {
@@ -40,6 +42,11 @@ func (e *cliError) Error() string {
 }
 
 func (e *cliError) Unwrap() error { return e.Cause }
+
+type cliErrorPresentation struct {
+	HumanParagraphs  []string
+	HumanDetailLines []string
+}
 
 func usageError(format string, values ...any) error {
 	return &cliError{Code: "invalid_arguments", Message: fmt.Sprintf(format, values...), StatusCode: http.StatusBadRequest}
@@ -70,11 +77,7 @@ func exitCode(err error) int {
 	return exitFailure
 }
 
-type ambiguousPageError struct {
+type ambiguousPageDetails struct {
 	Reference  string          `json:"reference"`
 	Candidates []pageCandidate `json:"candidates"`
-}
-
-func (e *ambiguousPageError) Error() string {
-	return fmt.Sprintf("page reference %q is ambiguous", e.Reference)
 }

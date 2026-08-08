@@ -14,7 +14,7 @@ type PageListCmd struct {
 
 type PageViewCmd struct {
 	Reference string `arg:"" name:"page" help:"Page ID or exact title."`
-	Raw       bool   `help:"Print authored Markdown without terminal rendering."`
+	Raw       bool   `help:"Print page Markdown without terminal rendering."`
 }
 
 type PageCreateCmd struct {
@@ -26,10 +26,10 @@ type PageCreateCmd struct {
 
 type PageEditCmd struct {
 	Append      PageEditAppendCmd      `cmd:"" help:"Append Markdown after one blank line."`
-	Exact       PageEditExactCmd       `cmd:"" help:"Apply an exact authored-Markdown edit."`
+	Exact       PageEditExactCmd       `cmd:"" help:"Apply an exact Markdown edit."`
 	Interactive PageEditInteractiveCmd `cmd:"" default:"withargs" help:"Open a page in the configured editor."`
 	Prepend     PageEditPrependCmd     `cmd:"" help:"Prepend Markdown before one blank line."`
-	Replace     PageEditReplaceCmd     `cmd:"" help:"Replace all authored Markdown safely."`
+	Replace     PageEditReplaceCmd     `cmd:"" help:"Replace all page Markdown safely."`
 }
 
 type PageEditInteractiveCmd struct {
@@ -43,7 +43,7 @@ type PageEditExactCmd struct {
 	NewText        *string `help:"Replacement text; an empty value deletes the passage." placeholder:"TEXT"`
 	OldFile        string  `help:"File containing the exact current passage, or - for stdin." placeholder:"FILE"`
 	NewFile        string  `help:"File containing replacement text; an empty file deletes the passage." placeholder:"FILE"`
-	ExpectEmpty    bool    `help:"Require the authored Markdown to be empty before writing the replacement."`
+	ExpectEmpty    bool    `help:"Require the page Markdown to be empty before writing the replacement."`
 	EditID         string  `name:"id" help:"Caller-defined edit identifier." placeholder:"ID"`
 	IdempotencyKey string  `help:"Safe-retry key for this request." placeholder:"KEY"`
 }
@@ -99,10 +99,10 @@ type uncertainEditDetails struct {
 
 func (cmd *PageListCmd) Run(r *runtimeState) error {
 	if cmd.Limit < 0 || cmd.Limit > 10000 {
-		return usageError("--limit must be between 0 and 10000")
+		return usageError("The --limit value must be between 0 and 10000.")
 	}
 	if cmd.Parent != "" && !isUUID(cmd.Parent) {
-		return usageError("--parent must be a folder UUID")
+		return usageError("The --parent value must be a folder UUID.")
 	}
 	c, err := r.client()
 	if err != nil {
@@ -181,7 +181,7 @@ func (cmd *PageViewCmd) Run(r *runtimeState) error {
 
 func (cmd *PageCreateCmd) Run(r *runtimeState) error {
 	if cmd.Parent != "" && !isUUID(cmd.Parent) {
-		return usageError("--parent must be a folder UUID")
+		return usageError("The --parent value must be a folder UUID.")
 	}
 	request := createPageRequest{}
 	if cmd.Title != "" {
@@ -270,10 +270,10 @@ func updatePage(r *runtimeState, reference string, request updatePageRequest) (p
 
 func (cmd *PageUpdateCmd) Run(r *runtimeState) error {
 	if cmd.Title == "" && cmd.Icon == "" && !cmd.ClearIcon {
-		return usageError("provide --title, --icon, or --clear-icon")
+		return usageError("Provide --title, --icon, or --clear-icon.")
 	}
 	if cmd.Icon != "" && cmd.ClearIcon {
-		return usageError("--icon and --clear-icon cannot be used together")
+		return usageError("The --icon and --clear-icon options cannot be used together.")
 	}
 	request := updatePageRequest{}
 	if cmd.Title != "" {
@@ -302,7 +302,7 @@ func (cmd *PageUpdateCmd) Run(r *runtimeState) error {
 
 func pageDestination(parent string) (*string, error) {
 	if parent != "" && !isUUID(parent) {
-		return nil, usageError("--parent must be a folder UUID")
+		return nil, usageError("The --parent value must be a folder UUID.")
 	}
 	if parent == "" {
 		return nil, nil
@@ -353,13 +353,13 @@ func (cmd *PageDeleteCmd) Run(r *runtimeState) error {
 
 func (cmd *PageEditExactCmd) Run(r *runtimeState) error {
 	if cmd.OldFile == "-" && cmd.NewFile == "-" {
-		return usageError("only one replacement file may read from stdin")
+		return usageError("Only one replacement file may read from stdin.")
 	}
 	var oldText []byte
 	var err error
 	if cmd.ExpectEmpty {
 		if cmd.OldText != nil || cmd.OldFile != "" {
-			return usageError("--expect-empty cannot be used with --old-text or --old-file")
+			return usageError("The --expect-empty option cannot be used with --old-text or --old-file.")
 		}
 	} else {
 		oldText, err = replacementInput(cmd.OldText, cmd.OldFile, r.stdin, "old")
@@ -367,7 +367,7 @@ func (cmd *PageEditExactCmd) Run(r *runtimeState) error {
 			return err
 		}
 		if len(oldText) == 0 {
-			return usageError("empty old content requires --expect-empty")
+			return usageError("Empty old content requires --expect-empty.")
 		}
 	}
 	newText, err := replacementInput(cmd.NewText, cmd.NewFile, r.stdin, "new")
@@ -464,7 +464,7 @@ func runContentBoundaryOperation(
 		return err
 	}
 	if len(content) == 0 {
-		return usageError("--content-text or --content-file must not be empty for %s", operation)
+		return usageError("The --content-text or --content-file value must not be empty for %s.", operation)
 	}
 	selected, err := r.resolvePage(reference)
 	if err != nil {
@@ -562,11 +562,20 @@ func uncertainWriteOutcome(err error, editID string, idempotencyKey string) erro
 		errorCode(err) == "network_error" ||
 		errorCode(err) == "invalid_response" ||
 		(errors.As(err, &requestError) && requestError.StatusCode == http.StatusServiceUnavailable && requestError.Code != "collaboration_busy") {
+		details := &uncertainEditDetails{IdempotencyKey: idempotencyKey, EditID: editID}
+		detailLines := make([]string, 0, 2)
+		if details.EditID != "" {
+			detailLines = append(detailLines, "Edit ID: "+details.EditID)
+		}
+		if details.IdempotencyKey != "" {
+			detailLines = append(detailLines, "Idempotency key: "+details.IdempotencyKey)
+		}
 		return &cliError{
-			Code:    "edit_outcome_uncertain",
-			Message: "edit outcome is uncertain; inspect the page before issuing another edit",
-			Details: uncertainEditDetails{IdempotencyKey: idempotencyKey, EditID: editID},
-			Cause:   err,
+			Code:         "edit_outcome_uncertain",
+			Message:      "The edit may have succeeded. Check the page before issuing another edit",
+			Details:      details,
+			Cause:        err,
+			Presentation: cliErrorPresentation{HumanDetailLines: detailLines},
 		}
 	}
 	return err

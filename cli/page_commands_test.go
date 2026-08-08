@@ -432,7 +432,7 @@ func TestWholePageEditsRequireInspectionAfterUncertainOutcome(t *testing.T) {
 			if !errors.As(err, &uncertain) || uncertain.Code != "edit_outcome_uncertain" {
 				t.Fatalf("expected uncertain edit error, got %v", err)
 			}
-			if !strings.Contains(uncertain.Message, "inspect the page") || strings.Contains(uncertain.Message, "retry with") {
+			if !strings.Contains(uncertain.Message, "Check the page") || strings.Contains(uncertain.Message, "retry with") {
 				t.Fatalf("unsafe retry guidance: %q", uncertain.Message)
 			}
 		})
@@ -475,7 +475,7 @@ func TestPageEditReportsLostResponseAsUncertain(t *testing.T) {
 	if !errors.As(err, &uncertain) || uncertain.Code != "edit_outcome_uncertain" {
 		t.Fatalf("expected uncertain edit error, got %v", err)
 	}
-	details, ok := uncertain.Details.(uncertainEditDetails)
+	details, ok := uncertain.Details.(*uncertainEditDetails)
 	if !ok || details.EditID != "edit" || details.IdempotencyKey == "" {
 		t.Fatalf("missing uncertain edit details: %#v", uncertain.Details)
 	}
@@ -549,7 +549,7 @@ func TestBoundaryOperationCancellationReportsUncertainOutcome(t *testing.T) {
 				t.Fatalf("unexpected exit code %d", got)
 			}
 			output := stderr.String()
-			if !strings.Contains(output, "edit outcome is uncertain; inspect the page before issuing another edit") ||
+			if !strings.Contains(output, "The edit may have succeeded. Check the page before issuing another edit:") ||
 				!strings.Contains(output, "Edit ID: edit-id") ||
 				!strings.Contains(output, "Idempotency key: idempotency-key") {
 				t.Fatalf("uncertain cancellation details were not displayed: %q", output)
@@ -634,16 +634,17 @@ func TestPageEditReportsUncertainOutcomeAndAllowsCallerManagedReplay(t *testing.
 	if !errors.As(err, &uncertain) || uncertain.Code != "edit_outcome_uncertain" {
 		t.Fatalf("expected uncertain edit error, got %v", err)
 	}
-	details, ok := uncertain.Details.(uncertainEditDetails)
+	details, ok := uncertain.Details.(*uncertainEditDetails)
 	if !ok || details.IdempotencyKey == "" || details.EditID != "edit" {
 		t.Fatalf("missing uncertain edit details: %#v", uncertain.Details)
 	}
-	if !strings.Contains(uncertain.Message, "inspect the page") || strings.Contains(uncertain.Message, details.IdempotencyKey) {
+	if !strings.Contains(uncertain.Message, "Check the page") || strings.Contains(uncertain.Message, details.IdempotencyKey) {
 		t.Fatalf("unsafe retry guidance: %q", uncertain.Message)
 	}
 	runtime.printError(err)
 	var errorOutput struct {
 		Error struct {
+			Message string               `json:"message"`
 			Details uncertainEditDetails `json:"details"`
 		} `json:"error"`
 	}
@@ -652,6 +653,9 @@ func TestPageEditReportsUncertainOutcomeAndAllowsCallerManagedReplay(t *testing.
 	}
 	if errorOutput.Error.Details.IdempotencyKey != details.IdempotencyKey || errorOutput.Error.Details.EditID != details.EditID {
 		t.Fatalf("JSON error omitted uncertain edit details: %s", output.String())
+	}
+	if !strings.HasPrefix(errorOutput.Error.Message, "The edit may have succeeded. Check the page before issuing another edit:") {
+		t.Fatalf("JSON error used unexpected edit guidance: %s", output.String())
 	}
 
 	runtime.clientValue.timeout = time.Second

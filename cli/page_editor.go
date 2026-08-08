@@ -39,11 +39,11 @@ func editPageInEditor(
 	}
 	editor := preferredEditor(editorOverride)
 	if editor == "" {
-		return nil, false, usageError("set MARKDAWN_EDITOR, VISUAL, or EDITOR, or pass --editor")
+		return nil, false, usageError("Set MARKDAWN_EDITOR, VISUAL, or EDITOR, or pass --editor.")
 	}
 	parts, err := parseEditorCommand(editor)
 	if err != nil || len(parts) == 0 {
-		return nil, false, usageError("invalid editor command %q", editor)
+		return nil, false, usageError("Invalid editor command %q.", editor)
 	}
 	command := exec.CommandContext(r.ctx, parts[0], append(parts[1:], path)...)
 	command.Stdin, command.Stdout, command.Stderr = r.stdin, r.stdout, r.stderr

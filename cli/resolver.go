@@ -113,7 +113,7 @@ func (r *runtimeState) resolvePage(reference string) (page, error) {
 		return page{}, err
 	}
 	if len(resolved) == 0 {
-		return page{}, &cliError{Code: "page_not_found", Message: fmt.Sprintf("no page titled %q", reference), StatusCode: http.StatusNotFound}
+		return page{}, &cliError{Code: "page_not_found", Message: fmt.Sprintf("No page titled %q.", reference), StatusCode: http.StatusNotFound}
 	}
 	if len(resolved) == 1 {
 		return resolved[0].page, nil
@@ -131,7 +131,19 @@ func (r *runtimeState) resolvePage(reference string) (page, error) {
 		return candidates[i].Path < candidates[j].Path
 	})
 	if !r.interactive() {
-		return page{}, &ambiguousPageError{Reference: reference, Candidates: candidates}
+		detailLines := make([]string, 1, len(candidates)+1)
+		detailLines[0] = "Candidates:"
+		for _, candidate := range candidates {
+			detailLines = append(detailLines, fmt.Sprintf("  %s  %s  %s", candidate.Title, candidate.Path, candidate.ID))
+		}
+		return page{}, &cliError{
+			Code:    "ambiguous_page",
+			Message: fmt.Sprintf("Page reference %q is ambiguous.", reference),
+			Details: ambiguousPageDetails{Reference: reference, Candidates: candidates},
+			Presentation: cliErrorPresentation{
+				HumanDetailLines: detailLines,
+			},
+		}
 	}
 	byID := make(map[string]page, len(resolved))
 	options := make([]huh.Option[string], 0, len(candidates))
@@ -145,11 +157,11 @@ func (r *runtimeState) resolvePage(reference string) (page, error) {
 		))
 	}
 	selectedID := ""
-	selectPage := huh.NewSelect[string]().Title("Multiple pages have that title").Options(options...).Value(&selectedID)
+	selectPage := huh.NewSelect[string]().Title(fmt.Sprintf("Select a page titled %q", terminalText(reference))).Options(options...).Value(&selectedID)
 	err = huh.NewForm(huh.NewGroup(selectPage)).WithInput(r.stdin).WithOutput(r.stderr).RunWithContext(r.ctx)
 	if err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
-			return page{}, &cliError{Code: "aborted", Message: "selection cancelled"}
+			return page{}, &cliError{Code: "aborted", Message: "Selection cancelled."}
 		}
 		return page{}, err
 	}
@@ -171,7 +183,7 @@ func (r *runtimeState) resolveFolder(reference string) (folder, error) {
 	if len(resolved) == 0 {
 		return folder{}, &cliError{
 			Code:       "folder_not_found",
-			Message:    fmt.Sprintf("no folder named %q", reference),
+			Message:    fmt.Sprintf("No folder named %q.", reference),
 			StatusCode: http.StatusNotFound,
 		}
 	}
@@ -195,7 +207,7 @@ func (r *runtimeState) resolveFolder(reference string) (folder, error) {
 	if !r.interactive() {
 		return folder{}, &cliError{
 			Code:       "folder_ambiguous",
-			Message:    fmt.Sprintf("multiple folders are named %q; use an ID", reference),
+			Message:    fmt.Sprintf("Multiple folders are named %q; use an ID.", reference),
 			StatusCode: http.StatusConflict,
 			Details:    candidates,
 		}
@@ -208,11 +220,11 @@ func (r *runtimeState) resolveFolder(reference string) (folder, error) {
 		))
 	}
 	selectedID := ""
-	selectFolder := huh.NewSelect[string]().Title("Multiple folders have that name").Options(options...).Value(&selectedID)
+	selectFolder := huh.NewSelect[string]().Title(fmt.Sprintf("Select a folder named %q", terminalText(reference))).Options(options...).Value(&selectedID)
 	err = huh.NewForm(huh.NewGroup(selectFolder)).WithInput(r.stdin).WithOutput(r.stderr).RunWithContext(r.ctx)
 	if err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
-			return folder{}, &cliError{Code: "aborted", Message: "selection cancelled"}
+			return folder{}, &cliError{Code: "aborted", Message: "Selection cancelled."}
 		}
 		return folder{}, err
 	}
@@ -239,13 +251,13 @@ func (r *runtimeState) resolveTrashedPageFromSnapshot(reference string, pages []
 		}
 	}
 	if len(matches) == 0 {
-		return page{}, &cliError{Code: "page_not_found", Message: fmt.Sprintf("no trashed page titled %q", reference), StatusCode: http.StatusNotFound}
+		return page{}, &cliError{Code: "page_not_found", Message: fmt.Sprintf("No trashed page titled %q.", reference), StatusCode: http.StatusNotFound}
 	}
 	if len(matches) == 1 {
 		return matches[0], nil
 	}
 	if !r.interactive() {
-		return page{}, &cliError{Code: "page_ambiguous", Message: fmt.Sprintf("multiple trashed pages are named %q; use an ID", reference), StatusCode: http.StatusConflict}
+		return page{}, &cliError{Code: "page_ambiguous", Message: fmt.Sprintf("Multiple trashed pages are named %q; use an ID.", reference), StatusCode: http.StatusConflict}
 	}
 	options := make([]huh.Option[string], 0, len(matches))
 	byID := make(map[string]page, len(matches))
@@ -254,7 +266,7 @@ func (r *runtimeState) resolveTrashedPageFromSnapshot(reference string, pages []
 		options = append(options, huh.NewOption(terminalText(item.Title)+"  "+terminalText(item.ID), item.ID))
 	}
 	selectedID := ""
-	selectPage := huh.NewSelect[string]().Title("Multiple trashed pages have that title").Options(options...).Value(&selectedID)
+	selectPage := huh.NewSelect[string]().Title(fmt.Sprintf("Select a trashed page titled %q", terminalText(reference))).Options(options...).Value(&selectedID)
 	if err := huh.NewForm(huh.NewGroup(selectPage)).WithInput(r.stdin).WithOutput(r.stderr).RunWithContext(r.ctx); err != nil {
 		return page{}, err
 	}
@@ -281,13 +293,13 @@ func (r *runtimeState) resolveTrashedFolderFromSnapshot(reference string, folder
 		}
 	}
 	if len(matches) == 0 {
-		return folder{}, &cliError{Code: "folder_not_found", Message: fmt.Sprintf("no trashed folder named %q", reference), StatusCode: http.StatusNotFound}
+		return folder{}, &cliError{Code: "folder_not_found", Message: fmt.Sprintf("No trashed folder named %q.", reference), StatusCode: http.StatusNotFound}
 	}
 	if len(matches) == 1 {
 		return matches[0], nil
 	}
 	if !r.interactive() {
-		return folder{}, &cliError{Code: "folder_ambiguous", Message: fmt.Sprintf("multiple trashed folders are named %q; use an ID", reference), StatusCode: http.StatusConflict}
+		return folder{}, &cliError{Code: "folder_ambiguous", Message: fmt.Sprintf("Multiple trashed folders are named %q; use an ID.", reference), StatusCode: http.StatusConflict}
 	}
 	options := make([]huh.Option[string], 0, len(matches))
 	byID := make(map[string]folder, len(matches))
@@ -296,7 +308,7 @@ func (r *runtimeState) resolveTrashedFolderFromSnapshot(reference string, folder
 		options = append(options, huh.NewOption(terminalText(item.Name)+"  "+terminalText(item.ID), item.ID))
 	}
 	selectedID := ""
-	selectFolder := huh.NewSelect[string]().Title("Multiple trashed folders have that name").Options(options...).Value(&selectedID)
+	selectFolder := huh.NewSelect[string]().Title(fmt.Sprintf("Select a trashed folder named %q", terminalText(reference))).Options(options...).Value(&selectedID)
 	if err := huh.NewForm(huh.NewGroup(selectFolder)).WithInput(r.stdin).WithOutput(r.stderr).RunWithContext(r.ctx); err != nil {
 		return folder{}, err
 	}

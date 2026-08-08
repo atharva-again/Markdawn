@@ -28,6 +28,10 @@ type runtimeState struct {
 	configValue *config
 }
 
+func formatHumanError(message string) string {
+	return "Error: " + message
+}
+
 func newRuntime(ctx context.Context, cli *CLI, stdin, stdout, stderr *os.File) *runtimeState {
 	return &runtimeState{
 		ctx:       ctx,
@@ -97,7 +101,12 @@ func (r *runtimeState) interactive() bool {
 }
 
 func (r *runtimeState) colorEnabled() bool {
-	return r.stdoutTTY && !r.cli.Plain && !r.cli.JSON && os.Getenv("NO_COLOR") == ""
+	return r.stdoutTTY && !r.cli.Plain && !r.cli.JSON && !noColor()
+}
+
+func noColor() bool {
+	_, present := os.LookupEnv("NO_COLOR")
+	return present
 }
 
 func (r *runtimeState) style(style lipgloss.Style, value string) string {
@@ -124,37 +133,23 @@ func (r *runtimeState) printError(err error) {
 		message = typed.Error()
 		details = typed.Details
 	}
-	var ambiguous *ambiguousPageError
-	if errors.As(err, &ambiguous) {
-		code = "ambiguous_page"
-		details = ambiguous
-	}
 	if r.cli.JSON {
 		_ = r.printJSON(jsonErrorEnvelope{Error: jsonError{Code: code, Message: message, Details: details}})
 		return
 	}
-	fmt.Fprintln(r.stderr, "markdawn:", terminalText(message))
-	if typed != nil && typed.Code == "edit_outcome_uncertain" {
-		if details, ok := typed.Details.(uncertainEditDetails); ok {
-			if details.EditID != "" {
-				fmt.Fprintln(r.stderr, "Edit ID:", terminalText(details.EditID))
-			}
-			if details.IdempotencyKey != "" {
-				fmt.Fprintln(r.stderr, "Idempotency key:", terminalText(details.IdempotencyKey))
-			}
-		}
+	var paragraphs []string
+	var detailLines []string
+	if typed != nil {
+		paragraphs = typed.Presentation.HumanParagraphs
+		detailLines = append(detailLines, typed.Presentation.HumanDetailLines...)
 	}
-	if ambiguous != nil {
-		fmt.Fprintln(r.stderr, "Candidates:")
-		for _, candidate := range ambiguous.Candidates {
-			fmt.Fprintf(
-				r.stderr,
-				"  %s\t%s\t%s\n",
-				terminalText(candidate.Title),
-				terminalText(candidate.Path),
-				terminalText(candidate.ID),
-			)
-		}
+	fmt.Fprintln(r.stderr, terminalText(formatHumanError(message)))
+	for _, paragraph := range paragraphs {
+		fmt.Fprintln(r.stderr)
+		fmt.Fprintln(r.stderr, terminalText(paragraph))
+	}
+	for _, line := range detailLines {
+		fmt.Fprintln(r.stderr, terminalText(line))
 	}
 }
 

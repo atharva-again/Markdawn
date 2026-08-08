@@ -1,3 +1,4 @@
+import { API_TOKEN_SCOPES } from '@markdawn/shared';
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -21,6 +22,7 @@ export const getMeOperation = {
           email: z.string(),
           image: z.string().nullable(),
           authentication: z.enum(['session', 'token']),
+          scopes: z.array(z.enum(API_TOKEN_SCOPES)).nullable(),
         }),
       ),
     },
@@ -38,7 +40,11 @@ meV1Route.get(getMeOperation.routePath, async (c) => {
   );
   const user = result.rows[0];
   if (!user) throw new HTTPException(404, { message: 'User not found' });
-  return c.json({ ...user, authentication: principal.kind });
+  return c.json({
+    ...user,
+    authentication: principal.kind,
+    scopes: principal.kind === 'token' ? [...principal.scopes] : null,
+  });
 });
 
 export default meV1Route;

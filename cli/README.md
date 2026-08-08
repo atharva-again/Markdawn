@@ -204,7 +204,9 @@ already succeeded.
 
 ## Output
 
-`--json` writes stable JSON, including structured errors. `--plain` disables rich terminal output;
+`--json` writes structured JSON with stable field names and status values, including structured
+errors. Human-readable `message` text may change; scripts should use error codes, statuses, and
+structured fields instead of matching message text. `--plain` disables rich terminal output;
 `NO_COLOR` also disables color. Piped `page view` output is raw markdown.
 
 ## Tooling
@@ -220,11 +222,14 @@ source <(markdawn completion zsh)
 markdawn completion fish | source
 ```
 
-`markdawn doctor` reports the resolved server, authentication status, and standalone-install
-health without printing the token.
+`markdawn doctor` reports the config location, resolved server, authentication status, token
+access, standalone-install health, and optional skills-tool availability without printing the
+token. JSON output includes structured receipt paths, binary paths, errors, required commands, and
+install commands when applicable.
 
 `markdawn update` downloads a checksum-verified standalone release. Go-installed binaries should
-be updated with `go install github.com/atharva-again/Markdawn/cli@latest` instead.
+be updated with `go install github.com/atharva-again/Markdawn/cli@latest` instead. JSON output uses
+`target` for the requested channel or pinned version; `version` is included only for pinned updates.
 
 ```sh
 markdawn update
@@ -233,9 +238,10 @@ markdawn uninstall --yes
 markdawn uninstall --purge --yes
 ```
 
-`uninstall` removes the standalone binary and receipt while preserving configuration unless
-`--purge` is supplied. Use `--yes` non-interactively. If an install, update, or uninstall is
-interrupted, rerun the command.
+`uninstall` removes the standalone binary and receipt while preserving local configuration unless
+`--purge` is supplied. `--purge` removes only local configuration and credentials; remote workspace
+data and unrelated skills are preserved. Use `--yes` non-interactively. If an install, update, or
+uninstall is interrupted, rerun the command.
 
 ## Environment
 

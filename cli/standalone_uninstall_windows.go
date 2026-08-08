@@ -17,7 +17,7 @@ func removeStandaloneBinary(binaryPath, receiptPath, configPath string) (bool, e
 		if err := os.Remove(failurePath); err != nil {
 			return false, fmt.Errorf("clear deferred uninstall failure: %w", err)
 		}
-		return false, &cliError{Code: "deferred_uninstall_failed", Message: "previous deferred uninstall failed", Cause: errors.New(string(failure))}
+		return false, &cliError{Code: "deferred_uninstall_failed", Message: "Previous deferred uninstall failed", Cause: errors.New(string(failure))}
 	} else if !os.IsNotExist(err) {
 		return false, fmt.Errorf("read deferred uninstall failure: %w", err)
 	}

@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,13 +19,38 @@ import (
 )
 
 const (
-	maxReleaseArchiveBytes int64 = 256 << 20
-	maxReleaseBinaryBytes  int64 = 128 << 20
-	maxReleaseArchiveEntries      = 1024
-	maxReleaseZipDirectoryBytes   = 8 << 20
+	maxReleaseArchiveBytes      int64 = 256 << 20
+	maxReleaseBinaryBytes       int64 = 128 << 20
+	maxReleaseArchiveEntries          = 1024
+	maxReleaseZipDirectoryBytes       = 8 << 20
 )
 
 var releaseBaseURL = "https://github.com/atharva-again/Markdawn/releases"
+
+func validateReleaseVersion(version string) error {
+	if version != "" && !releaseVersionPattern.MatchString(version) {
+		return usageError("Version must be a semantic version such as v1.2.3.")
+	}
+	return nil
+}
+
+type updateTarget struct {
+	exactVersion string
+}
+
+func newUpdateTarget(version string) updateTarget {
+	if version == "" {
+		return updateTarget{}
+	}
+	return updateTarget{exactVersion: "v" + strings.TrimPrefix(version, "v")}
+}
+
+func (target updateTarget) label() string {
+	if target.exactVersion == "" {
+		return "latest"
+	}
+	return target.exactVersion
+}
 
 func releaseAssetURL(version, asset string) string {
 	if version == "" {
@@ -45,7 +71,14 @@ func releaseArchiveName(version string) string {
 	return name + ".tar.gz"
 }
 
-func downloadReleaseAsset(ctx context.Context, client *http.Client, url string, limit int64) ([]byte, error) {
+func downloadReleaseAsset(
+	ctx context.Context,
+	client *http.Client,
+	url string,
+	limit int64,
+	label string,
+	progress updateProgressReporter,
+) ([]byte, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create release request: %w", err)
@@ -58,7 +91,14 @@ func downloadReleaseAsset(ctx context.Context, client *http.Client, url string, 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return nil, fmt.Errorf("download release asset: unexpected HTTP status %s", response.Status)
 	}
-	data, err := io.ReadAll(io.LimitReader(response.Body, limit+1))
+	reader := &downloadProgressReader{
+		reader:   response.Body,
+		total:    response.ContentLength,
+		label:    label,
+		progress: progress,
+	}
+	defer progress.finishDownload()
+	data, err := io.ReadAll(io.LimitReader(reader, limit+1))
 	if err != nil {
 		return nil, fmt.Errorf("read release asset: %w", err)
 	}
@@ -66,6 +106,23 @@ func downloadReleaseAsset(ctx context.Context, client *http.Client, url string, 
 		return nil, fmt.Errorf("release asset exceeds %d bytes", limit)
 	}
 	return data, nil
+}
+
+type downloadProgressReader struct {
+	reader   io.Reader
+	received int64
+	total    int64
+	label    string
+	progress updateProgressReporter
+}
+
+func (reader *downloadProgressReader) Read(buffer []byte) (int, error) {
+	count, err := reader.reader.Read(buffer)
+	reader.received += int64(count)
+	if count > 0 {
+		reader.progress.download(reader.label, reader.received, reader.total)
+	}
+	return count, err
 }
 
 func expectedReleaseChecksum(checksums []byte, asset string) (string, error) {
@@ -267,53 +324,187 @@ func writeStagedBinary(source io.Reader, target string) error {
 	return closeErr
 }
 
-func updateStandalone(ctx context.Context, receipt installReceipt, version string, client *http.Client) (bool, error) {
-	if err := checkDeferredUpdateFailure(); err != nil {
-		return false, err
+type updateOutcome struct {
+	Updated   bool         `json:"updated"`
+	Scheduled bool         `json:"scheduled"`
+	Status    updateStatus `json:"status"`
+	Target    string       `json:"target"`
+	// Version is the exact requested version and is omitted for the latest channel.
+	Version string `json:"version,omitempty"`
+}
+
+type updateStatus string
+
+const (
+	updateStatusUpToDate  updateStatus = "up_to_date"
+	updateStatusUpdated   updateStatus = "updated"
+	updateStatusScheduled updateStatus = "scheduled"
+)
+
+func updateOutcomeText(status updateStatus, target string) (string, error) {
+	switch status {
+	case updateStatusScheduled:
+		return fmt.Sprintf("Markdawn update to %s is scheduled and will finish after this command exits.", target), nil
+	case updateStatusUpdated:
+		return fmt.Sprintf("Markdawn updated to %s.", target), nil
+	case updateStatusUpToDate:
+		return fmt.Sprintf("Markdawn is already up to date: %s.", target), nil
+	default:
+		return "", fmt.Errorf("unknown standalone update status %q", status)
 	}
-	if version != "" && !releaseVersionPattern.MatchString(version) {
-		return false, usageError("version must be a semantic version such as v1.2.3")
+}
+
+func newUpdateOutcome(status updateStatus, target updateTarget) updateOutcome {
+	return updateOutcome{
+		Updated:   status == updateStatusUpdated,
+		Scheduled: status == updateStatusScheduled,
+		Status:    status,
+		Target:    target.label(),
+		Version:   target.exactVersion,
+	}
+}
+
+func updateStandalone(ctx context.Context, receipt installReceipt, version string, client *http.Client) (updateOutcome, error) {
+	return updateStandaloneWithProgress(ctx, receipt, version, client, noOpUpdateProgress{})
+}
+
+func updateStandaloneWithProgress(
+	ctx context.Context,
+	receipt installReceipt,
+	version string,
+	client *http.Client,
+	progress updateProgressReporter,
+) (updateOutcome, error) {
+	if err := checkDeferredUpdateFailure(); err != nil {
+		return updateOutcome{}, err
+	}
+	if err := validateReleaseVersion(version); err != nil {
+		return updateOutcome{}, err
 	}
 	asset := releaseArchiveName(version)
-	checksums, err := downloadReleaseAsset(ctx, client, releaseAssetURL(version, "checksums.txt"), 1<<20)
-	if err != nil {
-		return false, err
+	target := newUpdateTarget(version)
+	if target.exactVersion == "" {
+		progress.phase("Checking for the latest Markdawn release...")
+	} else {
+		progress.phase("Checking for Markdawn " + target.exactVersion + "...")
 	}
+	progress.phase("Downloading checksums.txt...")
+	checksums, err := downloadReleaseAsset(
+		ctx,
+		client,
+		releaseAssetURL(version, "checksums.txt"),
+		1<<20,
+		"checksums.txt",
+		progress,
+	)
+	if err != nil {
+		return updateOutcome{}, err
+	}
+	progress.phase("Downloaded checksums.txt.")
 	expected, err := expectedReleaseChecksum(checksums, asset)
 	if err != nil {
-		return false, err
+		return updateOutcome{}, err
 	}
-	archive, err := downloadReleaseAsset(ctx, client, releaseAssetURL(version, asset), maxReleaseArchiveBytes)
+	progress.phase("Downloading the Markdawn update...")
+	archive, err := downloadReleaseAsset(
+		ctx,
+		client,
+		releaseAssetURL(version, asset),
+		maxReleaseArchiveBytes,
+		asset,
+		progress,
+	)
 	if err != nil {
-		return false, err
+		return updateOutcome{}, err
 	}
+	progress.phase("Downloaded the Markdawn update.")
 	actual := fmt.Sprintf("%x", sha256.Sum256(archive))
 	if actual != expected {
-		return false, fmt.Errorf("SHA-256 verification failed for %s", asset)
+		return updateOutcome{}, fmt.Errorf("SHA-256 verification failed for %s", asset)
 	}
+	progress.phase("Verified the Markdawn update.")
 	staged, err := os.CreateTemp(receipt.InstallDir, ".markdawn-update-*")
 	if err != nil {
-		return false, fmt.Errorf("create staged binary: %w", err)
+		return updateOutcome{}, fmt.Errorf("create staged binary: %w", err)
 	}
 	stagedPath := staged.Name()
 	if err := staged.Close(); err != nil {
 		os.Remove(stagedPath)
-		return false, err
+		return updateOutcome{}, err
 	}
 	if err := os.Remove(stagedPath); err != nil {
-		return false, err
+		return updateOutcome{}, err
 	}
 	if err := extractReleaseBinary(archive, asset, stagedPath); err != nil {
 		os.Remove(stagedPath)
-		return false, err
+		return updateOutcome{}, err
 	}
+	identical, err := binariesMatch(receipt.BinaryPath, stagedPath)
+	if err != nil {
+		os.Remove(stagedPath)
+		return updateOutcome{}, err
+	}
+	if identical {
+		os.Remove(stagedPath)
+		return newUpdateOutcome(updateStatusUpToDate, target), nil
+	}
+	progress.phase("Installing the Markdawn update...")
 	deferred, err := replaceUpdatedBinary(receipt.BinaryPath, stagedPath)
 	if err != nil {
 		os.Remove(stagedPath)
-		return false, err
+		return updateOutcome{}, err
 	}
 	if !deferred {
 		os.Remove(stagedPath)
 	}
-	return deferred, nil
+	if deferred {
+		return newUpdateOutcome(updateStatusScheduled, target), nil
+	}
+	return newUpdateOutcome(updateStatusUpdated, target), nil
+}
+
+func binariesMatch(leftPath, rightPath string) (bool, error) {
+	leftInfo, err := os.Stat(leftPath)
+	if err != nil {
+		return false, fmt.Errorf("read installed binary: %w", err)
+	}
+	rightInfo, err := os.Stat(rightPath)
+	if err != nil {
+		return false, fmt.Errorf("read staged binary: %w", err)
+	}
+	if leftInfo.Size() != rightInfo.Size() {
+		return false, nil
+	}
+	left, err := os.Open(leftPath)
+	if err != nil {
+		return false, fmt.Errorf("open installed binary: %w", err)
+	}
+	defer left.Close()
+	right, err := os.Open(rightPath)
+	if err != nil {
+		return false, fmt.Errorf("open staged binary: %w", err)
+	}
+	defer right.Close()
+
+	const bufferSize = 32 * 1024
+	leftBuffer := make([]byte, bufferSize)
+	rightBuffer := make([]byte, bufferSize)
+	for {
+		leftCount, leftErr := io.ReadFull(left, leftBuffer)
+		rightCount, rightErr := io.ReadFull(right, rightBuffer)
+		if leftErr != nil && !errors.Is(leftErr, io.EOF) && !errors.Is(leftErr, io.ErrUnexpectedEOF) {
+			return false, fmt.Errorf("read installed binary: %w", leftErr)
+		}
+		if rightErr != nil && !errors.Is(rightErr, io.EOF) && !errors.Is(rightErr, io.ErrUnexpectedEOF) {
+			return false, fmt.Errorf("read staged binary: %w", rightErr)
+		}
+		if leftCount != rightCount || !bytes.Equal(leftBuffer[:leftCount], rightBuffer[:rightCount]) {
+			return false, nil
+		}
+		leftDone := errors.Is(leftErr, io.EOF) || errors.Is(leftErr, io.ErrUnexpectedEOF)
+		rightDone := errors.Is(rightErr, io.EOF) || errors.Is(rightErr, io.ErrUnexpectedEOF)
+		if leftDone || rightDone {
+			return leftDone && rightDone, nil
+		}
+	}
 }

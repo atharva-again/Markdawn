@@ -61,7 +61,7 @@ func isMarkdownImportFile(path string) bool {
 
 func (cmd *ImportPageCmd) Run(r *runtimeState) error {
 	if !isMarkdownImportFile(cmd.Path) {
-		return usageError("import page requires a Markdown (.md) file")
+		return usageError("Import page requires a Markdown (.md) file.")
 	}
 	content, err := os.ReadFile(cmd.Path)
 	if err != nil {
@@ -121,10 +121,10 @@ func scanImportFolder(root string) ([]importedVaultFile, importPreview, error) {
 		return nil, importPreview{}, fmt.Errorf("inspect import folder: %w", err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
-		return nil, importPreview{}, usageError("import folder must not be a symbolic link")
+		return nil, importPreview{}, usageError("Import folder must not be a symbolic link.")
 	}
 	if !info.IsDir() {
-		return nil, importPreview{}, usageError("import folder requires a directory")
+		return nil, importPreview{}, usageError("Import folder requires a directory.")
 	}
 	files := make([]importedVaultFile, 0)
 	folderPaths := make(map[string]struct{})
@@ -200,7 +200,7 @@ func scanImportFolder(root string) ([]importedVaultFile, importPreview, error) {
 	}
 	preview.Folders = len(folderPaths)
 	if len(files) == 0 {
-		return nil, importPreview{}, usageError("import folder contains no Markdown files or images")
+		return nil, importPreview{}, usageError("Import folder contains no Markdown files or images.")
 	}
 	return files, preview, nil
 }
@@ -213,10 +213,10 @@ func (cmd *ImportFolderCmd) Run(r *runtimeState) error {
 	if !r.cli.JSON {
 		if _, err := fmt.Fprintf(
 			r.stdout,
-			"Found %d notes, %d images, and %d folders.\n",
-			preview.Notes,
-			preview.Images,
-			preview.Folders,
+			"Found %s, %s, and %s.\n",
+			countLabel(int64(preview.Notes), "Markdown file", "Markdown files"),
+			countLabel(int64(preview.Images), "image", "images"),
+			countLabel(int64(preview.Folders), "folder", "folders"),
 		); err != nil {
 			return err
 		}
@@ -255,10 +255,10 @@ func (cmd *ImportFolderCmd) Run(r *runtimeState) error {
 	}
 	if _, err := fmt.Fprintf(
 		r.stdout,
-		"Imported %d folders, %d pages, and %d images.\n",
-		result.FoldersCreated,
-		result.PagesCreated,
-		result.ImagesUploaded,
+		"Imported %s, %s, and %s.\n",
+		countLabel(int64(result.FoldersCreated), "folder", "folders"),
+		countLabel(int64(result.PagesCreated), "page", "pages"),
+		countLabel(int64(result.ImagesUploaded), "image", "images"),
 	); err != nil {
 		return err
 	}

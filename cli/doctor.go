@@ -1,41 +1,75 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 )
 
 type DoctorCmd struct{}
 
 type doctorResult struct {
-	Version        string               `json:"version"`
-	Server         string               `json:"server"`
-	Authentication doctorAuthentication `json:"authentication"`
-	Standalone     doctorCheck          `json:"standalone"`
-	Skills         doctorCheck          `json:"skills"`
+	Version        string                `json:"version"`
+	ConfigPath     string                `json:"configPath"`
+	Server         string                `json:"server"`
+	Authentication doctorAuthentication  `json:"authentication"`
+	Standalone     standaloneDoctorCheck `json:"standalone"`
+	Skills         skillsDoctorCheck     `json:"skills"`
 }
 
 type doctorAuthentication struct {
-	Status  string `json:"status"`
-	Source  string `json:"source,omitempty"`
-	User    string `json:"user,omitempty"`
-	Message string `json:"message,omitempty"`
+	Status  doctorStatus `json:"status"`
+	Source  string       `json:"source,omitempty"`
+	User    string       `json:"user,omitempty"`
+	Scopes  []tokenScope `json:"scopes,omitempty"`
+	Message string       `json:"message,omitempty"`
 }
 
-type doctorCheck struct {
-	Status  string `json:"status"`
-	Message string `json:"message"`
+type doctorStatus string
+
+const (
+	doctorStatusAuthenticated    doctorStatus = "authenticated"
+	doctorStatusNotAuthenticated doctorStatus = "not_authenticated"
+	doctorStatusHealthy          doctorStatus = "healthy"
+	doctorStatusNotInstalled     doctorStatus = "not_installed"
+	doctorStatusUnavailable      doctorStatus = "unavailable"
+	doctorStatusAvailable        doctorStatus = "available"
+	doctorStatusUnhealthy        doctorStatus = "unhealthy"
+	doctorStatusUnknown          doctorStatus = "unknown"
+)
+
+func (status doctorStatus) humanLabel() string {
+	switch status {
+	case doctorStatusAuthenticated:
+		return "Authenticated"
+	case doctorStatusNotAuthenticated:
+		return "Not authenticated"
+	case doctorStatusHealthy:
+		return "Healthy"
+	case doctorStatusNotInstalled:
+		return "Not installed"
+	case doctorStatusUnavailable:
+		return "Unavailable"
+	case doctorStatusAvailable:
+		return "Available"
+	case doctorStatusUnhealthy:
+		return "Unhealthy"
+	case doctorStatusUnknown:
+		return "Unknown"
+	default:
+		return string(status)
+	}
 }
 
-type renderedDoctorHealthError struct {
-	cause error
-}
+type doctorOperation string
 
-func (e *renderedDoctorHealthError) Error() string { return e.cause.Error() }
-func (e *renderedDoctorHealthError) Unwrap() error { return e.cause }
+const (
+	doctorOperationResolveReceiptPath  doctorOperation = "resolve_receipt_path"
+	doctorOperationReadReceipt         doctorOperation = "read_receipt"
+	doctorOperationDecodeReceipt       doctorOperation = "decode_receipt"
+	doctorOperationInspectBinary       doctorOperation = "inspect_binary"
+	doctorOperationFindRequiredCommand doctorOperation = "find_required_command"
+)
 
 func (cmd *DoctorCmd) Run(r *runtimeState) error {
 	result := doctorResult{
@@ -43,16 +77,22 @@ func (cmd *DoctorCmd) Run(r *runtimeState) error {
 		Standalone: inspectStandaloneInstall(),
 		Skills:     inspectSkillsTool(),
 	}
+	resolvedConfigPath, configPathErr := configPath()
+	if configPathErr != nil {
+		result.ConfigPath = "unavailable"
+	} else {
+		result.ConfigPath = resolvedConfigPath
+	}
 	server, err := r.serverURL()
 	if err != nil {
 		result.Server = "unavailable"
-		result.Authentication = doctorAuthentication{Status: "unhealthy", Message: err.Error()}
+		result.Authentication = doctorAuthentication{Status: doctorStatusUnhealthy, Message: err.Error()}
 		return renderDoctorHealthFailure(r, result, fmt.Errorf("determine server: %w", err))
 	}
 	result.Server = server
 	cfg, err := r.config()
 	if err != nil {
-		result.Authentication = doctorAuthentication{Status: "unhealthy", Message: err.Error()}
+		result.Authentication = doctorAuthentication{Status: doctorStatusUnhealthy, Message: err.Error()}
 		return renderDoctorHealthFailure(r, result, fmt.Errorf("load configuration: %w", err))
 	}
 	tokenSource := ""
@@ -62,28 +102,29 @@ func (cmd *DoctorCmd) Run(r *runtimeState) error {
 		tokenSource = "saved configuration"
 	}
 	if tokenSource == "" {
-		result.Authentication = doctorAuthentication{Status: "not_authenticated"}
+		result.Authentication = doctorAuthentication{Status: doctorStatusNotAuthenticated}
 		return renderDoctorResult(r, result)
 	}
 	c, err := r.client()
 	if err != nil {
-		result.Authentication = doctorAuthentication{Status: "unhealthy", Source: tokenSource, Message: err.Error()}
+		result.Authentication = doctorAuthentication{Status: doctorStatusUnhealthy, Source: tokenSource, Message: err.Error()}
 		return renderDoctorHealthFailure(r, result, fmt.Errorf("check authentication: %w", err))
 	}
 	response, err := c.request(http.MethodGet, "/me", nil, nil)
 	if err != nil {
-		result.Authentication = doctorAuthentication{Status: "unhealthy", Source: tokenSource, Message: err.Error()}
+		result.Authentication = doctorAuthentication{Status: doctorStatusUnhealthy, Source: tokenSource, Message: err.Error()}
 		return renderDoctorHealthFailure(r, result, fmt.Errorf("check authentication: %w", err))
 	}
 	var user authenticatedUser
 	if err := decodeJSON(response, &user); err != nil {
-		result.Authentication = doctorAuthentication{Status: "unhealthy", Source: tokenSource, Message: err.Error()}
+		result.Authentication = doctorAuthentication{Status: doctorStatusUnhealthy, Source: tokenSource, Message: err.Error()}
 		return renderDoctorHealthFailure(r, result, fmt.Errorf("check authentication: %w", err))
 	}
 	result.Authentication = doctorAuthentication{
-		Status: "authenticated",
+		Status: doctorStatusAuthenticated,
 		Source: tokenSource,
 		User:   user.Email,
+		Scopes: user.Scopes,
 	}
 	return renderDoctorResult(r, result)
 }
@@ -92,42 +133,7 @@ func renderDoctorHealthFailure(r *runtimeState, result doctorResult, cause error
 	if err := renderDoctorResult(r, result); err != nil {
 		return err
 	}
-	return &renderedDoctorHealthError{
-		cause: &cliError{Code: "doctor_unhealthy", Message: "doctor found unhealthy checks", Cause: cause},
-	}
-}
-
-func inspectStandaloneInstall() doctorCheck {
-	path, err := installReceiptPath()
-	if err != nil {
-		return doctorCheck{Status: "unknown", Message: err.Error()}
-	}
-	data, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return doctorCheck{Status: "not_installed", Message: "no standalone installation receipt"}
-	}
-	if err != nil {
-		return doctorCheck{Status: "unhealthy", Message: fmt.Sprintf("read receipt: %v", err)}
-	}
-	receipt, err := decodeInstallReceipt(data)
-	if err != nil {
-		return doctorCheck{Status: "unhealthy", Message: fmt.Sprintf("invalid receipt: %v", err)}
-	}
-	info, err := os.Stat(receipt.BinaryPath)
-	if err != nil {
-		return doctorCheck{Status: "unhealthy", Message: fmt.Sprintf("inspect binary: %v", err)}
-	}
-	if !info.Mode().IsRegular() {
-		return doctorCheck{Status: "unhealthy", Message: "standalone binary is not a regular file"}
-	}
-	return doctorCheck{Status: "healthy", Message: receipt.BinaryPath}
-}
-
-func inspectSkillsTool() doctorCheck {
-	if _, err := exec.LookPath("npx"); err != nil {
-		return doctorCheck{Status: "unavailable", Message: "optional: install Node.js to use npx skills"}
-	}
-	return doctorCheck{Status: "available", Message: "use npx skills add atharva-again/Markdawn --skill markdawn"}
+	return &cliError{Code: "doctor_unhealthy", Message: "Doctor found unhealthy checks", Cause: cause, AlreadyRendered: true}
 }
 
 func renderDoctorResult(r *runtimeState, result doctorResult) error {
@@ -137,25 +143,47 @@ func renderDoctorResult(r *runtimeState, result doctorResult) error {
 	if _, err := fmt.Fprintf(r.stdout, "Markdawn %s\n", terminalText(result.Version)); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(r.stdout, "Server: %s\n", terminalText(result.Server)); err != nil {
+	configPath := result.ConfigPath
+	if configPath == "unavailable" {
+		configPath = "Unavailable"
+	}
+	if _, err := fmt.Fprintf(r.stdout, "Configuration: %s\n", terminalText(configPath)); err != nil {
 		return err
 	}
-	authentication := result.Authentication.Status
+	server := result.Server
+	if server == "unavailable" {
+		server = "Unavailable"
+	}
+	if _, err := fmt.Fprintf(r.stdout, "Server: %s\n", terminalText(server)); err != nil {
+		return err
+	}
+	authentication := result.Authentication.Status.humanLabel()
 	if result.Authentication.User != "" {
 		authentication += " as " + result.Authentication.User
 	}
 	if result.Authentication.Source != "" {
-		authentication += " (" + result.Authentication.Source + ")"
+		source := result.Authentication.Source
+		if source == "saved configuration" {
+			source = "Saved configuration"
+		}
+		authentication += " (" + source + ")"
 	}
 	if result.Authentication.Message != "" {
 		authentication += " — " + result.Authentication.Message
+	} else if result.Authentication.Status == doctorStatusNotAuthenticated {
+		authentication += " — Run `markdawn login` to authenticate."
 	}
 	if _, err := fmt.Fprintf(r.stdout, "Authentication: %s\n", terminalText(authentication)); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(r.stdout, "Standalone: %s — %s\n", terminalText(result.Standalone.Status), terminalText(result.Standalone.Message)); err != nil {
+	if access := tokenAccess(result.Authentication.Scopes); access != "" {
+		if _, err := fmt.Fprintf(r.stdout, "Token access: %s\n", terminalText(access)); err != nil {
+			return err
+		}
+	}
+	if _, err := fmt.Fprintf(r.stdout, "Standalone: %s — %s\n", terminalText(result.Standalone.Status.humanLabel()), terminalText(result.Standalone.Message)); err != nil {
 		return err
 	}
-	_, err := fmt.Fprintf(r.stdout, "Agent skills: %s — %s\n", terminalText(result.Skills.Status), terminalText(result.Skills.Message))
+	_, err := fmt.Fprintf(r.stdout, "Skills tool: %s — %s\n", terminalText(result.Skills.Status.humanLabel()), terminalText(result.Skills.Message))
 	return err
 }

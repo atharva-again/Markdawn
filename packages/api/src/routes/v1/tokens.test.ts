@@ -115,7 +115,11 @@ describe('v1 API tokens', () => {
       headers: { Authorization: `Bearer ${created.token}` },
     });
     expect(meResponse.status).toBe(200);
-    expect(await meResponse.json()).toMatchObject({ id: user.id, authentication: 'token' });
+    expect(await meResponse.json()).toMatchObject({
+      id: user.id,
+      authentication: 'token',
+      scopes: ['pages:read'],
+    });
 
     const firstUsage = await testQuery<{ last_used_at: string }>(
       'select last_used_at::text from api_tokens where id = $1',

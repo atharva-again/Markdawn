@@ -85,7 +85,7 @@ function Start-TestServer {
   $port = $listener.LocalEndpoint.Port
   $listener.Stop()
   $serverJob = Start-Job -ScriptBlock {
-    param([string]$Prefix, [string]$Root)
+    param([string]$Prefix, [string]$Root, [string]$Version)
     $listener = [Net.HttpListener]::new()
     $listener.Prefixes.Add($Prefix)
     $listener.Start()
@@ -93,10 +93,22 @@ function Start-TestServer {
     try {
       while ($true) {
         $context = $listener.GetContext()
-        $path = switch ($context.Request.Url.AbsolutePath) {
-          '/latest/download/markdawn_windows_amd64.zip' { Join-Path $Root 'markdawn_windows_amd64.zip' }
-          '/latest/download/checksums.txt' { Join-Path $Root 'checksums.txt' }
-          default { $null }
+        $requestPath = $context.Request.Url.AbsolutePath
+        $assetName = Split-Path -Leaf $requestPath
+        $path = $null
+        $redirect = $null
+        if ($requestPath -in @('/latest/download/markdawn_windows_amd64.zip', '/latest/download/checksums.txt')) {
+          $redirect = "/releases/download/cli/$Version/$assetName"
+        } elseif ($requestPath -like "/releases/download/cli/$Version/*") {
+          $redirect = "/cdn/$assetName"
+        } elseif ($requestPath -like '/cdn/*') {
+          $path = Join-Path $Root $assetName
+        }
+        if ($null -ne $redirect) {
+          $context.Response.StatusCode = 302
+          $context.Response.RedirectLocation = $redirect
+          $context.Response.Close()
+          continue
         }
         if ($null -eq $path -or -not (Test-Path -LiteralPath $path -PathType Leaf)) {
           $context.Response.StatusCode = 404
@@ -110,7 +122,7 @@ function Start-TestServer {
     } finally {
       $listener.Close()
     }
-  } -ArgumentList "http://127.0.0.1:$port/", $assetDirectory
+  } -ArgumentList "http://127.0.0.1:$port/", $assetDirectory, 'v1.2.3'
   $deadline = [DateTime]::UtcNow.AddSeconds(5)
   while ([DateTime]::UtcNow -lt $deadline) {
     if (@(Receive-Job $serverJob -Keep -ErrorAction Stop) -contains 'ready') { break }
@@ -204,6 +216,7 @@ try {
   $escapedQuotedInstallDir = $quotedInstallDir.Replace("'", "''")
   if (-not $quotedOutput.Contains('Open a new terminal before running markdawn.')) { throw 'installer did not print PATH activation guidance' }
   if (-not $quotedOutput.Contains('Run markdawn login to get started.')) { throw 'installer did not print markdawn login guidance' }
+  if (-not $quotedOutput.Contains("Markdawn latest installed to $quotedInstallDir\markdawn.exe.")) { throw 'installer did not report the latest release channel' }
   $env:MARKDAWN_MODIFY_PATH = '0'
   $pathOptOutOutput = (& $installer | Out-String)
   if (-not $pathOptOutOutput.Contains("`$env:Path = '$escapedQuotedInstallDir' + [IO.Path]::PathSeparator + `$env:Path")) { throw 'PATH guidance did not escape apostrophes' }

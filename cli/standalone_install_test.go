@@ -1,12 +1,36 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestUnmanagedUpdateErrorKeepsCanonicalMessage(t *testing.T) {
+	err := unmanagedUpdateError()
+	want := "Cannot update this binary because it is not managed by the standalone installer."
+	if err.Error() != want {
+		t.Fatalf("unmanaged update error = %q, want %q", err.Error(), want)
+	}
+}
+
+func TestNewUpdateProgressDisablesPlainOutput(t *testing.T) {
+	output := &bytes.Buffer{}
+	runtime := &runtimeState{
+		cli:       &CLI{Plain: true},
+		stderr:    output,
+		stderrTTY: true,
+	}
+	progress := newUpdateProgress(runtime)
+	progress.phase("Checking for updates...")
+	progress.phase("Downloading markdawn.tar.gz...")
+	if output.Len() != 0 {
+		t.Fatalf("plain progress output = %q", output.String())
+	}
+}
 
 func TestLoadInstallReceiptRejectsUnknownFields(t *testing.T) {
 	dir := t.TempDir()

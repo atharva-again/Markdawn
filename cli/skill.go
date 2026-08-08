@@ -23,7 +23,7 @@ func (cmd *SkillInstallCmd) Run(r *runtimeState) error {
 
 func (cmd *SkillUpdateCmd) Run(r *runtimeState) error {
 	if cmd.Global && cmd.Project {
-		return usageError("--global and --project cannot be used together")
+		return usageError("The --global and --project options cannot be used together.")
 	}
 	arguments := []string{"skills", "update", "markdawn"}
 	if cmd.Global {
@@ -40,13 +40,13 @@ func (cmd *SkillUpdateCmd) Run(r *runtimeState) error {
 
 func runSkillsCommand(r *runtimeState, arguments []string) error {
 	if r.cli.JSON {
-		return usageError("skill commands do not support --json because npx skills owns their output")
+		return usageError("Skill commands do not support --json because npx skills owns their output.")
 	}
 	npx, err := exec.LookPath("npx")
 	if err != nil {
 		return &cliError{
 			Code:    "npx_unavailable",
-			Message: "npx is required for agent skill management; install Node.js and try again",
+			Message: "The npx command is required for agent skill management. Install Node.js and try again",
 			Cause:   err,
 		}
 	}

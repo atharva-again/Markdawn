@@ -21,3 +21,11 @@ func terminalText(value string) string {
 	}
 	return escaped.String()
 }
+
+func countLabel(count int64, singular, plural string) string {
+	noun := plural
+	if count == 1 {
+		noun = singular
+	}
+	return strconv.FormatInt(count, 10) + " " + noun
+}

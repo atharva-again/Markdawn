@@ -39,7 +39,7 @@ each group:
 - **Trash**: list, restore, permanent deletion, and emptying Trash.
 - **Import and Export**: page and folder imports plus page and workspace exports.
 - **Skill**: install and update the Markdawn agent skill.
-- **Tooling**: completion, diagnostics, standalone updates, and uninstall.
+- **Tooling**: completion, doctor, standalone updates, and uninstall.
 
 Use `markdawn help` for the categorized root command list or `markdawn <command> --help` for
 command-specific syntax.

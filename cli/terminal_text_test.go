@@ -23,3 +23,12 @@ func TestTerminalTextPreservesPrintableUnicode(t *testing.T) {
 		t.Fatalf("terminal text = %q, want %q", got, want)
 	}
 }
+
+func TestCountLabelUsesSingularForOne(t *testing.T) {
+	if got := countLabel(1, "page", "pages"); got != "1 page" {
+		t.Fatalf("count label = %q, want %q", got, "1 page")
+	}
+	if got := countLabel(2, "page", "pages"); got != "2 pages" {
+		t.Fatalf("count label = %q, want %q", got, "2 pages")
+	}
+}

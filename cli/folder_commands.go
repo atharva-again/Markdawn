@@ -64,7 +64,7 @@ func (cmd *FolderListCmd) Run(r *runtimeState) error {
 		return r.printJSON(items)
 	}
 	if len(items) == 0 {
-		_, err := fmt.Fprintln(r.stdout, "No accessible folders.")
+		_, err := fmt.Fprintln(r.stdout, "No accessible folders found.")
 		return err
 	}
 	if !r.stdoutTTY || r.cli.Plain {
@@ -96,7 +96,7 @@ func (cmd *FolderListCmd) Run(r *runtimeState) error {
 
 func (cmd *FolderCreateCmd) Run(r *runtimeState) error {
 	if cmd.Parent != "" && !isUUID(cmd.Parent) {
-		return usageError("--parent must be a folder UUID")
+		return usageError("The --parent value must be a folder UUID.")
 	}
 	request := createFolderRequest{}
 	if cmd.Name != "" {
@@ -127,7 +127,7 @@ func (cmd *FolderCreateCmd) Run(r *runtimeState) error {
 
 func (cmd *FolderUpdateCmd) Run(r *runtimeState) error {
 	if cmd.Name == "" {
-		return usageError("provide --name")
+		return usageError("Provide --name.")
 	}
 	selected, err := r.resolveFolder(cmd.Reference)
 	if err != nil {

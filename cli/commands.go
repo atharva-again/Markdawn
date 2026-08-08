@@ -18,7 +18,7 @@ import (
 type CLI struct {
 	JSON    bool             `short:"j" help:"Write stable JSON to stdout."`
 	Plain   bool             `help:"Disable colors and rich Markdown rendering."`
-	NoInput bool             `help:"Never prompt; fail when input or selection is required."`
+	NoInput bool             `help:"Fail instead of prompting when input or selection is required."`
 	URL     string           `help:"Override the Markdawn server URL." placeholder:"URL"`
 	Timeout time.Duration    `help:"HTTP request and retry timeout." default:"30s"`
 	Version kong.VersionFlag `name:"version" short:"v" help:"Print the version."`
@@ -27,7 +27,7 @@ type CLI struct {
 	Logout LogoutCmd `cmd:"" help:"Remove the locally stored API token." group:"Authentication"`
 	Whoami WhoamiCmd `cmd:"" help:"Show the authenticated user." group:"Authentication"`
 	Page   PageCmd   `cmd:"" help:"Read and edit pages." group:"Page"`
-	Folder FolderCmd `cmd:"" help:"Discover accessible folders." group:"Folder"`
+	Folder FolderCmd `cmd:"" help:"Read and manage folders." group:"Folder"`
 	Trash  TrashCmd  `cmd:"" help:"Manage deleted pages and folders." group:"Trash"`
 	Export ExportCmd `cmd:"" help:"Export Markdawn content." group:"Import and Export"`
 	Import ImportCmd `cmd:"" help:"Import Markdawn content." group:"Import and Export"`
@@ -50,7 +50,7 @@ type UpdateCmd struct {
 }
 
 type UninstallCmd struct {
-	Purge  bool `help:"Also remove saved Markdawn configuration and credentials."`
+	Purge  bool `help:"Also remove local configuration and credentials; remote workspace data and unrelated skills are preserved."`
 	DryRun bool `help:"Show what would be removed without removing it."`
 	Yes    bool `help:"Skip the uninstall confirmation prompt."`
 }
@@ -82,7 +82,7 @@ type PageCmd struct {
 	Copy   PageCopyCmd   `cmd:"" help:"Copy pages."`
 	Create PageCreateCmd `cmd:"" help:"Create a page."`
 	Delete PageDeleteCmd `cmd:"" help:"Move pages to Trash."`
-	Edit   PageEditCmd   `cmd:"" help:"Edit a page's authored Markdown."`
+	Edit   PageEditCmd   `cmd:"" help:"Edit a page's Markdown."`
 	List   PageListCmd   `cmd:"" help:"List accessible pages."`
 	Move   PageMoveCmd   `cmd:"" help:"Move pages."`
 	Update PageUpdateCmd `cmd:"" help:"Update a page's title or icon."`
@@ -138,7 +138,7 @@ func (cmd *LoginCmd) Run(r *runtimeState) error {
 		input := huh.NewInput().Title("API token").Description("Create a named token in Markdawn Settings.").EchoMode(huh.EchoModePassword).Value(&token)
 		err = huh.NewForm(huh.NewGroup(input)).WithInput(r.stdin).WithOutput(r.stderr).RunWithContext(r.ctx)
 		if errors.Is(err, huh.ErrUserAborted) {
-			return &cliError{Code: "aborted", Message: "login cancelled"}
+			return &cliError{Code: "aborted", Message: "Login cancelled."}
 		}
 	} else if token == "" && !r.stdinTTY {
 		reader := bufio.NewReader(io.LimitReader(r.stdin, 4097))
@@ -150,9 +150,9 @@ func (cmd *LoginCmd) Run(r *runtimeState) error {
 	token = strings.TrimSpace(token)
 	if token == "" {
 		if r.stdinTTY && !r.interactive() {
-			return usageError("API token is required in MARKDAWN_TOKEN when terminal input is disabled")
+			return usageError("API token is required in MARKDAWN_TOKEN when terminal input is disabled.")
 		}
-		return usageError("API token is required on stdin or in MARKDAWN_TOKEN")
+		return usageError("API token is required on stdin or in MARKDAWN_TOKEN.")
 	}
 	user, err := r.verifyToken(baseURL, token)
 	if err != nil {
@@ -162,7 +162,7 @@ func (cmd *LoginCmd) Run(r *runtimeState) error {
 			statusCode = apiError.StatusCode
 		}
 		return &cliError{
-			Code: "token_validation_failed", Message: "token validation failed",
+			Code: "token_validation_failed", Message: "Token validation failed",
 			StatusCode: statusCode, Cause: err,
 		}
 	}
@@ -229,6 +229,14 @@ func (cmd *WhoamiCmd) Run(r *runtimeState) error {
 		terminalText(user.Email),
 		terminalText(server),
 	)
+	if err != nil {
+		return err
+	}
+	if user.Authentication == "token" {
+		if access := tokenAccess(user.Scopes); access != "" {
+			_, err = fmt.Fprintf(r.stdout, "Token access: %s\n", terminalText(access))
+		}
+	}
 	return err
 }
 

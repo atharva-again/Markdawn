@@ -43,10 +43,17 @@ type lifecycleResolution[T any] struct {
 	err  error
 }
 
+type folderBatchOutcomeKind uint8
+
+const (
+	folderBatchIncluded folderBatchOutcomeKind = iota + 1
+	folderBatchBlocked
+	folderBatchWithheld
+)
+
 type folderBatchOutcome struct {
-	includedIn string
-	blockedBy  string
-	withheldBy string
+	kind     folderBatchOutcomeKind
+	folderID string
 }
 
 func lifecycleFailureItem(reference, id, sourceID string, err error) lifecycleItemResult {
@@ -82,7 +89,7 @@ func uncertainLifecycleMutationOutcome(err error) error {
 	}
 	return &cliError{
 		Code:    "outcome_uncertain",
-		Message: "mutation outcome is uncertain; inspect before retrying",
+		Message: "The request may have succeeded. Check the item before retrying",
 		Cause:   err,
 	}
 }
@@ -90,7 +97,8 @@ func uncertainLifecycleMutationOutcome(err error) error {
 func lifecycleOutcomeUncertainItem(reference, id, sourceID string, err error) lifecycleItemResult {
 	item := lifecycleFailureItem(reference, id, sourceID, err)
 	item.Status = "outcome_uncertain"
-	item.Message = uncertainLifecycleMutationOutcome(err).Error()
+	uncertainErr := uncertainLifecycleMutationOutcome(err)
+	item.Message = uncertainErr.Error()
 	return item
 }
 
@@ -99,7 +107,7 @@ func confirmLifecycleAction(r *runtimeState, yes bool, title string) error {
 		return nil
 	}
 	if !r.interactive() {
-		return usageError("this command requires confirmation; pass --yes when terminal input is disabled")
+		return usageError("This command requires confirmation; pass --yes when terminal input is disabled.")
 	}
 	confirmed := false
 	form := huh.NewForm(huh.NewGroup(huh.NewConfirm().Title(title).Value(&confirmed)))
@@ -107,7 +115,7 @@ func confirmLifecycleAction(r *runtimeState, yes bool, title string) error {
 		return err
 	}
 	if !confirmed {
-		return &cliError{Code: "aborted", Message: "operation cancelled"}
+		return &cliError{Code: "aborted", Message: "Operation cancelled."}
 	}
 	return nil
 }
@@ -123,7 +131,7 @@ func finishLifecycleBatch(r *runtimeState, result lifecycleBatchResult) error {
 		if failed {
 			return &cliError{
 				Code:       "lifecycle_partial_failure",
-				Message:    "one or more items could not be processed",
+				Message:    "One or more items could not be processed.",
 				StatusCode: http.StatusConflict,
 				Details:    result,
 			}
@@ -147,7 +155,7 @@ func finishLifecycleBatch(r *runtimeState, result lifecycleBatchResult) error {
 				return err
 			}
 			if item.SkippedRestrictedItems {
-				if _, err := fmt.Fprintln(r.stderr, "Warning: folder copied; some restricted items were skipped."); err != nil {
+				if _, err := fmt.Fprintln(r.stderr, "Warning: Some restricted items were skipped while copying the folder."); err != nil {
 					return err
 				}
 			}
@@ -174,7 +182,7 @@ func finishLifecycleBatch(r *runtimeState, result lifecycleBatchResult) error {
 		}
 	}
 	if failed {
-		return &cliError{Code: "lifecycle_partial_failure", Message: "one or more items could not be processed", StatusCode: http.StatusConflict, Details: result}
+		return &cliError{Code: "lifecycle_partial_failure", Message: "One or more items could not be processed.", StatusCode: http.StatusConflict, Details: result}
 	}
 	return nil
 }
@@ -226,7 +234,7 @@ func runFolderLifecycleBatch(
 				"",
 				fmt.Errorf("resolve selected folder ancestry: %w", ancestryErr),
 			)
-			outcomes[selection.id] = folderBatchOutcome{withheldBy: selection.id}
+			outcomes[selection.id] = folderBatchOutcome{kind: folderBatchWithheld, folderID: selection.id}
 			continue
 		}
 		selectedAncestors[selection.id] = ancestorID
@@ -252,34 +260,35 @@ func runFolderLifecycleBatch(
 				next = append(next, selection)
 				continue
 			}
-			if ancestorOutcome.includedIn != "" {
+			switch ancestorOutcome.kind {
+			case folderBatchIncluded:
 				result.Items[selection.index] = lifecycleItemResult{
 					Reference: selection.reference,
 					ID:        selection.id,
 					Status:    "skipped",
-					Message:   fmt.Sprintf("included in selected folder %s", ancestorOutcome.includedIn),
+					Message:   fmt.Sprintf("Included in selected folder %s.", ancestorOutcome.folderID),
 				}
 				outcomes[selection.id] = ancestorOutcome
-			} else if ancestorOutcome.blockedBy != "" {
+			case folderBatchBlocked:
 				result.Items[selection.index] = lifecycleItemResult{
 					Reference: selection.reference,
 					ID:        selection.id,
 					Status:    "skipped",
-					Message:   fmt.Sprintf("blocked by uncertain ancestor outcome for folder %s; inspect before retrying", ancestorOutcome.blockedBy),
+					Message:   fmt.Sprintf("Not processed because the selected ancestor folder has an uncertain outcome. Check folder %s before retrying.", ancestorOutcome.folderID),
 				}
 				outcomes[selection.id] = ancestorOutcome
-			} else if ancestorOutcome.withheldBy != "" {
+			case folderBatchWithheld:
 				result.Items[selection.index] = lifecycleItemResult{
 					Reference: selection.reference,
 					ID:        selection.id,
 					Status:    "failed",
 					Message: fmt.Sprintf(
-						"withheld because selected folder %s ancestry could not be resolved",
-						ancestorOutcome.withheldBy,
+						"Not processed because the selected folder's ancestry could not be resolved for folder %s.",
+						ancestorOutcome.folderID,
 					),
 				}
 				outcomes[selection.id] = ancestorOutcome
-			} else {
+			default:
 				item := runResolvedLifecycleSelection(&result, c, selection, func(c *client, item folder, id string) (lifecycleActionResult, error) {
 					return action(c, id)
 				})
@@ -306,9 +315,9 @@ func runFolderLifecycleBatch(
 func folderBatchOutcomeForItem(folderID string, item lifecycleItemResult) folderBatchOutcome {
 	switch item.Status {
 	case "success":
-		return folderBatchOutcome{includedIn: folderID}
+		return folderBatchOutcome{kind: folderBatchIncluded, folderID: folderID}
 	case "outcome_uncertain":
-		return folderBatchOutcome{blockedBy: folderID}
+		return folderBatchOutcome{kind: folderBatchBlocked, folderID: folderID}
 	default:
 		return folderBatchOutcome{}
 	}
@@ -340,7 +349,7 @@ func resolveLifecycleBatch[T any](
 				Reference: reference,
 				ID:        itemID,
 				Status:    "skipped",
-				Message:   "duplicate selection; included once",
+				Message:   "Duplicate selection; included once.",
 			}
 			continue
 		}
