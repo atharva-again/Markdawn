@@ -44,6 +44,14 @@ const DEFAULT_CAPABILITIES: CapabilitySet = {
   canCopy: false,
 };
 
+function capabilitiesEqual(left: CapabilitySet, right: CapabilitySet): boolean {
+  return (
+    left.canEdit === right.canEdit &&
+    left.canDelete === right.canDelete &&
+    left.canCopy === right.canCopy
+  );
+}
+
 interface ShareProviderProps {
   children: ReactNode;
   publicPermission?: AccessPermission;
@@ -70,7 +78,7 @@ export function ShareProvider({
     };
   }
   const capabilityRevisionRef = useRef({ snapshot: capabilitySnapshot, revision: 0 });
-  if (capabilityRevisionRef.current.snapshot !== capabilitySnapshot) {
+  if (!capabilitiesEqual(capabilityRevisionRef.current.snapshot, capabilitySnapshot)) {
     capabilityRevisionRef.current = {
       snapshot: capabilitySnapshot,
       revision: capabilityRevisionRef.current.revision + 1,
@@ -83,6 +91,10 @@ export function ShareProvider({
     revision: capabilityRevision,
     value: capabilitySnapshot,
   });
+  const accessSnapshotRef = useRef({ revision: accessRevision, value: initial });
+  accessSnapshotRef.current = { revision: accessRevision, value: initial };
+  const capabilityValueRef = useRef({ revision: capabilityRevision, value: capabilitySnapshot });
+  capabilityValueRef.current = { revision: capabilityRevision, value: capabilitySnapshot };
   const accessPermission = accessState.revision === accessRevision ? accessState.value : initial;
   const capabilities =
     capabilityState.revision === capabilityRevision ? capabilityState.value : capabilitySnapshot;
@@ -90,23 +102,26 @@ export function ShareProvider({
   const setAccessPermission = useCallback<React.Dispatch<React.SetStateAction<AccessPermission>>>(
     (update) => {
       setAccessState((current) => {
-        const currentValue = current.revision === accessRevision ? current.value : initial;
+        const snapshot = accessSnapshotRef.current;
+        const currentValue =
+          current.revision === snapshot.revision ? current.value : snapshot.value;
         const value = typeof update === 'function' ? update(currentValue) : update;
-        return { revision: accessRevision, value };
+        return { revision: snapshot.revision, value };
       });
     },
-    [accessRevision, initial],
+    [],
   );
   const setCapabilities = useCallback<React.Dispatch<React.SetStateAction<CapabilitySet>>>(
     (update) => {
       setCapabilityState((current) => {
+        const snapshot = capabilityValueRef.current;
         const currentValue =
-          current.revision === capabilityRevision ? current.value : capabilitySnapshot;
+          current.revision === snapshot.revision ? current.value : snapshot.value;
         const value = typeof update === 'function' ? update(currentValue) : update;
-        return { revision: capabilityRevision, value };
+        return { revision: snapshot.revision, value };
       });
     },
-    [capabilityRevision, capabilitySnapshot],
+    [],
   );
 
   const effectiveAccessPermission = accessPending ? null : accessPermission;
