@@ -294,6 +294,8 @@ export function useMilkdown({
   onWikiLinkSuggestRef.current = onWikiLinkSuggest;
   const onSlashMenuSuggestRef = useRef(onSlashMenuSuggest);
   onSlashMenuSuggestRef.current = onSlashMenuSuggest;
+  const readOnlyRef = useRef(readOnly);
+  readOnlyRef.current = readOnly;
   const hasCollab = Boolean(doc && provider);
   const fallbackInitialValue = hasCollab ? undefined : initialValue;
   const retryInitialization = useCallback(() => {
@@ -331,7 +333,6 @@ export function useMilkdown({
     let disposed = false;
     let runtimeEditor: Editor | null = null;
     let collabSetupTimer: number | undefined;
-    let repairTimer: number | undefined;
     setInitializationState({ status: 'initializing' });
 
     let floatingCopyBtn: HTMLButtonElement | null = null;
@@ -506,7 +507,7 @@ export function useMilkdown({
 
           ctx.update(editorViewOptionsCtx, (prev) => ({
             ...prev,
-            editable: () => !readOnly,
+            editable: () => !readOnlyRef.current,
             attributes: {
               class: 'milkdown-editor-view',
               spellcheck: 'false',
@@ -522,7 +523,7 @@ export function useMilkdown({
               return true;
             },
             handlePaste: (view, event) => {
-              if (readOnly) return false;
+              if (readOnlyRef.current) return false;
               return routeEditorPaste(event.clipboardData, {
                 handleUrl: (intent) => handleUrlPasteIntent(view, intent),
                 handleTable: (text) => {
@@ -537,7 +538,7 @@ export function useMilkdown({
             },
             handleDOMEvents: {
               keydown: (view, event) => {
-                if (readOnly) return false;
+                if (readOnlyRef.current) return false;
                 const { state, dispatch } = view;
 
                 if (!isInTable(state)) return false;
@@ -556,7 +557,7 @@ export function useMilkdown({
 
                 const taskItem = target.closest('li[data-item-type="task"]');
                 if (taskItem instanceof HTMLElement) {
-                  if (readOnly) return false;
+                  if (readOnlyRef.current) return false;
                   const rect = taskItem.getBoundingClientRect();
                   const clickX = event.clientX - rect.left;
                   const clickY = event.clientY - rect.top;
@@ -814,11 +815,7 @@ export function useMilkdown({
             const view = ctx.get(editorViewCtx) as
               | import('@milkdown/kit/prose/view').EditorView
               | undefined;
-            if (view && !readOnly) {
-              repairTimer = window.setTimeout(() => {
-                if (!disposed) repairDocument(view);
-              }, 500);
-            }
+            if (!view) throw new Error('Editor view is unavailable after initialization');
           });
         } catch (error) {
           failInitialization(error);
@@ -896,7 +893,6 @@ export function useMilkdown({
     return () => {
       disposed = true;
       if (collabSetupTimer !== undefined) window.clearTimeout(collabSetupTimer);
-      if (repairTimer !== undefined) window.clearTimeout(repairTimer);
       const retiringEditor = runtimeEditor;
       runtimeEditor = null;
       editorRef.current = null;
@@ -916,10 +912,50 @@ export function useMilkdown({
     onChange,
     doc,
     provider,
-    readOnly,
     initializationAttempt,
     queueEditorTeardown,
   ]);
+
+  useEffect(() => {
+    if (!editorInstance) return;
+    const isReadOnly = readOnly;
+    let repairTimer: number | undefined;
+
+    const failPermissionUpdate = (error: unknown) => {
+      // The initialization effect clears this ref before retiring an editor.
+      // Only that verified teardown race is safe to ignore.
+      if (editorRef.current !== editorInstance) return;
+      editorRef.current = null;
+      setEditorInstance((current) => (current === editorInstance ? null : current));
+      setInitializationState({ status: 'error', error });
+    };
+
+    try {
+      editorInstance.action((ctx) => {
+        const view = ctx.get(editorViewCtx) as
+          | import('@milkdown/kit/prose/view').EditorView
+          | undefined;
+        if (!view) throw new Error('Editor view is unavailable during a permission update');
+        view.setProps({ editable: () => !isReadOnly });
+        if (!isReadOnly) {
+          repairTimer = window.setTimeout(() => {
+            if (editorRef.current !== editorInstance || readOnlyRef.current) return;
+            try {
+              repairDocument(view);
+            } catch (error) {
+              failPermissionUpdate(error);
+            }
+          }, 500);
+        }
+      });
+    } catch (error) {
+      failPermissionUpdate(error);
+    }
+
+    return () => {
+      if (repairTimer !== undefined) window.clearTimeout(repairTimer);
+    };
+  }, [editorInstance, readOnly]);
 
   return {
     setContainer,
