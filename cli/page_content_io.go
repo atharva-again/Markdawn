@@ -33,7 +33,7 @@ func readBoundedContent(reader io.Reader) ([]byte, error) {
 	if len(content) > maxContentInputBytes {
 		return nil, &cliError{
 			Code:       "payload_too_large",
-			Message:    "content exceeds the 16 MiB limit",
+			Message:    "Content exceeds the 16 MiB limit.",
 			StatusCode: http.StatusRequestEntityTooLarge,
 		}
 	}
@@ -42,7 +42,7 @@ func readBoundedContent(reader io.Reader) ([]byte, error) {
 
 func replacementInput(text *string, file string, stdin io.Reader, label string) ([]byte, error) {
 	if (text == nil && file == "") || (text != nil && file != "") {
-		return nil, usageError("provide exactly one of --%s-text or --%s-file", label, label)
+		return nil, usageError("Provide exactly one of --%s-text or --%s-file.", label, label)
 	}
 	if text != nil {
 		return []byte(*text), nil

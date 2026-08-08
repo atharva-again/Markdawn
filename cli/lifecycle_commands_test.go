@@ -34,6 +34,18 @@ func TestLifecycleBatchReturnsStructuredPartialFailure(t *testing.T) {
 	if !ok || len(result.Items) != 2 || result.Items[1].Message != "Forbidden" {
 		t.Fatalf("unexpected details %#v", commandError.Details)
 	}
+	runtime.printError(commandError)
+	var output struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(runtime.stdout.(*bytes.Buffer).Bytes(), &output); err != nil {
+		t.Fatal(err)
+	}
+	if output.Error.Message != "One or more items could not be processed." {
+		t.Fatalf("unexpected JSON error message: %s", runtime.stdout.(*bytes.Buffer).String())
+	}
 }
 
 func TestLifecycleBatchPreservesStructuredItemFailures(t *testing.T) {
@@ -119,7 +131,7 @@ func TestLifecycleBatchMarksUncertainMutationOutcomes(t *testing.T) {
 			if item.Status != "outcome_uncertain" || item.Code != test.code {
 				t.Fatalf("unexpected uncertain result %#v", item)
 			}
-			if !strings.Contains(item.Message, "inspect before retrying") {
+			if !strings.Contains(item.Message, "Check the item before retrying") {
 				t.Fatalf("missing retry guidance %q", item.Message)
 			}
 		})
@@ -190,7 +202,7 @@ func TestSingletonLifecycleMutationsReturnUncertainOutcomes(t *testing.T) {
 			if !errors.As(err, &commandError) || commandError.Code != "outcome_uncertain" {
 				t.Fatalf("expected uncertain outcome, got %v", err)
 			}
-			if !strings.Contains(commandError.Error(), "inspect before retrying") {
+			if !strings.Contains(commandError.Error(), "Check the item before retrying") {
 				t.Fatalf("missing retry guidance %q", commandError.Error())
 			}
 		})
@@ -438,7 +450,7 @@ func TestFolderLifecycleBatchSkipsSelectedDescendants(t *testing.T) {
 				t.Fatalf("unexpected lifecycle result %#v", result)
 			}
 			child := result.Items[1]
-			if child.ID != childID || child.Status != "skipped" || child.Message != "included in selected folder "+rootID {
+			if child.ID != childID || child.Status != "skipped" || child.Message != "Included in selected folder "+rootID+"." {
 				t.Fatalf("unexpected descendant result %#v", child)
 			}
 		})
@@ -510,7 +522,7 @@ func TestFolderLifecycleBatchBlocksDescendantAfterUncertainAncestorFailure(t *te
 	if !ok || result.Items[0].Status != "outcome_uncertain" || result.Items[1].Status != "skipped" {
 		t.Fatalf("unexpected lifecycle result %#v", commandError.Details)
 	}
-	if !strings.Contains(result.Items[1].Message, "blocked by uncertain ancestor outcome for folder "+rootID) {
+	if !strings.Contains(result.Items[1].Message, "Check folder "+rootID+" before retrying.") {
 		t.Fatalf("unexpected descendant message %q", result.Items[1].Message)
 	}
 }
@@ -552,7 +564,7 @@ func TestFolderLifecycleBatchContinuesAfterAncestryPreflightFailure(t *testing.T
 	if !ok || result.Items[0].Status != "failed" || result.Items[1].Status != "failed" || result.Items[2].Status != "success" {
 		t.Fatalf("unexpected lifecycle result %#v", commandError.Details)
 	}
-	if !strings.Contains(result.Items[0].Message, "withheld because selected folder "+parentID) {
+	if !strings.Contains(result.Items[0].Message, "selected folder's ancestry could not be resolved for folder "+parentID) {
 		t.Fatalf("unexpected descendant result %#v", result.Items[0])
 	}
 	if !strings.Contains(result.Items[1].Message, "resolve selected folder ancestry") {
@@ -627,7 +639,7 @@ func TestPageLifecycleBatchSkipsDuplicateReferences(t *testing.T) {
 			if len(result.Items) != 2 || result.Items[0].Status != "success" {
 				t.Fatalf("unexpected lifecycle result %#v", result)
 			}
-			if item := result.Items[1]; item.ID != pageID || item.Status != "skipped" || item.Message != "duplicate selection; included once" {
+			if item := result.Items[1]; item.ID != pageID || item.Status != "skipped" || item.Message != "Duplicate selection; included once." {
 				t.Fatalf("unexpected duplicate result %#v", item)
 			}
 		})
@@ -663,7 +675,7 @@ func TestTrashLifecycleBatchUsesOneSnapshotAndSkipsDuplicates(t *testing.T) {
 	if len(result.Items) != 2 || result.Items[0].Status != "success" {
 		t.Fatalf("unexpected lifecycle result %#v", result)
 	}
-	if item := result.Items[1]; item.ID != pageID || item.Status != "skipped" || item.Message != "duplicate selection; included once" {
+	if item := result.Items[1]; item.ID != pageID || item.Status != "skipped" || item.Message != "Duplicate selection; included once." {
 		t.Fatalf("unexpected duplicate result %#v", item)
 	}
 }

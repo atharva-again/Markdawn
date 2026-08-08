@@ -9,7 +9,7 @@ import (
 
 func (c *client) listPages(parentID string, limit int) ([]page, error) {
 	if limit < 0 {
-		return nil, usageError("limit cannot be negative")
+		return nil, usageError("Limit cannot be negative.")
 	}
 	capacity := 100
 	if limit > 0 {

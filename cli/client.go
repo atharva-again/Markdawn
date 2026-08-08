@@ -39,16 +39,16 @@ func newClient(ctx context.Context, baseURL, token string, timeout time.Duration
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	parsed, err := url.Parse(baseURL)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-		return nil, usageError("invalid Markdawn URL %q", baseURL)
+		return nil, usageError("Invalid Markdawn URL %q.", baseURL)
 	}
 	if parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()) {
-		return nil, usageError("remote Markdawn URLs must use HTTPS")
+		return nil, usageError("Remote Markdawn URLs must use HTTPS.")
 	}
 	if strings.TrimSpace(token) == "" {
-		return nil, &cliError{Code: "not_authenticated", Message: "not logged in; run `markdawn login` or set MARKDAWN_TOKEN", StatusCode: http.StatusUnauthorized}
+		return nil, &cliError{Code: "not_authenticated", Message: "Not logged in; run `markdawn login` or set MARKDAWN_TOKEN.", StatusCode: http.StatusUnauthorized}
 	}
 	if timeout <= 0 {
-		return nil, usageError("timeout must be greater than zero")
+		return nil, usageError("Timeout must be greater than zero.")
 	}
 	return &client{
 		baseURL: baseURL,
@@ -91,7 +91,7 @@ func (c *client) requestWithContext(ctx context.Context, method, path string, bo
 		if response != nil && response.Body != nil {
 			response.Body.Close()
 		}
-		return nil, &cliError{Code: "network_error", Message: "could not reach Markdawn", Cause: err}
+		return nil, &cliError{Code: "network_error", Message: "Could not reach Markdawn", Cause: err}
 	}
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
 		return response, nil
@@ -101,7 +101,7 @@ func (c *client) requestWithContext(ctx context.Context, method, path string, bo
 	data, err := io.ReadAll(io.LimitReader(response.Body, maxErrorResponseBytes+1))
 	if err != nil {
 		return nil, &cliError{
-			Code: "network_error", Message: "could not read Markdawn error response", Cause: err,
+			Code: "network_error", Message: "Could not read Markdawn error response", Cause: err,
 		}
 	}
 	if len(data) > maxErrorResponseBytes {
@@ -159,7 +159,7 @@ func decodeJSON(response *http.Response, target any) error {
 		if errorCode(err) == "payload_too_large" {
 			return fmt.Errorf("read API response: %w", err)
 		}
-		return &cliError{Code: "network_error", Message: "could not read Markdawn response", Cause: err}
+		return &cliError{Code: "network_error", Message: "Could not read Markdawn response", Cause: err}
 	}
 	if !utf8.Valid(data) {
 		return &cliError{Code: "invalid_response", Message: "Markdawn returned invalid JSON"}
@@ -178,7 +178,7 @@ func discardAndCloseResponse(response *http.Response) error {
 	}
 	return &cliError{
 		Code:    "network_error",
-		Message: "could not drain Markdawn response",
+		Message: "Could not drain Markdawn response",
 		Cause:   errors.Join(readErr, closeErr),
 	}
 }

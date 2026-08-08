@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -106,11 +108,37 @@ func TestResolvePageReturnsFolderPathsWhenNonInteractive(t *testing.T) {
 	}
 	runtime := &runtimeState{ctx: context.Background(), cli: &CLI{NoInput: true}, clientValue: client}
 	_, err = runtime.resolvePage("plan")
-	var ambiguous *ambiguousPageError
-	if !errors.As(err, &ambiguous) {
+	var ambiguous *cliError
+	if !errors.As(err, &ambiguous) || ambiguous.Code != "ambiguous_page" {
 		t.Fatalf("expected ambiguity, got %v", err)
 	}
-	if len(ambiguous.Candidates) != 2 || ambiguous.Candidates[1].Path != "/Parent/Child" {
-		t.Fatalf("unexpected candidates %#v", ambiguous.Candidates)
+	details, ok := ambiguous.Details.(ambiguousPageDetails)
+	if !ok || len(details.Candidates) != 2 || details.Candidates[1].Path != "/Parent/Child" {
+		t.Fatalf("unexpected candidates %#v", ambiguous.Details)
+	}
+
+	var jsonOutput bytes.Buffer
+	jsonRuntime := &runtimeState{cli: &CLI{JSON: true}, stdout: &jsonOutput}
+	jsonRuntime.printError(err)
+	var envelope struct {
+		Error struct {
+			Code    string               `json:"code"`
+			Message string               `json:"message"`
+			Details ambiguousPageDetails `json:"details"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(jsonOutput.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Error.Code != "ambiguous_page" || envelope.Error.Message != `Page reference "plan" is ambiguous.` || envelope.Error.Details.Reference != "plan" || len(envelope.Error.Details.Candidates) != 2 {
+		t.Fatalf("unexpected ambiguity JSON %#v", envelope.Error)
+	}
+
+	var humanOutput bytes.Buffer
+	humanRuntime := &runtimeState{cli: &CLI{}, stderr: &humanOutput}
+	humanRuntime.printError(err)
+	want := "Error: Page reference \"plan\" is ambiguous.\nCandidates:\n  Plan  /  two\n  Plan  /Parent/Child  one\n"
+	if humanOutput.String() != want {
+		t.Fatalf("ambiguity output = %q, want %q", humanOutput.String(), want)
 	}
 }

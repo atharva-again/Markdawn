@@ -35,7 +35,7 @@ func renderPageList(r *runtimeState, items []pageListItem) error {
 		return r.printJSON(items)
 	}
 	if len(items) == 0 {
-		_, err := fmt.Fprintln(r.stdout, "No accessible pages.")
+		_, err := fmt.Fprintln(r.stdout, "No accessible pages found.")
 		return err
 	}
 	if !r.stdoutTTY || r.cli.Plain {

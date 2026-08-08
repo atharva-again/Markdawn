@@ -44,7 +44,7 @@ func createExportFile(path string, force bool) (*os.File, string, bool, error) {
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		if os.IsExist(err) {
-			return nil, "", false, usageError("output file %q already exists; pass --force to overwrite it", path)
+			return nil, "", false, usageError("Output file %q already exists; pass --force to overwrite it.", path)
 		}
 		return nil, "", false, fmt.Errorf("create export file: %w", err)
 	}
@@ -103,7 +103,7 @@ func (cmd *ExportPageCmd) Run(r *runtimeState) error {
 		format = "zip"
 	}
 	if format == "zip" && cmd.Output == "" {
-		return usageError("this page export contains attachments; pass --output FILE.zip")
+		return usageError("This page export contains attachments; pass --output FILE.zip.")
 	}
 	if cmd.Output == "" {
 		if r.cli.JSON {
@@ -141,7 +141,7 @@ func (cmd *ExportPageCmd) Run(r *runtimeState) error {
 		}
 		return r.printJSON(result)
 	}
-	_, err = fmt.Fprintf(r.stdout, "Exported %d bytes to %s\n", bytes, terminalText(absPath))
+	_, err = fmt.Fprintf(r.stdout, "Exported %s to %s\n", countLabel(bytes, "byte", "bytes"), terminalText(absPath))
 	return err
 }
 
@@ -166,6 +166,6 @@ func (cmd *ExportAllCmd) Run(r *runtimeState) error {
 	if r.cli.JSON {
 		return r.printJSON(exportAllJSON{Output: absPath, Bytes: bytes})
 	}
-	_, err = fmt.Fprintf(r.stdout, "Exported %d bytes to %s\n", bytes, terminalText(absPath))
+	_, err = fmt.Fprintf(r.stdout, "Exported %s to %s\n", countLabel(bytes, "byte", "bytes"), terminalText(absPath))
 	return err
 }
