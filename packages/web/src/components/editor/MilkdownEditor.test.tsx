@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { act, render } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   imageUpload: null as ((file: File) => Promise<void>) | null,
   editorAction: vi.fn(),
   hasEditor: false,
+  initializationStatus: 'ready' as 'initializing' | 'ready' | 'error',
+  retryInitialization: vi.fn(),
   showInfoToast: vi.fn(),
   providerHandlers: new Map<string, (payload: unknown) => void>(),
   loggerWarn: vi.fn(),
@@ -64,6 +66,7 @@ vi.mock('@hocuspocus/provider', () => {
     forceSync = vi.fn();
     destroy = vi.fn();
     isAttached = true;
+    synced = false;
   }
   return {
     HocuspocusProvider: MockProvider,
@@ -111,12 +114,20 @@ vi.mock('../../hooks/useFloatingToolbar', () => ({
     keepVisible: vi.fn(),
   }),
 }));
-vi.mock('../../hooks/useMilkdown', () => ({
-  useMilkdown: () => ({
-    setContainer: vi.fn(),
-    editor: mocks.hasEditor ? { action: mocks.editorAction } : null,
-  }),
-}));
+vi.mock('../../hooks/useMilkdown', () => {
+  const editor = { action: mocks.editorAction };
+  return {
+    useMilkdown: () => ({
+      setContainer: vi.fn(),
+      editor: mocks.hasEditor ? editor : null,
+      initializationState:
+        mocks.initializationStatus === 'error'
+          ? { status: 'error', error: new Error('initialization failed') }
+          : { status: mocks.initializationStatus },
+      retryInitialization: mocks.retryInitialization,
+    }),
+  };
+});
 vi.mock('../../hooks/useSlashMenu', () => ({
   useSlashMenu: (
     _editorRef: unknown,
@@ -207,6 +218,8 @@ describe('MilkdownEditor anonymous uploads', () => {
     mocks.imageUpload = null;
     mocks.editorAction.mockReset();
     mocks.hasEditor = false;
+    mocks.initializationStatus = 'ready';
+    mocks.retryInitialization.mockReset();
     mocks.showInfoToast.mockReset();
     mocks.providerHandlers.clear();
     mocks.loggerWarn.mockReset();
@@ -231,6 +244,50 @@ describe('MilkdownEditor anonymous uploads', () => {
     renderEditor({ strictMode: true });
 
     expect(mocks.providerConstructions).toBe(1);
+  });
+
+  it('keeps the editor content hidden until the initial document sync completes', async () => {
+    mocks.hasEditor = true;
+    renderEditor();
+
+    expect(document.querySelector('.milkdown-editor')).toHaveClass('invisible');
+    expect(screen.getByRole('status', { name: 'Loading page' })).toBeInTheDocument();
+
+    act(() => {
+      mocks.providerHandlers.get('synced')?.({ state: true });
+    });
+
+    await waitFor(() => {
+      expect(document.querySelector('.milkdown-editor')).not.toHaveClass('invisible');
+    });
+    expect(screen.queryByRole('status', { name: 'Loading page' })).not.toBeInTheDocument();
+  });
+
+  it('shows a retry state when editor initialization fails before an editor exists', () => {
+    mocks.initializationStatus = 'error';
+    renderEditor();
+
+    expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load the page content.");
+    screen.getByRole('button', { name: 'Retry' }).click();
+    expect(mocks.retryInitialization).toHaveBeenCalledOnce();
+  });
+
+  it('shows an explicit retry state when the initial document sync times out', async () => {
+    mocks.hasEditor = true;
+    vi.useFakeTimers();
+    try {
+      renderEditor();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+
+      expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load the page content.");
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+      expect(document.querySelector('.milkdown-editor')).toHaveClass('invisible');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('does not open the image picker for anonymous public editors', () => {

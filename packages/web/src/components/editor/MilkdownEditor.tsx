@@ -1,6 +1,7 @@
 import { deriveCapabilities, type SharePermission } from '@markdawn/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useIsReadOnly, useSetReadOnly } from '../../contexts/EditorReadOnlyContext';
 import { useIdentityLifecycle } from '../../contexts/IdentityLifecycleContext';
 import { useSetCapabilities, useShareContext } from '../../contexts/ShareContext';
@@ -16,6 +17,7 @@ import { useFloatingToolbar } from '../../hooks/useFloatingToolbar';
 import { useMilkdown } from '../../hooks/useMilkdown';
 import { useSlashMenu } from '../../hooks/useSlashMenu';
 import { useWikiLinkSuggestions } from '../../hooks/useWikiLinkSuggestions';
+import { LoadingIndicator } from '../ui/LoadingIndicator';
 import { useEditorActiveStates } from './useEditorActiveStates';
 import './editor.css';
 import type { HocuspocusProvider, WebSocketStatus } from '@hocuspocus/provider';
@@ -41,6 +43,7 @@ interface MilkdownEditorProps {
 }
 
 const WIKI_LINK_PRESENTATION_REVALIDATION_MS = 30_000;
+const INITIAL_SYNC_TIMEOUT_MS = 10_000;
 
 export function MilkdownEditor({
   pageId,
@@ -53,6 +56,10 @@ export function MilkdownEditor({
   onPermissionSnapshot,
 }: MilkdownEditorProps) {
   const editorRef = useRef<Editor | null>(null);
+  const [initialContentReadyEditor, setInitialContentReadyEditor] = useState<Editor | null>(null);
+  const [initialSyncError, setInitialSyncError] = useState(false);
+  const [initialSyncAttempt, setInitialSyncAttempt] = useState(0);
+  const initialContentReadyRef = useRef(false);
   const { isAnonymous } = useShareContext();
   const { data: session } = useAuth();
   const currentUserId = session?.user?.id ?? null;
@@ -101,7 +108,7 @@ export function MilkdownEditor({
     ) => void
   >(() => {});
 
-  const { setContainer, editor } = useMilkdown({
+  const { setContainer, editor, initializationState, retryInitialization } = useMilkdown({
     ...(initialValue !== undefined && { initialValue }),
     ...(onChange !== undefined && { onChange }),
     doc,
@@ -113,6 +120,83 @@ export function MilkdownEditor({
     }, []),
     readOnly: isReadOnly,
   });
+
+  useEffect(() => {
+    if (initializationState.status !== 'ready' || !editor) return undefined;
+    let frame: number | undefined;
+    let timeout: number | undefined;
+    let disposed = false;
+    initialContentReadyRef.current = false;
+    setInitialContentReadyEditor(null);
+    setInitialSyncError(false);
+
+    const failInitialSync = () => {
+      if (disposed || initialContentReadyRef.current) return;
+      if (timeout !== undefined) window.clearTimeout(timeout);
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+      setInitialSyncError(true);
+    };
+    const markReady = () => {
+      if (disposed) return;
+      initialContentReadyRef.current = true;
+      setInitialSyncError(false);
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        if (!disposed) setInitialContentReadyEditor(editor);
+      });
+    };
+    const handleSynced = ({ state }: { state: boolean }) => {
+      if (state) markReady();
+    };
+
+    if (provider.synced) {
+      markReady();
+    } else {
+      provider.on('synced', handleSynced);
+      timeout = window.setTimeout(failInitialSync, INITIAL_SYNC_TIMEOUT_MS);
+      if (initialSyncAttempt > 0) {
+        void provider
+          .connect()
+          .then(() => provider.forceSync())
+          .catch(() => failInitialSync());
+      }
+    }
+
+    return () => {
+      disposed = true;
+      provider.off('synced', handleSynced);
+      if (timeout !== undefined) window.clearTimeout(timeout);
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+    };
+  }, [editor, initialSyncAttempt, initializationState.status, provider]);
+
+  const handleInitialSyncRetry = useCallback(() => {
+    initialContentReadyRef.current = false;
+    setInitialSyncError(false);
+    setInitialContentReadyEditor(null);
+    setInitialSyncAttempt((attempt) => attempt + 1);
+  }, []);
+
+  const handleEditorLoadRetry = useCallback(() => {
+    initialContentReadyRef.current = false;
+    setInitialSyncError(false);
+    setInitialContentReadyEditor(null);
+    if (initializationState.status === 'error') {
+      retryInitialization();
+      return;
+    }
+    handleInitialSyncRetry();
+  }, [handleInitialSyncRetry, initializationState.status, retryInitialization]);
+
+  const editorLoadState: { status: 'loading' } | { status: 'error' } | { status: 'ready' } =
+    initializationState.status === 'error' || initialSyncError
+      ? { status: 'error' }
+      : initializationState.status === 'ready' &&
+          editor !== null &&
+          initialContentReadyEditor === editor
+        ? { status: 'ready' }
+        : { status: 'loading' };
+  const isEditorReady = editorLoadState.status === 'ready';
 
   useEffect(() => {
     if (!editor) return undefined;
@@ -214,9 +298,27 @@ export function MilkdownEditor({
 
   return (
     <div
-      className={`editor-wrapper min-h-[500px] relative ${isReadOnly ? '' : 'editor-scroll-past-end'}`}
+      className={`editor-wrapper min-h-[500px] relative ${isReadOnly ? '' : 'editor-scroll-past-end'} ${isEditorReady ? '' : 'flex items-center justify-center'}`}
     >
-      {!isReadOnly && (
+      {editorLoadState.status === 'error' ? (
+        <div className="flex max-w-md flex-col items-center gap-3 p-8 text-center" role="alert">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            Couldn&apos;t load the page content.
+          </p>
+          <button
+            type="button"
+            onClick={handleEditorLoadRetry}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
+          >
+            <RefreshCw size={14} /> Retry
+          </button>
+        </div>
+      ) : editorLoadState.status === 'loading' ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <LoadingIndicator label="Loading page" size="md" />
+        </div>
+      ) : null}
+      {!isReadOnly && isEditorReady && (
         <>
           <WikiLinkSuggestions
             isOpen={suggestions.isOpen}
@@ -265,7 +367,7 @@ export function MilkdownEditor({
           />
         </>
       )}
-      <div ref={setContainer} className="milkdown-editor" />
+      <div ref={setContainer} className={`milkdown-editor ${isEditorReady ? '' : 'invisible'}`} />
     </div>
   );
 }
