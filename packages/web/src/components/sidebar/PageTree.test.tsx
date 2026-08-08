@@ -7,8 +7,14 @@ import { createMockFolderTreeNode, createMockPageTreeNode } from '../../test-uti
 import { render } from '../../test-utils/render';
 
 const mocks = vi.hoisted(() => ({
-  pages: [] as PageTreeNode[],
-  folders: [] as FolderTreeNode[],
+  pages: [] as PageTreeNode[] | undefined,
+  pagesPending: false,
+  pagesFetching: false,
+  pagesFetchStatus: 'idle' as 'fetching' | 'paused' | 'idle',
+  folders: [] as FolderTreeNode[] | undefined,
+  foldersPending: false,
+  foldersFetching: false,
+  foldersFetchStatus: 'idle' as 'fetching' | 'paused' | 'idle',
   shared: [] as SharedNavigationItem[],
   memberships: [] as WorkspaceMembership[],
   leaveWorkspace: vi.fn(),
@@ -26,12 +32,24 @@ vi.mock('../../hooks/use-favorites', () => ({
   useFavorites: () => ({ data: [] }),
 }));
 vi.mock('../../hooks/use-folders', () => ({
-  useFolderTree: () => ({ data: mocks.folders, isLoading: false, error: null }),
+  useFolderTree: () => ({
+    data: mocks.folders,
+    isPending: mocks.foldersPending,
+    isFetching: mocks.foldersFetching,
+    fetchStatus: mocks.foldersFetchStatus,
+    error: null,
+  }),
   useCreateFolder: () => ({ mutateAsync: vi.fn() }),
   useUpdateFolder: () => ({ mutateAsync: vi.fn() }),
 }));
 vi.mock('../../hooks/use-pages', () => ({
-  usePageTree: () => ({ data: mocks.pages, isLoading: false, error: null }),
+  usePageTree: () => ({
+    data: mocks.pages,
+    isPending: mocks.pagesPending,
+    isFetching: mocks.pagesFetching,
+    fetchStatus: mocks.pagesFetchStatus,
+    error: null,
+  }),
   useRecentPages: () => ({ data: [] }),
   useCreatePage: () => ({ mutateAsync: vi.fn() }),
   useUpdatePage: () => ({ mutate: mocks.updatePage, mutateAsync: vi.fn() }),
@@ -108,12 +126,29 @@ function membership(ownerId: string, ownerName: string): WorkspaceMembership {
 describe('PageTree workspace navigation', () => {
   beforeEach(() => {
     mocks.pages = [];
+    mocks.pagesPending = false;
+    mocks.pagesFetching = false;
+    mocks.pagesFetchStatus = 'idle';
     mocks.folders = [];
+    mocks.foldersPending = false;
+    mocks.foldersFetching = false;
+    mocks.foldersFetchStatus = 'idle';
     mocks.shared = [];
     mocks.memberships = [];
     mocks.leaveWorkspace.mockReset();
     mocks.updatePage.mockReset();
     mocks.capturedRenameSave = null;
+  });
+
+  it('shows a loading indicator while the page tree is pending', () => {
+    mocks.pages = undefined;
+    mocks.pagesPending = true;
+    mocks.pagesFetching = true;
+    mocks.pagesFetchStatus = 'fetching';
+
+    render(<PageTree />);
+
+    expect(screen.getByRole('status', { name: 'Loading sidebar' })).toBeInTheDocument();
   });
 
   it('groups visible workspace content under Shared With Me', () => {

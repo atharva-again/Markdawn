@@ -13,6 +13,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { DashboardItemSections } from '../components/workspace/DashboardItemSections';
 import type { ExplorerItemData } from '../components/workspace/ExplorerItem';
+import { ExplorerLoadingState } from '../components/workspace/ExplorerLoadingState';
 import { MoveDialog } from '../components/workspace/MoveDialog';
 import { SelectionToolbar } from '../components/workspace/SelectionToolbar';
 import { useClipboard } from '../contexts/ClipboardContext';
@@ -44,7 +45,7 @@ import {
   resolveRemovalShareSource,
 } from '../utils/entity-actions';
 import { collectAllFolderIds, getRootPages } from '../utils/page-tree';
-import { hasInitialQueryError } from '../utils/queryState';
+import { getInitialQueriesState } from '../utils/queryState';
 import { showSuccessToast } from '../utils/toast';
 import { buildFolderPath, buildPagePath } from '../utils/url';
 import {
@@ -78,30 +79,17 @@ export default function HomeView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeFilter = normalizeFilter(searchParams.get('filter'));
 
-  const {
-    data: pages,
-    isLoading: isPagesLoading,
-    error: pagesError,
-    refetch: refetchPages,
-  } = usePageTree();
-  const {
-    data: folders,
-    isLoading: isFoldersLoading,
-    error: foldersError,
-    refetch: refetchFolders,
-  } = useFolderTree();
-  const {
-    data: sharedWithMe,
-    isLoading: isSharedLoading,
-    error: sharedError,
-    refetch: refetchSharedWithMe,
-  } = useSharedWithMe();
-  const {
-    data: workspaceMemberships,
-    error: workspaceMembershipsError,
-    refetch: refetchWorkspaceMemberships,
-  } = useWorkspaceMemberships();
-  const { data: favorites, error: favoritesError, refetch: refetchFavorites } = useFavorites();
+  const pagesQuery = usePageTree();
+  const { data: pages, refetch: refetchPages } = pagesQuery;
+  const foldersQuery = useFolderTree();
+  const { data: folders, refetch: refetchFolders } = foldersQuery;
+  const sharedWithMeQuery = useSharedWithMe();
+  const { data: sharedWithMe, refetch: refetchSharedWithMe } = sharedWithMeQuery;
+  const workspaceMembershipsQuery = useWorkspaceMemberships();
+  const { data: workspaceMemberships, refetch: refetchWorkspaceMemberships } =
+    workspaceMembershipsQuery;
+  const favoritesQuery = useFavorites();
+  const { data: favorites, refetch: refetchFavorites } = favoritesQuery;
   const { data: session } = useAuth();
   const currentUserId = session?.user?.id;
 
@@ -694,13 +682,12 @@ export default function HomeView() {
     }
   };
 
-  const isLoading = isPagesLoading || isFoldersLoading || isSharedLoading;
-  const hasError = hasInitialQueryError([
-    { data: pages, error: pagesError },
-    { data: folders, error: foldersError },
-    { data: sharedWithMe, error: sharedError },
-    { data: workspaceMemberships, error: workspaceMembershipsError },
-    { data: favorites, error: favoritesError },
+  const initialQueriesState = getInitialQueriesState([
+    pagesQuery,
+    foldersQuery,
+    sharedWithMeQuery,
+    workspaceMembershipsQuery,
+    favoritesQuery,
   ]);
   const heading = FILTERS.find((filter) => filter.value === activeFilter)?.label ?? 'All';
   const emptyMessage =
@@ -829,9 +816,13 @@ export default function HomeView() {
         </div>
       </div>
 
-      {hasError ? (
+      {initialQueriesState.status === 'error' || initialQueriesState.status === 'paused' ? (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md flex items-center justify-between">
-          <span>Failed to load items.</span>
+          <span>
+            {initialQueriesState.status === 'paused'
+              ? 'Loading is paused. Check your connection.'
+              : 'Failed to load items.'}
+          </span>
           <button
             type="button"
             onClick={() => {
@@ -848,21 +839,8 @@ export default function HomeView() {
             Retry
           </button>
         </div>
-      ) : isLoading ? (
-        <div
-          className={`${viewMode === 'card' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-1'} animate-fade-in`}
-        >
-          {[1, 2, 3, 4, 5, 6].map((id) => (
-            <div
-              key={id}
-              className="block p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl"
-            >
-              <div className="h-28 bg-zinc-100 dark:bg-zinc-800 rounded-lg mb-3 animate-pulse" />
-              <div className="h-5 bg-zinc-100 dark:bg-zinc-800 rounded w-3/4 mb-2 animate-pulse" />
-              <div className="h-4 bg-zinc-100 dark:bg-zinc-800 rounded w-1/2 animate-pulse" />
-            </div>
-          ))}
-        </div>
+      ) : initialQueriesState.status === 'loading' ? (
+        <ExplorerLoadingState />
       ) : allItems.length === 0 && favoriteItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <FileText size={48} className="text-zinc-300 dark:text-zinc-600 mb-4" />
