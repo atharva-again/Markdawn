@@ -3,6 +3,16 @@ name: E2E
 on:
   issue_comment:
     types: [created]
+  workflow_dispatch:
+    inputs:
+      browser:
+        description: Browser(s) to run
+        required: true
+        type: choice
+        options:
+          - chromium
+          - firefox
+          - all
 
 permissions: {}
 
@@ -13,11 +23,13 @@ jobs:
   authorize:
     name: Authorize E2E request
     if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
       (github.event.comment.body == '/e2e chromium' ||
       github.event.comment.body == '/e2e firefox' ||
       github.event.comment.body == '/e2e all') &&
-      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,17 +46,23 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const browsersByCommand = {
+            const browsersBySelection = {
               '/e2e chromium': ['chromium'],
               '/e2e firefox': ['firefox'],
               '/e2e all': ['chromium', 'firefox'],
+              chromium: ['chromium'],
+              firefox: ['firefox'],
+              all: ['chromium', 'firefox'],
             };
             const browserLabels = {
               chromium: 'Chromium',
               firefox: 'Firefox',
             };
-            const command = context.payload.comment.body;
-            const browsers = browsersByCommand[command];
+            const isManual = context.eventName === 'workflow_dispatch';
+            const selection = isManual
+              ? context.payload.inputs?.browser
+              : context.payload.comment.body;
+            const browsers = browsersBySelection[selection];
 
             function denyRequest() {
               core.setOutput('authorized', 'false');
@@ -56,12 +74,14 @@ jobs:
               return;
             }
 
+            const requester = isManual ? context.actor : context.payload.comment.user.login;
+
             let permission;
             try {
               ({ data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                username: context.payload.comment.user.login,
+                username: requester,
               }));
             } catch (error) {
               if (
@@ -78,6 +98,18 @@ jobs:
 
             if (!['maintain', 'admin'].includes(permission.permission)) {
               denyRequest();
+              return;
+            }
+
+            if (isManual) {
+              core.setOutput('authorized', 'true');
+              core.setOutput('browsers', JSON.stringify(browsers));
+              core.setOutput(
+                'browser_label',
+                browsers.map((browser) => browserLabels[browser]).join(' and '),
+              );
+              core.setOutput('pr_number', `manual-${context.runId}`);
+              core.setOutput('merge_sha', context.sha);
               return;
             }
 
@@ -108,7 +140,9 @@ jobs:
             core.setOutput('merge_sha', mergeRef.object.sha);
 
       - name: Acknowledge authorized request
-        if: steps.request.outputs.authorized == 'true'
+        if: >-
+          steps.request.outputs.authorized == 'true' &&
+          github.event_name == 'issue_comment'
         uses: actions/github-script@v7
         env:
           BROWSER_LABEL: ${{ steps.request.outputs.browser_label }}
@@ -208,6 +242,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://markdawn:password@localhost:5432/markdawn
           BETTER_AUTH_SECRET: test-secret-that-is-at-least-32-characters-long
+          COLLAB_INTERNAL_SECRET: test-collaboration-internal-secret
           FRONTEND_URL: http://localhost:5173
           PORT: 3001
           NODE_ENV: development
