@@ -35,6 +35,12 @@ while [ "$#" -gt 0 ]; do
       output=$2
       shift 2
       ;;
+    --max-filesize | --connect-timeout | --max-time)
+      shift 2
+      ;;
+    --fail | --location | --silent | --show-error)
+      shift
+      ;;
     *)
       url=$1
       shift
@@ -181,6 +187,25 @@ if run_installer "$test_dir/failed-download" "$test_dir/state-failed-download" M
   fail "failed download was accepted"
 fi
 
+misleading_probe="$test_dir/misleading-probe"
+cat >"$misleading_probe" <<'EOF'
+#!/bin/sh
+if [ "${1:-}" = --version ]; then
+  printf '%s\n' 'v999.9.9\033]52;c;fake\007'
+  exit 0
+fi
+exec "$REAL_FINALIZER" "$@"
+EOF
+chmod +x "$misleading_probe"
+misleading_output=$(run_installer "$test_dir/misleading-probe-install" "$test_dir/state-misleading-probe" MOCK_FINALIZER_BINARY="$misleading_probe" REAL_FINALIZER="$test_dir/markdawn-finalizer")
+printf '%s\n' "$misleading_output" | grep -F 'Markdawn latest installed to ' >/dev/null || fail "installer did not report the latest release channel"
+! printf '%s\n' "$misleading_output" | grep -F 'v999.9.9' >/dev/null || fail "installer trusted binary version output"
+
+pinned_dir="$test_dir/pinned"
+pinned_output=$(run_installer "$pinned_dir" "$test_dir/state-pinned" MARKDAWN_VERSION=v2.3.4 MARKDAWN_MODIFY_PATH=0)
+printf '%s\n' "$pinned_output" | grep -F "Markdawn v2.3.4 installed to $pinned_dir/markdawn." >/dev/null || fail "installer did not report the pinned release version"
+! printf '%s\n' "$pinned_output" | grep -F '(latest)' >/dev/null || fail "pinned install was labeled latest"
+
 unsafe_archive_dir="$test_dir/unsafe-archive"
 if run_installer "$unsafe_archive_dir" "$test_dir/state-unsafe-archive" MOCK_TAR_ENTRIES='../markdawn'; then
   fail "unsafe release archive was accepted"
@@ -208,6 +233,7 @@ escaped_default_dir="$escaped_home/.markdawn/bin"
 escaped_default_output=$(run_installer "$escaped_default_dir" "$test_dir/state-escaped-default" HOME="$escaped_home")
 escaped_default_entry=$(printf '%s' "$escaped_default_dir" | sed "s/'/'\\\\''/g")
 grep -F "export PATH='$escaped_default_entry':\$PATH" "$escaped_home/.bashrc" >/dev/null || fail "default install did not escape a spaced Unicode home path"
+printf '%s\n' "$escaped_default_output" | grep -F "Markdawn latest installed to $escaped_default_dir/markdawn." >/dev/null || fail "installer did not report the latest release channel"
 printf '%s\n' "$escaped_default_output" | grep -F 'Open a new terminal before running markdawn.' >/dev/null || fail "PATH activation guidance was not printed"
 [ ! -e "$escaped_source_marker" ] || fail "installer output executed a profile-path command substitution"
 

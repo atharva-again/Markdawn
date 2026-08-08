@@ -70,5 +70,5 @@ func checkDeferredUpdateFailure() error {
 	if err := os.Remove(path); err != nil {
 		return fmt.Errorf("clear deferred update failure: %w", err)
 	}
-	return &cliError{Code: "deferred_update_failed", Message: "previous deferred update failed", Cause: errors.New(string(failure))}
+	return &cliError{Code: "deferred_update_failed", Message: "Previous deferred update failed", Cause: errors.New(string(failure))}
 }

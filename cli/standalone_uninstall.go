@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func (cmd *UninstallCmd) Run(r *runtimeState) error {
@@ -26,7 +27,7 @@ func (cmd *UninstallCmd) Run(r *runtimeState) error {
 	}
 	if !cmd.Yes {
 		if !r.interactive() {
-			return usageError("uninstall requires confirmation; pass --yes when terminal input is disabled")
+			return usageError("Uninstall requires confirmation; pass --yes when terminal input is disabled.")
 		}
 		if err := confirmUninstall(r); err != nil {
 			return err
@@ -90,16 +91,21 @@ type uninstallPlan struct {
 
 func confirmUninstall(r *runtimeState) error {
 	confirmed := false
-	form := huh.NewForm(huh.NewGroup(huh.NewConfirm().Title("Remove this standalone Markdawn installation?").Value(&confirmed)))
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().
+			Title("Remove this standalone Markdawn installation?").
+			Value(&confirmed).
+			WithButtonAlignment(lipgloss.Left),
+	))
 	err := form.WithInput(r.stdin).WithOutput(r.stderr).RunWithContext(r.ctx)
 	if errors.Is(err, huh.ErrUserAborted) {
-		return &cliError{Code: "aborted", Message: "uninstall cancelled"}
+		return &cliError{Code: "aborted", Message: "Uninstall cancelled."}
 	}
 	if err != nil {
 		return err
 	}
 	if !confirmed {
-		return &cliError{Code: "aborted", Message: "uninstall cancelled"}
+		return &cliError{Code: "aborted", Message: "Uninstall cancelled."}
 	}
 	return nil
 }

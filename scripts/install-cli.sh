@@ -30,12 +30,12 @@ phase() {
 }
 
 fail() {
-  printf '%s\n' "markdawn installer: $*" >&2
+  printf '%s\n' "Error: $*" >&2
   exit 1
 }
 
 require_command() {
-  command -v "$1" >/dev/null 2>&1 || fail "$1 is required"
+  command -v "$1" >/dev/null 2>&1 || fail "Command $1 is required."
 }
 
 for argument in "$@"; do
@@ -64,17 +64,17 @@ Environment:
 EOF
       exit 0
       ;;
-    *) fail "unknown argument: $argument" ;;
+    *) fail "Unknown argument: $argument." ;;
   esac
 done
 
 case "$modify_path" in
   0 | 1) ;;
-  *) fail "MARKDAWN_MODIFY_PATH must be 0 or 1" ;;
+  *) fail "MARKDAWN_MODIFY_PATH must be 0 or 1." ;;
 esac
 case "$install_skill" in
   "" | 0 | global | project) ;;
-  *) fail "MARKDAWN_INSTALL_SKILL must be global, project, or 0" ;;
+  *) fail "MARKDAWN_INSTALL_SKILL must be global, project, or 0." ;;
 esac
 
 require_command curl
@@ -93,18 +93,18 @@ validate_json_string() {
   label=$2
   case "$value" in
     *'
-'*) fail "$label must not contain a newline" ;;
+'*) fail "The $label must not contain a newline." ;;
   esac
   if printf '%s' "$value" | LC_ALL=C grep -q '[[:cntrl:]]'; then
-    fail "$label must not contain JSON control characters"
+    fail "The $label must not contain JSON control characters."
   fi
 }
 
 if [ -n "$requested_version" ]; then
-  printf '%s' "$requested_version" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' || fail "MARKDAWN_VERSION must be a semantic version such as v1.2.3"
+  printf '%s' "$requested_version" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' || fail "MARKDAWN_VERSION must be a semantic version such as v1.2.3."
 fi
 if [ -n "$http_timeout" ]; then
-  printf '%s' "$http_timeout" | grep -Eq '^[1-9][0-9]*$' || fail "MARKDAWN_HTTP_TIMEOUT_SECONDS must be a positive integer"
+  printf '%s' "$http_timeout" | grep -Eq '^[1-9][0-9]*$' || fail "MARKDAWN_HTTP_TIMEOUT_SECONDS must be a positive integer."
 fi
 path_file=""
 path_style=""
@@ -122,7 +122,7 @@ if [ "$modify_path" = 1 ]; then
   validate_json_string "$path_file" "shell configuration path"
   case "$path_file" in
     /*) ;;
-    *) fail "shell configuration path must be absolute" ;;
+    *) fail "Shell configuration path must be absolute." ;;
   esac
 fi
 case "$install_dir" in
@@ -132,7 +132,7 @@ esac
 validate_json_string "$install_dir" "MARKDAWN_INSTALL_DIR"
 if [ "$modify_path" = 1 ]; then
   case "$install_dir" in
-    *:*) fail "MARKDAWN_INSTALL_DIR must not contain : when --modify-path is enabled" ;;
+    *:*) fail "MARKDAWN_INSTALL_DIR must not contain : when --modify-path is enabled." ;;
   esac
 fi
 
@@ -147,11 +147,11 @@ receipt_path="$state_dir/install.json"
 case "$(uname -s)" in
   Linux) goos=linux ;;
   Darwin) goos=darwin ;;
-  *) fail "unsupported operating system: $(uname -s)" ;;
+  *) fail "Unsupported operating system: $(uname -s)." ;;
 esac
 if [ "$goos" = linux ] && [ -r /proc/sys/kernel/osrelease ] && grep -qi microsoft /proc/sys/kernel/osrelease; then
   case "$install_dir" in
-    /mnt/*) printf '%s\n' "markdawn installer: warning: installs under /mnt use Windows filesystem semantics; a path in the WSL Linux home directory is recommended" >&2 ;;
+    /mnt/*) printf '%s\n' "Warning: installs under /mnt use Windows filesystem semantics; a path in the WSL Linux home directory is recommended." >&2 ;;
   esac
 fi
 
@@ -162,7 +162,7 @@ fi
 case "$machine" in
   x86_64 | amd64) goarch=amd64 ;;
   aarch64 | arm64) goarch=arm64 ;;
-  *) fail "unsupported architecture: $machine" ;;
+  *) fail "Unsupported architecture: $machine." ;;
 esac
 
 if [ -n "$requested_version" ]; then
@@ -181,9 +181,9 @@ cleanup() {
 	cleanup_failed=0
 	set +e
 	if [ -n "$finalizer_binary" ]; then
-		rm -f "$finalizer_binary" || { printf '%s\n' "markdawn installer: could not remove temporary finalizer" >&2; cleanup_failed=1; }
+		rm -f "$finalizer_binary" || { printf '%s\n' "Error: Could not remove temporary finalizer." >&2; cleanup_failed=1; }
 	fi
-	rm -rf "$temporary_dir" || { printf '%s\n' "markdawn installer: could not remove temporary download directory" >&2; cleanup_failed=1; }
+	rm -rf "$temporary_dir" || { printf '%s\n' "Error: Could not remove temporary download directory." >&2; cleanup_failed=1; }
 	trap - EXIT
 	if [ "$cleanup_failed" = 1 ]; then
 		exit 1
@@ -209,25 +209,25 @@ download_with_limit() {
       if curl --fail --location --silent --show-error --max-filesize "$limit" --connect-timeout "$http_timeout" --max-time "$http_timeout" "$url"; then download_status=0; else download_status=$?; fi
       printf '%s\n' "$download_status" >"$status_path"
     } | head -c "$((limit + 1))" >"$destination"; then
-      fail "could not download $label"
+      fail "Could not download $label."
     fi
   else
     if ! {
       if curl --fail --location --silent --show-error --max-filesize "$limit" "$url"; then download_status=0; else download_status=$?; fi
       printf '%s\n' "$download_status" >"$status_path"
     } | head -c "$((limit + 1))" >"$destination"; then
-      fail "could not download $label"
+      fail "Could not download $label."
     fi
   fi
-  [ -f "$status_path" ] || fail "could not download $label"
+  [ -f "$status_path" ] || fail "Could not download $label."
   download_status=$(sed -n '1p' "$status_path")
   rm -f "$status_path"
   download_size=$(wc -c <"$destination")
   if [ "$download_size" -gt "$limit" ]; then
-    fail "$label exceeds $limit bytes"
+    fail "Download $label exceeds $limit bytes."
   fi
   if [ "$download_status" -ne 0 ]; then
-    fail "could not download $label"
+    fail "Could not download $label."
   fi
 }
 
@@ -243,20 +243,23 @@ download_asset() {
 download_asset "$archive_path" "$download_base/$archive" "$max_release_archive_bytes" "$archive"
 download_asset "$checksums_path" "$download_base/checksums.txt" 1048576 "checksums.txt"
 
+release_version=latest
+[ -n "$requested_version" ] && release_version="v$version"
+
 phase "Verifying Markdawn CLI release..."
 checksum_line=$(grep -F "  $archive" "$checksums_path" || true)
-[ -n "$checksum_line" ] || fail "checksums.txt does not contain $archive"
+[ -n "$checksum_line" ] || fail "Checksums.txt does not contain $archive."
 expected_checksum=${checksum_line%% *}
-printf '%s' "$expected_checksum" | grep -Eq '^[0-9a-f]{64}$' || fail "checksums.txt contains an invalid SHA-256 value for $archive"
-[ "$checksum_line" = "$expected_checksum  $archive" ] || fail "checksums.txt contains an invalid entry for $archive"
+printf '%s' "$expected_checksum" | grep -Eq '^[0-9a-f]{64}$' || fail "Checksums.txt contains an invalid SHA-256 value for $archive."
+[ "$checksum_line" = "$expected_checksum  $archive" ] || fail "Checksums.txt contains an invalid entry for $archive."
 if command -v sha256sum >/dev/null 2>&1; then
   actual_checksum=$(sha256sum "$archive_path" | awk '{print $1}')
 elif command -v shasum >/dev/null 2>&1; then
   actual_checksum=$(shasum -a 256 "$archive_path" | awk '{print $1}')
 else
-  fail "sha256sum or shasum is required"
+  fail "The sha256sum or shasum command is required."
 fi
-[ "$actual_checksum" = "$expected_checksum" ] || fail "SHA-256 verification failed for $archive"
+[ "$actual_checksum" = "$expected_checksum" ] || fail "SHA-256 verification failed for $archive."
 
 extract_dir="$temporary_dir/extract"
 mkdir -p "$extract_dir"
@@ -271,7 +274,7 @@ if ! tar -tvzf "$archive_path" | awk -v max_entries="$max_release_archive_entrie
   }
   END { if (entries == 0) exit 1 }
 '; then
-  fail "release archive exceeds validation limits"
+  fail "Release archive exceeds validation limits."
 fi
 binary_member=$(tar -tzf "$archive_path" | awk -v max_entries="$max_release_archive_entries" '
   {
@@ -286,32 +289,33 @@ binary_member=$(tar -tzf "$archive_path" | awk -v max_entries="$max_release_arch
     if (entries == 0 || entries > max_entries || matches != 1) exit 1
     print member
   }
-') || fail "release archive must contain exactly one markdawn binary"
-phase "Installing Markdawn CLI..."
-tar -xzf "$archive_path" -C "$extract_dir" "$binary_member" || fail "could not extract markdawn from $archive"
+') || fail "Release archive must contain exactly one Markdawn binary."
+phase "Extracting Markdawn CLI..."
+tar -xzf "$archive_path" -C "$extract_dir" "$binary_member" || fail "Could not extract Markdawn from $archive."
 binary_path="$extract_dir/markdawn"
-[ -f "$binary_path" ] && [ ! -L "$binary_path" ] || fail "release archive does not contain a regular markdawn binary"
-[ "$(wc -c <"$binary_path")" -le 134217728 ] || fail "release binary exceeds 134217728 bytes"
+[ -f "$binary_path" ] && [ ! -L "$binary_path" ] || fail "Release archive does not contain a regular Markdawn binary."
+[ "$(wc -c <"$binary_path")" -le 134217728 ] || fail "Release binary exceeds 134217728 bytes."
 
 if [ -e "$install_dir" ]; then
-  [ -d "$install_dir" ] || fail "$install_dir exists and is not a directory"
+  [ -d "$install_dir" ] || fail "Install directory $install_dir exists and is not a directory."
 else
-  mkdir -p "$install_dir" || fail "could not create $install_dir"
-  chmod 700 "$install_dir" || fail "could not secure $install_dir"
+  mkdir -p "$install_dir" || fail "Could not create install directory $install_dir."
+  chmod 700 "$install_dir" || fail "Could not secure install directory $install_dir."
 fi
-finalizer_binary=$(mktemp "$install_dir/.markdawn-finalize.XXXXXX") || fail "could not stage standalone finalizer"
-cp "$binary_path" "$finalizer_binary" || fail "could not stage standalone finalizer"
-chmod 700 "$finalizer_binary" || fail "could not prepare standalone finalizer"
+finalizer_binary=$(mktemp "$install_dir/.markdawn-finalize.XXXXXX") || fail "Could not stage standalone finalizer."
+cp "$binary_path" "$finalizer_binary" || fail "Could not stage standalone finalizer."
+chmod 700 "$finalizer_binary" || fail "Could not prepare standalone finalizer."
 
+phase "Installing Markdawn CLI..."
 if [ "$modify_path" = 1 ]; then
-  MARKDAWN_INSTALL_STATE_DIR="$state_dir" "$finalizer_binary" standalone-finalize --install-dir "$install_dir" --path-file "$path_file" --path-style "$path_style" || fail "could not finalize standalone installation"
+  MARKDAWN_INSTALL_STATE_DIR="$state_dir" "$finalizer_binary" standalone-finalize --install-dir "$install_dir" --path-file "$path_file" --path-style "$path_style" || fail "Could not finalize standalone installation."
 else
-  MARKDAWN_INSTALL_STATE_DIR="$state_dir" "$finalizer_binary" standalone-finalize --install-dir "$install_dir" || fail "could not finalize standalone installation"
+  MARKDAWN_INSTALL_STATE_DIR="$state_dir" "$finalizer_binary" standalone-finalize --install-dir "$install_dir" || fail "Could not finalize standalone installation."
 fi
-rm -f "$finalizer_binary" || fail "could not remove standalone finalizer"
+rm -f "$finalizer_binary" || fail "Could not remove standalone finalizer."
 finalizer_binary=""
 
-printf 'Markdawn installed to %s/markdawn\n' "$install_dir"
+printf 'Markdawn %s installed to %s/markdawn.\n' "$release_version" "$install_dir"
 if [ "$modify_path" = 1 ]; then
   printf '\nUpdated PATH configuration in %s.\n' "$path_file"
   printf '\nOpen a new terminal before running markdawn.\n'
@@ -323,7 +327,7 @@ else
     printf '\nPATH was not changed. Add Markdawn to PATH:\n  export PATH='
   fi
   printf "'"
-  printf '%s' "$install_dir" | sed "s/'/'\\\\''/g" || fail "could not render PATH instruction"
+  printf '%s' "$install_dir" | sed "s/'/'\\\\''/g" || fail "Could not render PATH instruction."
   if [ -n "$unsupported_shell" ]; then
     printf "\n"
   else

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -180,6 +181,108 @@ func TestJSONErrorOutputIsMachineReadable(t *testing.T) {
 	}
 	if result.Error.Code != "conflict" || result.Error.Details["etag"] != "abc" {
 		t.Fatalf("unexpected output %#v", result)
+	}
+}
+
+func TestJSONErrorOutputOmitsHumanGuidanceLayout(t *testing.T) {
+	var output strings.Builder
+	runtime := &runtimeState{cli: &CLI{JSON: true}, stdout: &output}
+	runtime.printError(unmanagedUpdateError())
+	var result jsonErrorEnvelope
+	if err := json.Unmarshal([]byte(output.String()), &result); err != nil {
+		t.Fatal(err)
+	}
+	want := "Cannot update this binary because it is not managed by the standalone installer."
+	if result.Error.Message != want {
+		t.Fatalf("JSON error message = %q, want %q", result.Error.Message, want)
+	}
+}
+
+func TestCLIErrorComposesSummaryAndCauseOnce(t *testing.T) {
+	err := &cliError{
+		Message: "Token validation failed",
+		Cause:   errors.New("x509: certificate signed by unknown authority"),
+	}
+	if got := err.Error(); got != "Token validation failed: x509: certificate signed by unknown authority" {
+		t.Fatalf("canonical composed error = %q", got)
+	}
+	var output strings.Builder
+	runtime := &runtimeState{cli: &CLI{}, stderr: &output}
+	runtime.printError(err)
+	if got := output.String(); got != "Error: Token validation failed: x509: certificate signed by unknown authority\n" {
+		t.Fatalf("human composed error = %q", got)
+	}
+	output.Reset()
+	jsonRuntime := &runtimeState{cli: &CLI{JSON: true}, stdout: &output}
+	jsonRuntime.printError(err)
+	var envelope jsonErrorEnvelope
+	if decodeErr := json.Unmarshal([]byte(output.String()), &envelope); decodeErr != nil {
+		t.Fatal(decodeErr)
+	}
+	if envelope.Error.Message != err.Error() {
+		t.Fatalf("JSON composed error = %q, want %q", envelope.Error.Message, err.Error())
+	}
+}
+
+func TestUsageErrorKeepsCanonicalMessage(t *testing.T) {
+	err := usageError("authored message")
+	typed, ok := err.(*cliError)
+	if !ok {
+		t.Fatalf("usage error type = %T", err)
+	}
+	if typed.Message != "authored message" {
+		t.Fatalf("usage error message = %q", typed.Message)
+	}
+}
+
+func TestHumanErrorOutputPreservesGuidanceLines(t *testing.T) {
+	var output strings.Builder
+	runtime := &runtimeState{cli: &CLI{}, stderr: &output}
+	runtime.printError(fmt.Errorf("update command failed: %w", unmanagedUpdateError()))
+	want := "Error: Cannot update this binary because it is not managed by the standalone installer.\n\nIf this was installed with Go, update it with: go install github.com/atharva-again/Markdawn/cli@latest\n\nOtherwise, reinstall it using the standalone installer.\n"
+	if output.String() != want {
+		t.Fatalf("human error output = %q, want %q", output.String(), want)
+	}
+}
+
+func TestHumanErrorOutputPreservesDynamicTechnicalMessages(t *testing.T) {
+	var output strings.Builder
+	runtime := &runtimeState{cli: &CLI{}, stderr: &output}
+	runtime.printError(&cliError{Code: "network_error", Message: "x509: certificate signed by unknown authority"})
+	if output.String() != "Error: x509: certificate signed by unknown authority\n" {
+		t.Fatalf("dynamic error output = %q", output.String())
+	}
+
+	output.Reset()
+	runtime.printError(&cliError{Code: "network_error", Message: "Could not reach Markdawn."})
+	if output.String() != "Error: Could not reach Markdawn.\n" {
+		t.Fatalf("authored error output = %q", output.String())
+	}
+}
+
+func TestHumanErrorOutputPreservesOpaqueErrors(t *testing.T) {
+	var output strings.Builder
+	runtime := &runtimeState{cli: &CLI{}, stderr: &output}
+	runtime.printError(fmt.Errorf("read config: %w", errors.New("x509: certificate rejected")))
+	if output.String() != "Error: read config: x509: certificate rejected\n" {
+		t.Fatalf("technical error output = %q", output.String())
+	}
+
+	output.Reset()
+	runtime.printError(errors.New("x509: certificate rejected"))
+	if output.String() != "Error: x509: certificate rejected\n" {
+		t.Fatalf("dynamic technical error output = %q", output.String())
+	}
+}
+
+func TestInterruptedErrorUsesTheHumanErrorBoundary(t *testing.T) {
+	var output strings.Builder
+	runtime := &runtimeState{cli: &CLI{}, stderr: &output}
+	if code := reportRunError(runtime, context.Canceled); code != exitInterrupted {
+		t.Fatalf("exit code = %d, want %d", code, exitInterrupted)
+	}
+	if output.String() != "Error: Interrupted.\n" {
+		t.Fatalf("interrupted output = %q", output.String())
 	}
 }
 

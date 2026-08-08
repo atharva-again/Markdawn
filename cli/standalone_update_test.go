@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,43 +19,65 @@ import (
 	"testing"
 )
 
-type recordingUpdateProgress struct {
-	phaseMessages  []string
-	downloadLabels []string
-	finishCount    int
-}
-
-func (progress *recordingUpdateProgress) phase(message string) {
-	progress.phaseMessages = append(progress.phaseMessages, message)
-}
-
-func (progress *recordingUpdateProgress) download(label string, _, _ int64) {
-	progress.downloadLabels = append(progress.downloadLabels, label)
-}
-
-func (progress *recordingUpdateProgress) finish() {
-	progress.finishCount++
-}
-
 type failingProgressWriter struct{}
 
 func (failingProgressWriter) Write([]byte) (int, error) {
 	return 0, fmt.Errorf("progress output is closed")
 }
 
-func TestUpdateOutcomeJSONIncludesStatus(t *testing.T) {
+type recordingUpdateProgress struct {
+	messages    []string
+	downloads   []downloadSnapshot
+	finishCount int
+}
+
+func (progress *recordingUpdateProgress) phase(message string) {
+	progress.messages = append(progress.messages, message)
+}
+
+func (progress *recordingUpdateProgress) download(label string, received, total int64) {
+	progress.downloads = append(progress.downloads, downloadSnapshot{label: label, received: received, total: total})
+}
+
+func (progress *recordingUpdateProgress) finishDownload() { progress.finishCount++ }
+
+func TestDownloadProgressReaderSkipsEmptyReads(t *testing.T) {
+	progress := &recordingUpdateProgress{}
+	reader := &downloadProgressReader{
+		reader:   strings.NewReader("release asset"),
+		total:    int64(len("release asset")),
+		label:    "asset.tar.gz",
+		progress: progress,
+	}
+	buffer := make([]byte, 32)
+	if _, err := reader.Read(buffer); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reader.Read(buffer); err != io.EOF {
+		t.Fatalf("empty read error = %v, want EOF", err)
+	}
+	if len(progress.downloads) != 1 {
+		t.Fatalf("download updates = %d, want 1", len(progress.downloads))
+	}
+}
+
+func TestUpdateOutcomeJSONIncludesStatusAndTarget(t *testing.T) {
 	cases := []struct {
-		status    updateStatus
-		updated   bool
-		scheduled bool
+		status         updateStatus
+		version        string
+		versionPresent bool
+		target         string
+		updated        bool
+		scheduled      bool
 	}{
-		{status: updateStatusUpToDate},
-		{status: updateStatusUpdated, updated: true},
-		{status: updateStatusScheduled, scheduled: true},
+		{status: updateStatusUpToDate, version: "v1.2.3", versionPresent: true, target: "v1.2.3"},
+		{status: updateStatusUpdated, version: "v1.2.3", versionPresent: true, target: "v1.2.3", updated: true},
+		{status: updateStatusScheduled, version: "v1.2.3", versionPresent: true, target: "v1.2.3", scheduled: true},
+		{status: updateStatusUpdated, target: "latest", updated: true},
 	}
 	for _, testCase := range cases {
 		t.Run(string(testCase.status), func(t *testing.T) {
-			data, err := json.Marshal((updateOutcome{status: testCase.status}).jsonResult())
+			data, err := json.Marshal(newUpdateOutcome(testCase.status, newUpdateTarget(testCase.version)))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -73,7 +96,27 @@ func TestUpdateOutcomeJSONIncludesStatus(t *testing.T) {
 			if actualStatus != testCase.status {
 				t.Fatalf("status = %q, want %q", actualStatus, testCase.status)
 			}
-			var result updateResult
+			var actualTarget string
+			if err := json.Unmarshal(fields["target"], &actualTarget); err != nil {
+				t.Fatal(err)
+			}
+			if actualTarget != testCase.target {
+				t.Fatalf("target = %q, want %q", actualTarget, testCase.target)
+			}
+			version, present := fields["version"]
+			if present != testCase.versionPresent {
+				t.Fatalf("version field present = %t, want %t", present, testCase.versionPresent)
+			}
+			if present {
+				var actualVersion string
+				if err := json.Unmarshal(version, &actualVersion); err != nil {
+					t.Fatal(err)
+				}
+				if actualVersion != testCase.version {
+					t.Fatalf("version = %q, want %q", actualVersion, testCase.version)
+				}
+			}
+			var result updateOutcome
 			if err := json.Unmarshal(data, &result); err != nil {
 				t.Fatal(err)
 			}
@@ -84,19 +127,69 @@ func TestUpdateOutcomeJSONIncludesStatus(t *testing.T) {
 	}
 }
 
-func TestDownloadReleaseAssetWithProgressFinishesReporter(t *testing.T) {
+func TestUpdateTargetDistinguishesLatestFromPinnedVersion(t *testing.T) {
+	if got := newUpdateTarget("").label(); got != "latest" {
+		t.Fatalf("latest target = %q, want latest", got)
+	}
+	if got := newUpdateTarget("1.2.3").label(); got != "v1.2.3" {
+		t.Fatalf("pinned target = %q, want v1.2.3", got)
+	}
+}
+
+func TestUpdateOutcomeTextReportsLatestFallback(t *testing.T) {
+	target := newUpdateTarget("").label()
+	cases := []struct {
+		status updateStatus
+		want   string
+	}{
+		{updateStatusUpdated, "Markdawn updated to latest."},
+		{updateStatusScheduled, "Markdawn update to latest is scheduled and will finish after this command exits."},
+		{updateStatusUpToDate, "Markdawn is already up to date: latest."},
+	}
+	for _, testCase := range cases {
+		t.Run(string(testCase.status), func(t *testing.T) {
+			got, err := updateOutcomeText(testCase.status, target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != testCase.want {
+				t.Fatalf("outcome text = %q, want %q", got, testCase.want)
+			}
+		})
+	}
+	pinned, err := updateOutcomeText(updateStatusUpdated, newUpdateTarget("v1.2.3").label())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pinned != "Markdawn updated to v1.2.3." {
+		t.Fatalf("pinned outcome text = %q", pinned)
+	}
+}
+
+func TestDownloadReleaseAssetFollowsRedirects(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		_, _ = response.Write([]byte("release asset"))
+		if request.URL.Path == "/atharva-again/Markdawn/releases/latest/download/asset.tar.gz" {
+			http.Redirect(response, request, "/atharva-again/Markdawn/releases/download/cli/v1.2.3/asset.tar.gz", http.StatusFound)
+			return
+		}
+		if request.URL.Path == "/atharva-again/Markdawn/releases/download/cli/v1.2.3/asset.tar.gz" {
+			http.Redirect(response, request, "/objects.githubusercontent.com/github-production-release-asset/asset.tar.gz", http.StatusFound)
+			return
+		}
+		if request.URL.Path == "/objects.githubusercontent.com/github-production-release-asset/asset.tar.gz" {
+			_, _ = response.Write([]byte("release asset"))
+			return
+		}
+		http.NotFound(response, request)
 	}))
 	t.Cleanup(server.Close)
-	progress := &recordingUpdateProgress{}
-	asset, err := downloadReleaseAssetWithProgress(
+	asset, err := downloadReleaseAsset(
 		context.Background(),
 		server.Client(),
-		server.URL,
+		server.URL+"/atharva-again/Markdawn/releases/latest/download/asset.tar.gz",
 		1024,
 		"asset.tar.gz",
-		progress,
+		noOpUpdateProgress{},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -104,48 +197,40 @@ func TestDownloadReleaseAssetWithProgressFinishesReporter(t *testing.T) {
 	if string(asset) != "release asset" {
 		t.Fatalf("downloaded asset = %q", asset)
 	}
-	if len(progress.downloadLabels) == 0 || progress.downloadLabels[0] != "asset.tar.gz" {
-		t.Fatalf("download progress labels = %#v", progress.downloadLabels)
-	}
-	if progress.finishCount != 1 {
-		t.Fatalf("finish called %d times, want 1", progress.finishCount)
-	}
 }
 
-func TestDownloadReleaseAssetIgnoresProgressWriteErrors(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		_, _ = response.Write([]byte("release asset"))
-	}))
-	t.Cleanup(server.Close)
+func TestUpdateProgressRendererIgnoresWriteErrors(t *testing.T) {
 	progress := &updateProgressRenderer{writer: failingProgressWriter{}, marker: "==>"}
-	asset, err := downloadReleaseAssetWithProgress(
-		context.Background(),
-		server.Client(),
-		server.URL,
-		1024,
-		"asset.tar.gz",
-		progress,
-	)
-	if err != nil {
-		t.Fatalf("download failed because progress output failed: %v", err)
-	}
-	if string(asset) != "release asset" {
-		t.Fatalf("downloaded asset = %q", asset)
-	}
+	progress.phase("Downloading release...")
 }
 
-func TestUpdateProgressRendererRedrawsOnlyWhenPercentChanges(t *testing.T) {
+func TestUpdateProgressRendererUsesPhaseOutput(t *testing.T) {
 	output := &bytes.Buffer{}
 	renderer := &updateProgressRenderer{writer: output, marker: "==>"}
-	renderer.download("asset.tar.gz", 1, 100)
-	firstDraw := output.Len()
-	renderer.download("asset.tar.gz", 1, 100)
-	if output.Len() != firstDraw {
-		t.Fatal("progress redrew without a percentage change")
+	renderer.phase("Downloading asset.tar.gz...")
+	if output.String() != "==> Downloading asset.tar.gz...\n" {
+		t.Fatalf("progress output = %q", output.String())
 	}
-	renderer.download("asset.tar.gz", 2, 100)
-	if output.Len() <= firstDraw {
-		t.Fatal("progress did not redraw after a percentage change")
+}
+
+func TestUpdateProgressRendererShowsDownloadProgress(t *testing.T) {
+	output := &bytes.Buffer{}
+	renderer := &updateProgressRenderer{writer: output, marker: "==>"}
+	renderer.download("asset.tar.gz", 50, 100)
+	renderer.finishDownload()
+	if output.String() != "\r\033[2K==> asset.tar.gz 50% (50/100 bytes)\n" {
+		t.Fatalf("download progress output = %q", output.String())
+	}
+}
+
+func TestUpdateProgressRendererFlushesUnknownLengthDownload(t *testing.T) {
+	output := &bytes.Buffer{}
+	renderer := &updateProgressRenderer{writer: output, marker: "==>"}
+	renderer.download("asset.tar.gz", 50, 0)
+	renderer.download("asset.tar.gz", 100, 0)
+	renderer.finishDownload()
+	if output.String() != "\r\033[2K==> asset.tar.gz 50 bytes\r\033[2K==> asset.tar.gz 100 bytes\n" {
+		t.Fatalf("download progress output = %q", output.String())
 	}
 }
 
@@ -218,8 +303,16 @@ func TestUpdateStandaloneVerifiesAndReplacesBinary(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
 		case "/latest/download/checksums.txt":
-			_, _ = fmt.Fprintf(response, "%s  markdawn_%s_%s.tar.gz\n", checksum, runtime.GOOS, runtime.GOARCH)
+			http.Redirect(response, request, "/releases/download/cli/v1.2.3/checksums.txt", http.StatusFound)
 		case "/latest/download/markdawn_" + runtime.GOOS + "_" + runtime.GOARCH + ".tar.gz":
+			http.Redirect(response, request, "/releases/download/cli/v1.2.3/markdawn_"+runtime.GOOS+"_"+runtime.GOARCH+".tar.gz", http.StatusFound)
+		case "/releases/download/cli/v1.2.3/checksums.txt":
+			http.Redirect(response, request, "/objects.githubusercontent.com/github-production-release-asset/checksums.txt", http.StatusFound)
+		case "/releases/download/cli/v1.2.3/markdawn_" + runtime.GOOS + "_" + runtime.GOARCH + ".tar.gz":
+			http.Redirect(response, request, "/objects.githubusercontent.com/github-production-release-asset/markdawn_"+runtime.GOOS+"_"+runtime.GOARCH+".tar.gz", http.StatusFound)
+		case "/objects.githubusercontent.com/github-production-release-asset/checksums.txt":
+			_, _ = fmt.Fprintf(response, "%s  markdawn_%s_%s.tar.gz\n", checksum, runtime.GOOS, runtime.GOARCH)
+		case "/objects.githubusercontent.com/github-production-release-asset/markdawn_" + runtime.GOOS + "_" + runtime.GOARCH + ".tar.gz":
 			_, _ = response.Write(archive)
 		default:
 			http.NotFound(response, request)
@@ -235,15 +328,44 @@ func TestUpdateStandaloneVerifiesAndReplacesBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 	receipt := installReceipt{InstallDir: installDir, BinaryPath: binaryPath}
-	outcome, err := updateStandalone(context.Background(), receipt, "", server.Client())
+	progress := &recordingUpdateProgress{}
+	outcome, err := updateStandaloneWithProgress(context.Background(), receipt, "", server.Client(), progress)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if outcome.status == updateStatusScheduled {
+	if outcome.Status == updateStatusScheduled {
 		t.Fatal("Unix update was deferred")
 	}
-	if outcome.status != updateStatusUpdated {
+	if outcome.Status != updateStatusUpdated {
 		t.Fatal("Unix update was not applied")
+	}
+	if outcome.Version != "" || outcome.Target != "latest" {
+		t.Fatalf("latest update returned unexpected target %#v", outcome)
+	}
+	wantPhases := []string{
+		"Checking for the latest Markdawn release...",
+		"Downloading checksums.txt...",
+		"Downloaded checksums.txt.",
+		"Downloading the Markdawn update...",
+		"Downloaded the Markdawn update.",
+		"Verified the Markdawn update.",
+		"Installing the Markdawn update...",
+	}
+	if strings.Join(progress.messages, "\n") != strings.Join(wantPhases, "\n") {
+		t.Fatalf("update phases = %#v, want %#v", progress.messages, wantPhases)
+	}
+	labels := make(map[string]bool)
+	for _, download := range progress.downloads {
+		labels[download.label] = true
+		if download.received <= 0 {
+			t.Fatalf("download callback reported no bytes: %#v", download)
+		}
+	}
+	if !labels["checksums.txt"] || !labels[releaseArchiveName("")] {
+		t.Fatalf("download callbacks omitted an asset: %#v", progress.downloads)
+	}
+	if progress.finishCount != 2 {
+		t.Fatalf("download finalization count = %d, want 2", progress.finishCount)
 	}
 	contents, err := os.ReadFile(binaryPath)
 	if err != nil {
@@ -256,8 +378,49 @@ func TestUpdateStandaloneVerifiesAndReplacesBinary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if outcome.status != updateStatusUpToDate {
+	if outcome.Status != updateStatusUpToDate {
 		t.Fatalf("identical update was applied: %#v", outcome)
+	}
+}
+
+func TestUpdateStandaloneAllowsUnknownDownloadedReleaseVersion(t *testing.T) {
+	if executableName() != "markdawn" {
+		t.Skip("Unix replacement is covered by this test")
+	}
+	archive := releaseTarball(t, "./"+executableName(), []byte("new binary"))
+	checksum := fmt.Sprintf("%x", sha256.Sum256(archive))
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/latest/download/checksums.txt":
+			_, _ = fmt.Fprintf(response, "%s  %s\n", checksum, releaseArchiveName(""))
+		case "/latest/download/" + releaseArchiveName(""):
+			_, _ = response.Write(archive)
+		default:
+			http.NotFound(response, request)
+		}
+	}))
+	t.Cleanup(server.Close)
+	previousBaseURL := releaseBaseURL
+	releaseBaseURL = server.URL
+	t.Cleanup(func() { releaseBaseURL = previousBaseURL })
+	installDir := t.TempDir()
+	binaryPath := filepath.Join(installDir, executableName())
+	if err := os.WriteFile(binaryPath, []byte("old binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outcome, err := updateStandalone(context.Background(), installReceipt{InstallDir: installDir, BinaryPath: binaryPath}, "", server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Status != updateStatusUpdated || outcome.Version != "" || outcome.Target != "latest" {
+		t.Fatalf("unexpected update outcome: %#v", outcome)
+	}
+	contents, err := os.ReadFile(binaryPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(contents) != "new binary" {
+		t.Fatalf("updated binary = %q", contents)
 	}
 }
 

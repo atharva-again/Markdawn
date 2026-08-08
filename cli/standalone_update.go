@@ -29,9 +29,27 @@ var releaseBaseURL = "https://github.com/atharva-again/Markdawn/releases"
 
 func validateReleaseVersion(version string) error {
 	if version != "" && !releaseVersionPattern.MatchString(version) {
-		return usageError("version must be a semantic version such as v1.2.3")
+		return usageError("Version must be a semantic version such as v1.2.3.")
 	}
 	return nil
+}
+
+type updateTarget struct {
+	exactVersion string
+}
+
+func newUpdateTarget(version string) updateTarget {
+	if version == "" {
+		return updateTarget{}
+	}
+	return updateTarget{exactVersion: "v" + strings.TrimPrefix(version, "v")}
+}
+
+func (target updateTarget) label() string {
+	if target.exactVersion == "" {
+		return "latest"
+	}
+	return target.exactVersion
 }
 
 func releaseAssetURL(version, asset string) string {
@@ -53,7 +71,7 @@ func releaseArchiveName(version string) string {
 	return name + ".tar.gz"
 }
 
-func downloadReleaseAssetWithProgress(
+func downloadReleaseAsset(
 	ctx context.Context,
 	client *http.Client,
 	url string,
@@ -73,14 +91,14 @@ func downloadReleaseAssetWithProgress(
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return nil, fmt.Errorf("download release asset: unexpected HTTP status %s", response.Status)
 	}
-	reader := io.Reader(&downloadProgressReader{
+	reader := &downloadProgressReader{
 		reader:   response.Body,
 		total:    response.ContentLength,
 		label:    label,
 		progress: progress,
-	})
+	}
+	defer progress.finishDownload()
 	data, err := io.ReadAll(io.LimitReader(reader, limit+1))
-	progress.finish()
 	if err != nil {
 		return nil, fmt.Errorf("read release asset: %w", err)
 	}
@@ -101,7 +119,9 @@ type downloadProgressReader struct {
 func (reader *downloadProgressReader) Read(buffer []byte) (int, error) {
 	count, err := reader.reader.Read(buffer)
 	reader.received += int64(count)
-	reader.progress.download(reader.label, reader.received, reader.total)
+	if count > 0 {
+		reader.progress.download(reader.label, reader.received, reader.total)
+	}
 	return count, err
 }
 
@@ -305,7 +325,12 @@ func writeStagedBinary(source io.Reader, target string) error {
 }
 
 type updateOutcome struct {
-	status updateStatus
+	Updated   bool         `json:"updated"`
+	Scheduled bool         `json:"scheduled"`
+	Status    updateStatus `json:"status"`
+	Target    string       `json:"target"`
+	// Version is the exact requested version and is omitted for the latest channel.
+	Version string `json:"version,omitempty"`
 }
 
 type updateStatus string
@@ -316,11 +341,26 @@ const (
 	updateStatusScheduled updateStatus = "scheduled"
 )
 
-func (outcome updateOutcome) jsonResult() updateResult {
-	return updateResult{
-		Updated:   outcome.status == updateStatusUpdated,
-		Scheduled: outcome.status == updateStatusScheduled,
-		Status:    outcome.status,
+func updateOutcomeText(status updateStatus, target string) (string, error) {
+	switch status {
+	case updateStatusScheduled:
+		return fmt.Sprintf("Markdawn update to %s is scheduled and will finish after this command exits.", target), nil
+	case updateStatusUpdated:
+		return fmt.Sprintf("Markdawn updated to %s.", target), nil
+	case updateStatusUpToDate:
+		return fmt.Sprintf("Markdawn is already up to date: %s.", target), nil
+	default:
+		return "", fmt.Errorf("unknown standalone update status %q", status)
+	}
+}
+
+func newUpdateOutcome(status updateStatus, target updateTarget) updateOutcome {
+	return updateOutcome{
+		Updated:   status == updateStatusUpdated,
+		Scheduled: status == updateStatusScheduled,
+		Status:    status,
+		Target:    target.label(),
+		Version:   target.exactVersion,
 	}
 }
 
@@ -335,7 +375,6 @@ func updateStandaloneWithProgress(
 	client *http.Client,
 	progress updateProgressReporter,
 ) (updateOutcome, error) {
-	progress.phase("Checking for the latest Markdawn release...")
 	if err := checkDeferredUpdateFailure(); err != nil {
 		return updateOutcome{}, err
 	}
@@ -343,7 +382,14 @@ func updateStandaloneWithProgress(
 		return updateOutcome{}, err
 	}
 	asset := releaseArchiveName(version)
-	checksums, err := downloadReleaseAssetWithProgress(
+	target := newUpdateTarget(version)
+	if target.exactVersion == "" {
+		progress.phase("Checking for the latest Markdawn release...")
+	} else {
+		progress.phase("Checking for Markdawn " + target.exactVersion + "...")
+	}
+	progress.phase("Downloading checksums.txt...")
+	checksums, err := downloadReleaseAsset(
 		ctx,
 		client,
 		releaseAssetURL(version, "checksums.txt"),
@@ -354,12 +400,13 @@ func updateStandaloneWithProgress(
 	if err != nil {
 		return updateOutcome{}, err
 	}
+	progress.phase("Downloaded checksums.txt.")
 	expected, err := expectedReleaseChecksum(checksums, asset)
 	if err != nil {
 		return updateOutcome{}, err
 	}
-	progress.phase("Downloading and verifying the Markdawn update...")
-	archive, err := downloadReleaseAssetWithProgress(
+	progress.phase("Downloading the Markdawn update...")
+	archive, err := downloadReleaseAsset(
 		ctx,
 		client,
 		releaseAssetURL(version, asset),
@@ -370,10 +417,12 @@ func updateStandaloneWithProgress(
 	if err != nil {
 		return updateOutcome{}, err
 	}
+	progress.phase("Downloaded the Markdawn update.")
 	actual := fmt.Sprintf("%x", sha256.Sum256(archive))
 	if actual != expected {
 		return updateOutcome{}, fmt.Errorf("SHA-256 verification failed for %s", asset)
 	}
+	progress.phase("Verified the Markdawn update.")
 	staged, err := os.CreateTemp(receipt.InstallDir, ".markdawn-update-*")
 	if err != nil {
 		return updateOutcome{}, fmt.Errorf("create staged binary: %w", err)
@@ -397,7 +446,7 @@ func updateStandaloneWithProgress(
 	}
 	if identical {
 		os.Remove(stagedPath)
-		return updateOutcome{status: updateStatusUpToDate}, nil
+		return newUpdateOutcome(updateStatusUpToDate, target), nil
 	}
 	progress.phase("Installing the Markdawn update...")
 	deferred, err := replaceUpdatedBinary(receipt.BinaryPath, stagedPath)
@@ -409,9 +458,9 @@ func updateStandaloneWithProgress(
 		os.Remove(stagedPath)
 	}
 	if deferred {
-		return updateOutcome{status: updateStatusScheduled}, nil
+		return newUpdateOutcome(updateStatusScheduled, target), nil
 	}
-	return updateOutcome{status: updateStatusUpdated}, nil
+	return newUpdateOutcome(updateStatusUpdated, target), nil
 }
 
 func binariesMatch(leftPath, rightPath string) (bool, error) {

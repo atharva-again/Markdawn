@@ -185,7 +185,19 @@ func sameFilePath(left, right string) (bool, error) {
 func unmanagedInstallError() error {
 	return &cliError{
 		Code:    "unmanaged_install",
-		Message: "this Markdawn binary is not managed by the standalone installer; update it with go install github.com/atharva-again/Markdawn/cli@latest",
+		Message: "This binary was not installed by the standalone installer.",
+	}
+}
+
+func unmanagedUpdateError() error {
+	message := "Cannot update this binary because it is not managed by the standalone installer."
+	return &cliError{
+		Code:    "unmanaged_install",
+		Message: message,
+		Presentation: cliErrorPresentation{HumanParagraphs: []string{
+			"If this was installed with Go, update it with: go install github.com/atharva-again/Markdawn/cli@latest",
+			"Otherwise, reinstall it using the standalone installer.",
+		}},
 	}
 }
 
@@ -195,6 +207,9 @@ func (cmd *UpdateCmd) Run(r *runtimeState) error {
 	}
 	receipt, _, err := managedInstall()
 	if err != nil {
+		if errorCode(err) == "unmanaged_install" {
+			return unmanagedUpdateError()
+		}
 		return err
 	}
 	progress := newUpdateProgress(r)
@@ -209,29 +224,15 @@ func (cmd *UpdateCmd) Run(r *runtimeState) error {
 		if errorCode(err) == "invalid_arguments" {
 			return err
 		}
-		return &cliError{Code: "update_failed", Message: "standalone update failed", Cause: err}
+		return &cliError{Code: "update_failed", Message: "Standalone update failed", Cause: err}
 	}
 	if r.cli.JSON {
-		return r.printJSON(outcome.jsonResult())
+		return r.printJSON(outcome)
 	}
-	switch outcome.status {
-	case updateStatusScheduled:
-		_, err = fmt.Fprintln(r.stdout, "Markdawn update is scheduled and will finish after this command exits.")
-	case updateStatusUpdated:
-		_, err = fmt.Fprintln(r.stdout, "Markdawn updated successfully.")
-	case updateStatusUpToDate:
-		_, err = fmt.Fprintln(r.stdout, "Markdawn is already up to date.")
-	default:
-		return fmt.Errorf("unknown standalone update status %q", outcome.status)
-	}
+	message, err := updateOutcomeText(outcome.Status, outcome.Target)
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-type updateResult struct {
-	Updated   bool         `json:"updated"`
-	Scheduled bool         `json:"scheduled"`
-	Status    updateStatus `json:"status"`
+	_, err = fmt.Fprintln(r.stdout, message)
+	return err
 }

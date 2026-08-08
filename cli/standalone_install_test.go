@@ -9,6 +9,14 @@ import (
 	"testing"
 )
 
+func TestUnmanagedUpdateErrorKeepsCanonicalMessage(t *testing.T) {
+	err := unmanagedUpdateError()
+	want := "Cannot update this binary because it is not managed by the standalone installer."
+	if err.Error() != want {
+		t.Fatalf("unmanaged update error = %q, want %q", err.Error(), want)
+	}
+}
+
 func TestNewUpdateProgressDisablesPlainOutput(t *testing.T) {
 	output := &bytes.Buffer{}
 	runtime := &runtimeState{
@@ -18,8 +26,7 @@ func TestNewUpdateProgressDisablesPlainOutput(t *testing.T) {
 	}
 	progress := newUpdateProgress(runtime)
 	progress.phase("Checking for updates...")
-	progress.download("markdawn.tar.gz", 1, 2)
-	progress.finish()
+	progress.phase("Downloading markdawn.tar.gz...")
 	if output.Len() != 0 {
 		t.Fatalf("plain progress output = %q", output.String())
 	}
