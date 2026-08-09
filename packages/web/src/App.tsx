@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { AuthIdentityBoundary } from './components/auth/AuthIdentityBoundary';
+import { OnboardingGate } from './components/auth/OnboardingGate';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ShareablePageRoute } from './components/auth/ShareablePageRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -11,6 +12,7 @@ import Dashboard from './routes/Dashboard';
 import FolderEntry from './routes/FolderEntry';
 import Home from './routes/Home';
 import Login from './routes/Login';
+import Onboarding from './routes/Onboarding';
 import PageEntry from './routes/PageEntry';
 import Settings from './routes/Settings';
 import SharedWithMe from './routes/SharedWithMe';
@@ -26,12 +28,30 @@ function App() {
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
+                <Route
+                  path="/onboarding"
+                  element={
+                    <ProtectedRoute>
+                      <Navigate to="/onboarding/1" replace />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/onboarding/:onboardingStep"
+                  element={
+                    <ProtectedRoute>
+                      <Onboarding />
+                    </ProtectedRoute>
+                  }
+                />
 
                 <Route
                   path="/app"
                   element={
                     <ProtectedRoute>
-                      <AppShell />
+                      <OnboardingGate>
+                        <AppShell />
+                      </OnboardingGate>
                     </ProtectedRoute>
                   }
                 >
