@@ -15,6 +15,7 @@ import favoritesRoute from './routes/favorites';
 import foldersRoute, { foldersPublicRoute } from './routes/folders';
 import importRoute from './routes/import';
 import obsidianImportRoute from './routes/obsidian-import';
+import onboardingRoute from './routes/onboarding';
 import pagesRoute, { pagesPublicRoute } from './routes/pages';
 import searchRoute from './routes/search';
 import sharesRoute from './routes/shares';
@@ -112,6 +113,7 @@ export async function createApp() {
   app.route('/api/uploads', uploadsRoute);
   app.route('/api/import', importRoute);
   app.route('/api/import/obsidian', obsidianImportRoute);
+  app.route('/api/onboarding', onboardingRoute);
   app.route('/api/tags', tagsRoute);
   app.route('/api/backlinks', backlinksRoute);
   app.route('/api/bulk-removal', bulkRemovalRoute);
