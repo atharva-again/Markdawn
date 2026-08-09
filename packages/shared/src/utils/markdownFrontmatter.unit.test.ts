@@ -42,6 +42,14 @@ Body`);
     ).toEqual({ description: 'Several lines\n' });
   });
 
+  it('treats empty tag properties as having no tags', () => {
+    expect(parseMarkdownFrontmatter('---\ntags:\n---\nBody')).toEqual({
+      tags: [],
+      frontmatter: { tags: [] },
+      body: 'Body',
+    });
+  });
+
   it('preserves nested objects and arrays used by existing vaults', () => {
     const result = parseMarkdownFrontmatter(`---
 author:

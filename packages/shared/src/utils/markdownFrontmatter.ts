@@ -93,7 +93,7 @@ function parseFrontmatterMapping(source: string): Record<string, JsonValue> {
 }
 
 function readTagValues(value: unknown, key: 'tag' | 'tags', source: string): string[] {
-  if (value === undefined) return [];
+  if (value === undefined || value === null) return [];
   if (!Array.isArray(value) && typeof value !== 'string') {
     throw new UnsupportedMarkdownFrontmatterError(
       sourceLineForKey(source, key),

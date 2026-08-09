@@ -81,6 +81,28 @@ describe('obsidian import API', () => {
       expect(body.pagesCreated).toBeGreaterThanOrEqual(1);
     });
 
+    it('imports markdown with an empty tags property', async () => {
+      const app = await createTestApp();
+      const user = await createTestUser();
+      const session = await createTestSession(user.id);
+
+      const res = await app.request('/api/import/obsidian', {
+        method: 'POST',
+        headers: { Cookie: session.Cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          files: [{ path: 'untagged.md', content: '---\ntags:\n---\n\n# Untagged' }],
+        }),
+      });
+
+      expect(res.status).toBe(201);
+      expect(await res.json()).toMatchObject({ pagesCreated: 1, errors: [] });
+      const persisted = await query<{ properties: unknown }>(
+        'select properties from pages where title = $1 and created_by = $2',
+        ['untagged', user.id],
+      );
+      expect(persisted.rows[0]?.properties).toEqual({ tags: [] });
+    });
+
     it('reports an over-limit filename without creating an invalid page', async () => {
       const app = await createTestApp();
       const user = await createTestUser();
