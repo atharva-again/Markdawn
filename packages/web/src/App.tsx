@@ -1,6 +1,7 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { AuthIdentityBoundary } from './components/auth/AuthIdentityBoundary';
+import { OnboardingGate } from './components/auth/OnboardingGate';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ShareablePageRoute } from './components/auth/ShareablePageRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -11,10 +12,16 @@ import Dashboard from './routes/Dashboard';
 import FolderEntry from './routes/FolderEntry';
 import Home from './routes/Home';
 import Login from './routes/Login';
+import Onboarding from './routes/Onboarding';
 import PageEntry from './routes/PageEntry';
 import Settings from './routes/Settings';
 import SharedWithMe from './routes/SharedWithMe';
 import Trash from './routes/Trash';
+
+function OnboardingIndexRedirect() {
+  const location = useLocation();
+  return <Navigate to="/onboarding/1" replace state={location.state} />;
+}
 
 function App() {
   return (
@@ -26,40 +33,64 @@ function App() {
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
-
                 <Route
-                  path="/app"
+                  path="/onboarding"
                   element={
                     <ProtectedRoute>
-                      <AppShell />
+                      <OnboardingIndexRedirect />
                     </ProtectedRoute>
                   }
-                >
-                  <Route index element={<Dashboard />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="trash" element={<Trash />} />
-                  <Route path="shared-with-me" element={<SharedWithMe />} />
-                </Route>
+                />
+                <Route
+                  path="/onboarding/:onboardingStep"
+                  element={
+                    <ProtectedRoute>
+                      <Onboarding />
+                    </ProtectedRoute>
+                  }
+                />
 
                 <Route
-                  path="/app/:slugAndId"
                   element={
-                    <ShareablePageRoute entityType="page" loadingState={<PageLoadingState />} />
+                    <OnboardingGate>
+                      <Outlet />
+                    </OnboardingGate>
                   }
                 >
-                  <Route index element={<PageEntry />} />
-                </Route>
+                  <Route
+                    path="/app"
+                    element={
+                      <ProtectedRoute>
+                        <AppShell />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<Dashboard />} />
+                    <Route path="settings" element={<Settings />} />
+                    <Route path="trash" element={<Trash />} />
+                    <Route path="shared-with-me" element={<SharedWithMe />} />
+                  </Route>
 
-                <Route
-                  path="/app/folder/:slugAndId"
-                  element={
-                    <ShareablePageRoute
-                      entityType="folder"
-                      loadingState={<ExplorerLoadingState />}
-                    />
-                  }
-                >
-                  <Route index element={<FolderEntry />} />
+                  <Route
+                    path="/app/:slugAndId"
+                    element={
+                      <ShareablePageRoute entityType="page" loadingState={<PageLoadingState />} />
+                    }
+                  >
+                    <Route index element={<PageEntry />} />
+                  </Route>
+
+                  <Route
+                    path="/app/folder/:slugAndId"
+                    element={
+                      <ShareablePageRoute
+                        entityType="folder"
+                        loadingState={<ExplorerLoadingState />}
+                      />
+                    }
+                  >
+                    <Route index element={<FolderEntry />} />
+                  </Route>
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />

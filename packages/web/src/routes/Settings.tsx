@@ -119,11 +119,13 @@ export default function Settings() {
 
       {showImportDialog && (
         <ObsidianImportDialog
-          onClose={() => setShowImportDialog(false)}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['pageTree'] });
-            queryClient.invalidateQueries({ queryKey: ['folderTree'] });
-            queryClient.invalidateQueries({ queryKey: ['tags'] });
+          onClose={(outcome) => {
+            setShowImportDialog(false);
+            if (outcome.kind === 'imported') {
+              queryClient.invalidateQueries({ queryKey: ['pageTree'] });
+              queryClient.invalidateQueries({ queryKey: ['folderTree'] });
+              queryClient.invalidateQueries({ queryKey: ['tags'] });
+            }
           }}
         />
       )}
