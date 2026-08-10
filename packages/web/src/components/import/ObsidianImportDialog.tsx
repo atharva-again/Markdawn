@@ -19,6 +19,8 @@ interface ImportPreview {
   tags: Set<string>;
 }
 
+export type FolderImportOutcome = { kind: 'cancelled' } | { kind: 'imported' };
+
 type ImportVariant = 'markdown-folder' | 'obsidian';
 
 type ImportCopy = {
@@ -53,16 +55,11 @@ const IMPORT_COPY = {
 } satisfies Record<ImportVariant, ImportCopy>;
 
 interface ObsidianImportDialogProps {
-  onClose: () => void;
-  onSuccess: () => void;
+  onClose: (outcome: FolderImportOutcome) => void;
   variant?: ImportVariant;
 }
 
-export function ObsidianImportDialog({
-  onClose,
-  onSuccess,
-  variant = 'obsidian',
-}: ObsidianImportDialogProps) {
+export function ObsidianImportDialog({ onClose, variant = 'obsidian' }: ObsidianImportDialogProps) {
   const identityLifecycle = useIdentityLifecycle();
   const [step, setStep] = useState<'select' | 'preview' | 'uploading' | 'done' | 'error'>('select');
   const [files, setFiles] = useState<VaultFile[]>([]);
@@ -204,19 +201,20 @@ export function ObsidianImportDialog({
       if (!identityLifecycle.isActive()) return;
       setResult(data);
       setStep('done');
-      onSuccess();
     } catch (error) {
       if (!identityLifecycle.isActive()) return;
       setError(error instanceof Error ? error.message : 'Import failed');
       setStep('error');
     }
-  }, [files, identityLifecycle, onSuccess]);
+  }, [files, identityLifecycle]);
 
   return (
     <Dialog.Root
       open
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open && step !== 'uploading') {
+          onClose(step === 'done' ? { kind: 'imported' } : { kind: 'cancelled' });
+        }
       }}
     >
       <Dialog.Portal>
@@ -229,7 +227,8 @@ export function ObsidianImportDialog({
               </Dialog.Title>
               <Dialog.Description className="sr-only">{importCopy.description}</Dialog.Description>
               <Dialog.Close
-                className="cursor-pointer rounded-lg p-1 text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                disabled={step === 'uploading'}
+                className="cursor-pointer rounded-lg p-1 text-zinc-500 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-400 dark:hover:bg-zinc-800"
                 aria-label={`Close ${importCopy.title}`}
               >
                 <X size={20} />
