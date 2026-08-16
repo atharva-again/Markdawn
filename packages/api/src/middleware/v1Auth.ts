@@ -104,17 +104,27 @@ export const requireV1Auth = createMiddleware(async (c, next) => {
   return next();
 });
 
-export function requireV1Scope(scope: ApiTokenScope) {
+export function requireV1Scopes(scopes: readonly ApiTokenScope[]) {
   return createMiddleware(async (c, next) => {
     const principal = c.get('v1Principal');
-    if (principal.kind === 'token' && !principal.scopes.has(scope)) {
+    const missingScope =
+      principal.kind === 'token' ? scopes.find((scope) => !principal.scopes.has(scope)) : undefined;
+    if (missingScope) {
       return c.json(
-        { error: { code: 'insufficient_scope', message: `Token requires ${scope}` } },
+        { error: { code: 'insufficient_scope', message: `Token requires ${missingScope}` } },
         403,
       );
     }
     return next();
   });
+}
+
+export function requireV1Scope(scope: ApiTokenScope) {
+  return requireV1Scopes([scope]);
+}
+
+export function requireV1OperationScope(operation: { requiredScopes: readonly ApiTokenScope[] }) {
+  return requireV1Scopes(operation.requiredScopes);
 }
 
 export const requireV1Session = createMiddleware(async (c, next) => {

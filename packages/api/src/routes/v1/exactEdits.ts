@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { normalizeLineEndings } from '@markdawn/shared';
 import { Hono } from 'hono';
-import { requireV1Scope } from '../../middleware/v1Auth';
+import { requireV1OperationScope } from '../../middleware/v1Auth';
 import { applyPageExactEdits } from '../../utils/collaborationContentClient';
 import { parseIdempotencyKey, runIdempotentContentCommand } from './idempotency';
 import { type ExactEditsResponse, exactEditsRequestSchema, pageOperations } from './pageContracts';
@@ -15,7 +15,7 @@ const exactEditsRoute = new Hono();
 
 exactEditsRoute.post(
   pageOperations.editContent.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(pageOperations.editContent),
   v1DocumentJsonBodyLimit,
   async (c) => {
     const principal = c.get('v1Principal');

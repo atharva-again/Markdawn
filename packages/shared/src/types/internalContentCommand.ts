@@ -75,7 +75,14 @@ const exactEditsShape = {
   edits: z.array(exactEditSchema).min(1).max(MAX_EXACT_EDITS),
 };
 
-export const exactEditsRequestSchema = z.object(exactEditsShape).superRefine(validateExactEdits);
+export const exactEditsRequestSchema = z
+  .object(exactEditsShape)
+  .superRefine(validateExactEdits)
+  .meta({
+    example: {
+      edits: [{ id: 'rename-heading', oldText: '# Draft', newText: '# Notes' }],
+    },
+  });
 
 export const contentIdempotencyReservationSchema = z.object({
   recordId: z.uuid(),
@@ -90,20 +97,28 @@ export const applyExactEditsCommandSchema = z
   })
   .superRefine(validateExactEdits);
 
-export const contentBoundaryOperationSchema = z.object({
-  id: z
-    .string()
-    .max(
-      MAX_CONTENT_BOUNDARY_OPERATION_ID_LENGTH,
-      `Operation ID must be ${MAX_CONTENT_BOUNDARY_OPERATION_ID_LENGTH} characters or less`,
-    )
-    .refine((value) => value.trim().length > 0, 'Operation ID must not be empty'),
-  operation: z.enum(['append', 'prepend']),
-  content: z
-    .string()
-    .min(1, 'Content must not be empty')
-    .refine(fitsPageMarkdownSize, `Content must be ${MAX_YDOC_BYTES} bytes or less`),
-});
+export const contentBoundaryOperationSchema = z
+  .object({
+    id: z
+      .string()
+      .max(
+        MAX_CONTENT_BOUNDARY_OPERATION_ID_LENGTH,
+        `Operation ID must be ${MAX_CONTENT_BOUNDARY_OPERATION_ID_LENGTH} characters or less`,
+      )
+      .refine((value) => value.trim().length > 0, 'Operation ID must not be empty'),
+    operation: z.enum(['append', 'prepend']),
+    content: z
+      .string()
+      .min(1, 'Content must not be empty')
+      .refine(fitsPageMarkdownSize, `Content must be ${MAX_YDOC_BYTES} bytes or less`),
+  })
+  .meta({
+    example: {
+      id: 'append-summary',
+      operation: 'append',
+      content: '\n\n## Summary\n',
+    },
+  });
 
 export const applyContentBoundaryOperationCommandSchema = z.object({
   ...contentBoundaryOperationSchema.shape,

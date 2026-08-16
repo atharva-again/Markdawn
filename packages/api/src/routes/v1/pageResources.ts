@@ -8,7 +8,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { db } from '../../db/connection';
 import { query } from '../../db/query';
-import { recordTokenAuditEvent, requireV1Scope } from '../../middleware/v1Auth';
+import { recordTokenAuditEvent, requireV1OperationScope } from '../../middleware/v1Auth';
 import { enumerableFolderPathsCte } from '../../utils/enumerableFolderPaths';
 import { createPage } from '../../utils/pageCreation';
 import { notifyPageRename, updatePageMetadata } from '../../utils/pageMutation';
@@ -30,14 +30,17 @@ type PageListRow = PageRow & ResourceCursorRow;
 
 const pageResourcesRoute = new Hono();
 
-pageResourcesRoute.get(pageOperations.list.routePath, async (c) => {
-  const principal = c.get('v1Principal');
-  const cursor = decodeResourceCursor(c.req.query('cursor'));
-  const parentIdValue = c.req.query('parentId');
-  const parentId = parentIdValue === undefined ? null : requireUuid(parentIdValue, 'parentId');
-  const parsedLimit = parseResourceLimit(c.req.query('limit'));
-  const result = await query<PageListRow>(
-    sql`select ${pageMetadataSelection},
+pageResourcesRoute.get(
+  pageOperations.list.routePath,
+  requireV1OperationScope(pageOperations.list),
+  async (c) => {
+    const principal = c.get('v1Principal');
+    const cursor = decodeResourceCursor(c.req.query('cursor'));
+    const parentIdValue = c.req.query('parentId');
+    const parentId = parentIdValue === undefined ? null : requireUuid(parentIdValue, 'parentId');
+    const parsedLimit = parseResourceLimit(c.req.query('limit'));
+    const result = await query<PageListRow>(
+      sql`select ${pageMetadataSelection},
         coalesce(get_root_folder_owner(p.parent_id), p.created_by) as owner_id,
         case
           when p.parent_id in (select folder_id from get_enumerable_folder_ids(${principal.userId}))
@@ -62,19 +65,20 @@ pageResourcesRoute.get(pageOperations.list.routePath, async (c) => {
         ${cursor ? sql`and (p.updated_at, p.id) < (${cursor.updatedAt}::timestamp, ${cursor.id})` : sql``}
       order by p.updated_at desc, p.id desc
       limit ${parsedLimit + 1}`,
-  );
-  const hasMore = result.rows.length > parsedLimit;
-  const rows = result.rows.slice(0, parsedLimit);
-  const last = rows.at(-1);
-  return c.json({
-    data: rows.map(pageDto),
-    nextCursor: hasMore && last ? encodeResourceCursor(last) : null,
-  });
-});
+    );
+    const hasMore = result.rows.length > parsedLimit;
+    const rows = result.rows.slice(0, parsedLimit);
+    const last = rows.at(-1);
+    return c.json({
+      data: rows.map(pageDto),
+      nextCursor: hasMore && last ? encodeResourceCursor(last) : null,
+    });
+  },
+);
 
 pageResourcesRoute.post(
   pageOperations.create.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(pageOperations.create),
   v1DocumentJsonBodyLimit,
   async (c) => {
     const principal = c.get('v1Principal');
@@ -102,17 +106,20 @@ pageResourcesRoute.post(
   },
 );
 
-pageResourcesRoute.get(pageOperations.resolveTitle.routePath, async (c) => {
-  const principal = c.get('v1Principal');
-  const title = c.req.query('title')?.trim();
-  if (!title || getUnicodeCodePointLength(title) > MAX_PAGE_TITLE_LENGTH) {
-    throw new HTTPException(400, {
-      message: `title must be between 1 and ${MAX_PAGE_TITLE_LENGTH} characters`,
-    });
-  }
-  const result = await query<
-    PageRow & { folder_path: string }
-  >(sql`${enumerableFolderPathsCte(principal.userId)}
+pageResourcesRoute.get(
+  pageOperations.resolveTitle.routePath,
+  requireV1OperationScope(pageOperations.resolveTitle),
+  async (c) => {
+    const principal = c.get('v1Principal');
+    const title = c.req.query('title')?.trim();
+    if (!title || getUnicodeCodePointLength(title) > MAX_PAGE_TITLE_LENGTH) {
+      throw new HTTPException(400, {
+        message: `title must be between 1 and ${MAX_PAGE_TITLE_LENGTH} characters`,
+      });
+    }
+    const result = await query<
+      PageRow & { folder_path: string }
+    >(sql`${enumerableFolderPathsCte(principal.userId)}
     select ${pageMetadataSelection},
       coalesce(get_root_folder_owner(p.parent_id), p.created_by) as owner_id,
       case when paths.id is null then null else p.parent_id end as enumerable_parent_id,
@@ -126,22 +133,27 @@ pageResourcesRoute.get(pageOperations.resolveTitle.routePath, async (c) => {
       and p.id in (select page_id from get_accessible_page_ids(${principal.userId}))
       and access.permission is not null
     order by folder_path, p.id`);
-  return c.json({
-    data: result.rows.map((row) => ({ ...pageDto(row), folderPath: row.folder_path })),
-  });
-});
+    return c.json({
+      data: result.rows.map((row) => ({ ...pageDto(row), folderPath: row.folder_path })),
+    });
+  },
+);
 
-pageResourcesRoute.get(pageOperations.get.routePath, async (c) => {
-  const principal = c.get('v1Principal');
-  const pageId = requireUuid(c.req.param('id'), 'page ID');
-  const page = await getAccessiblePageById(pageId, principal.userId);
-  if (!page) throw new HTTPException(404, { message: 'Page not found' });
-  return c.json(pageDto(page));
-});
+pageResourcesRoute.get(
+  pageOperations.get.routePath,
+  requireV1OperationScope(pageOperations.get),
+  async (c) => {
+    const principal = c.get('v1Principal');
+    const pageId = requireUuid(c.req.param('id'), 'page ID');
+    const page = await getAccessiblePageById(pageId, principal.userId);
+    if (!page) throw new HTTPException(404, { message: 'Page not found' });
+    return c.json(pageDto(page));
+  },
+);
 
 pageResourcesRoute.patch(
   pageOperations.update.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(pageOperations.update),
   v1JsonBodyLimit,
   async (c) => {
     const principal = c.get('v1Principal');

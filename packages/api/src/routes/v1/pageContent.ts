@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { requireV1Scope } from '../../middleware/v1Auth';
+import { requireV1OperationScope } from '../../middleware/v1Auth';
 import { readPageMarkdown, replacePageMarkdown } from '../../utils/collaborationContentClient';
 import { pageOperations } from './pageContracts';
 import { requireUuid } from './pageModel';
@@ -9,18 +9,22 @@ import { readUtf8Request } from './requestValidation';
 
 const pageContentRoute = new Hono();
 
-pageContentRoute.get(pageOperations.readContent.routePath, async (c) => {
-  const principal = c.get('v1Principal');
-  const pageId = requireUuid(c.req.param('id'), 'page ID');
-  const content = await readPageMarkdown(pageId, principal);
-  c.header('Content-Type', 'text/markdown; charset=UTF-8');
-  c.header('ETag', content.etag);
-  return c.body(content.markdown);
-});
+pageContentRoute.get(
+  pageOperations.readContent.routePath,
+  requireV1OperationScope(pageOperations.readContent),
+  async (c) => {
+    const principal = c.get('v1Principal');
+    const pageId = requireUuid(c.req.param('id'), 'page ID');
+    const content = await readPageMarkdown(pageId, principal);
+    c.header('Content-Type', 'text/markdown; charset=UTF-8');
+    c.header('ETag', content.etag);
+    return c.body(content.markdown);
+  },
+);
 
 pageContentRoute.put(
   pageOperations.replaceContent.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(pageOperations.replaceContent),
   v1MarkdownBodyLimit,
   async (c) => {
     const principal = c.get('v1Principal');

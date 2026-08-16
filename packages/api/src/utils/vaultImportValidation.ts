@@ -96,6 +96,11 @@ export const vaultImportRequestSchema = z
         message: 'files must include a Markdown file or supported image',
       });
     }
+  })
+  .meta({
+    example: {
+      files: [{ path: 'Welcome.md', content: '# Welcome\n' }],
+    },
   });
 
 export type VaultImportFile = z.infer<typeof vaultImportFileSchema>;
