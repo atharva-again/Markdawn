@@ -22,6 +22,8 @@ e2e/.auth/
 
 # agent skills
 .pi/
+.agents/
+skills-lock.json
 
 # Playwright MCP artifacts
 .playwright-mcp/
