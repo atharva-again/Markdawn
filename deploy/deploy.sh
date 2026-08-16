@@ -52,7 +52,7 @@ if podman container exists markdawn-postgres; then
             "select exists (select 1 from information_schema.columns where table_schema = 'drizzle' and table_name = '__drizzle_migrations' and column_name = 'name')::text")
         if [ "$HAS_MIGRATION_TABLE" != "true" ] || [ "$HAS_MIGRATION_NAME_COLUMN" != "true" ]; then
             echo -e "${RED}[ERROR] This database predates the current migration baseline.${NC}"
-            echo "This release requires a clean database. Follow the legacy reset procedure in docs/deployment_guide.md."
+            echo "This release requires a clean database. Follow the reset procedure at https://docs.markdawn.space/self-hosting/maintain-a-self-hosted-markdawn/."
             exit 1
         fi
 
@@ -60,7 +60,7 @@ if podman container exists markdawn-postgres; then
             "select exists (select 1 from drizzle.__drizzle_migrations where name = '$MIGRATION_BASELINE')::text")
         if [ "$HAS_BASELINE" != "true" ]; then
             echo -e "${RED}[ERROR] This database does not contain migration baseline $MIGRATION_BASELINE.${NC}"
-            echo "This release requires a clean database. Follow the legacy reset procedure in docs/deployment_guide.md."
+            echo "This release requires a clean database. Follow the reset procedure at https://docs.markdawn.space/self-hosting/maintain-a-self-hosted-markdawn/."
             exit 1
         fi
     fi

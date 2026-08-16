@@ -9,6 +9,8 @@ dist/
 .DS_Store
 .turbo/
 *.tsbuildinfo
+.astro/
+/docs/openapi.json
 
 # sisyphus artifacts
 .sisyphus/

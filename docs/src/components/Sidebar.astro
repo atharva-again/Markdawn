@@ -1,0 +1,52 @@
+---
+import MobileMenuFooter from 'virtual:starlight/components/MobileMenuFooter';
+import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro';
+import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
+
+const { sidebar } = Astro.locals.starlightRoute;
+const currentPath = Astro.url.pathname;
+
+const sectionForPath = (): string => {
+  if (
+    currentPath === '/' ||
+    currentPath.startsWith('/getting-started/')
+  ) {
+    return 'Getting Started';
+  }
+  if (currentPath.startsWith('/agents/')) {
+    return 'Agents';
+  }
+  if (
+    currentPath.startsWith('/api-reference/')
+  ) {
+    return 'API Reference';
+  }
+  if (
+    currentPath.startsWith('/self-hosting/')
+  ) {
+    return 'Self-Hosting';
+  }
+  if (currentPath.startsWith('/comparisons')) return 'Comparisons';
+  return 'Getting Started';
+};
+
+const activeSection = sectionForPath();
+const activeGroup = sidebar.find((entry) => entry.type === 'group' && entry.label === activeSection);
+const sectionEntries = activeGroup?.type === 'group' ? activeGroup.entries : [];
+const visibleSidebar =
+  activeSection === 'API Reference'
+    ? sectionEntries.flatMap((entry) =>
+        entry.type === 'group' && entry.label === 'Endpoints' ? entry.entries : [entry],
+      )
+    : sectionEntries;
+---
+
+<div class="contextual-sidebar" data-active-section={activeSection}>
+  <SidebarPersister>
+    <SidebarSublist sublist={visibleSidebar} nested />
+  </SidebarPersister>
+</div>
+
+<div class="md:sl-hidden">
+  <MobileMenuFooter />
+</div>

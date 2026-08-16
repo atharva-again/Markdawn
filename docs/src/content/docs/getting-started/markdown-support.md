@@ -1,0 +1,81 @@
+---
+title: Markdown Support
+description: See which markdown syntax Markdawn supports and which features remain partial.
+---
+
+Markdawn uses markdown for page content, with a few product-specific extensions.
+
+## Supported Markdown
+
+| Syntax | Status | Example |
+| --- | --- | --- |
+| Headings | Supported | `## Project Notes` |
+| Bold and italic text | Supported | `**bold**` and `*italic*` |
+| Strikethrough | Supported | `~~removed text~~` |
+| Inline code | Supported | ``npm run dev`` |
+| Links | Supported | `[Markdawn](https://markdawn.space)` |
+| Images | Supported | `![Alt text](https://example.com/image.png)` |
+| Bulleted and numbered lists | Supported | `- One` and `1. One` |
+| Task lists | Supported | `- [ ] Todo` and `- [x] Done` |
+| Blockquotes | Supported | `> A quoted line` |
+| Fenced code blocks | Supported | Triple backticks with an optional language |
+| Tables | Supported | GitHub Flavored Markdown tables |
+| Horizontal rules | Supported | `---` |
+| Inline math | Supported | `$E=mc^2$` |
+| Block math | Supported | A `$$` block rendered as LaTeX math |
+| Page links | Supported | `[[Project Notes]]` |
+| Page links with labels | Supported | `[[Project Notes | Read the notes]]` |
+| Page links to headings | Supported | `[[Project Notes#Decisions]]` |
+| Inline tags | Supported | `#research` |
+
+## Page Links
+
+Use double brackets when one Markdawn page should link to another:
+
+```markdown
+[[Project Notes]]
+[[Project Notes | Read the notes]]
+[[Project Notes#Decisions]]
+```
+
+The editor suggests matching pages while you type. The double-bracket syntax is the underlying markdown form.
+
+## Callouts Are Partially Supported
+
+The editor recognizes `NOTE`, `TIP`, `WARNING`, `DANGER`, `INFO`, and `EXAMPLE` callouts:
+
+```markdown
+> [!NOTE]
+> Keep this detail in mind.
+```
+
+Support is currently partial. If you import or create a page through the API or CLI, verify how the callout renders in the browser before relying on it. GitHub callout types such as `IMPORTANT` and `CAUTION` are not currently recognized as Markdawn callout types.
+
+## Frontmatter
+
+A page can begin with YAML frontmatter for page properties and an icon:
+
+```yaml
+---
+icon: lightbulb
+tags:
+  - project
+  - planning
+status: active
+---
+```
+
+Frontmatter is metadata, not visible page content. A page title is separate metadata, so do not add a duplicate H1 just to set the page title.
+
+## Not Currently Rendered
+
+| Syntax | Current behavior |
+| --- | --- |
+| Mermaid diagrams | A fenced `mermaid` block stays a code block. |
+| Raw HTML | HTML is not a supported page layout language. |
+| Footnotes | No dedicated footnote rendering is available. |
+| `IMPORTANT` and `CAUTION` callouts | Treated as ordinary quote content. |
+| Arbitrary custom directives | No directive syntax is defined. |
+| Embedded third-party widgets | Use a normal link instead. |
+
+For portable content, prefer headings, paragraphs, lists, links, images, tables, code blocks, and ordinary blockquotes.

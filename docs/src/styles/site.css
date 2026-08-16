@@ -1,0 +1,311 @@
+@media (max-width: 40rem) {
+  .sl-markdown-content #authentication ~ .sl-openapi-section .sl-openapi-text {
+    grid-template-columns: 1fr;
+    row-gap: 0.25rem;
+  }
+
+  .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']) .sl-openapi-key {
+    display: block;
+    padding: 0.875rem 1rem;
+  }
+
+  .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']) .sl-openapi-key-name {
+    margin-bottom: 0.5rem;
+  }
+
+  .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+    .sl-openapi-schema-object-root
+    > .sl-openapi-keys
+    > .sl-openapi-key {
+    display: block;
+    padding: 0.875rem 0;
+  }
+
+  .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+    .sl-openapi-schema-object-root
+    > .sl-openapi-keys
+    > .sl-openapi-key
+    .sl-openapi-key-name {
+    margin-bottom: 0.5rem;
+  }
+
+  .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+    > .sl-heading-wrapper {
+    grid-column: 1;
+    grid-row: 1;
+    margin-top: 1.25rem;
+  }
+
+  .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+    > .sl-openapi-section-pre-panel {
+    grid-column: 1;
+    grid-row: 2;
+    margin: 0 0 0.75rem;
+  }
+
+  .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+    > .sl-openapi-section-panel {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+    .sl-openapi-schema-object-root
+    > .sl-openapi-keys
+    > .sl-openapi-key {
+    display: block;
+    padding: 0.875rem 0;
+  }
+
+  .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+    .sl-openapi-schema-object-root
+    > .sl-openapi-keys
+    > .sl-openapi-key
+    .sl-openapi-key-name {
+    margin-bottom: 0.5rem;
+  }
+
+  :is(
+      .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+      .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+    )
+    .sl-openapi-schema-object-root
+    > .sl-openapi-keys
+    > .sl-openapi-key {
+    display: block !important;
+    padding: 0.875rem 0;
+  }
+
+  :is(
+      .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+      .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+    )
+    .sl-openapi-schema-object-root
+    > .sl-openapi-keys
+    > .sl-openapi-key
+    .sl-openapi-key-name {
+    margin-bottom: 0.5rem;
+  }
+}
+
+body {
+  background: var(--color-surface);
+}
+
+.contextual-sidebar a[aria-current='page'],
+.contextual-sidebar a[aria-current='page']:hover,
+.contextual-sidebar a[aria-current='page']:focus {
+  background-color: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+}
+
+header.header {
+  backdrop-filter: blur(18px);
+  border-bottom-color: var(--color-border);
+}
+
+.hero {
+  padding-block: clamp(3rem, 7vw, 6rem) !important;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.hero h1 {
+  font-size: clamp(2.5rem, 4vw, 3.5rem);
+  letter-spacing: -0.045em;
+}
+
+.sl-markdown-content :is(h1, h2, h3) {
+  letter-spacing: -0.025em;
+}
+
+.sl-markdown-content :is(a, a:hover) {
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+.sl-markdown-content :not(pre) > code {
+  border: 1px solid var(--color-border);
+  border-radius: 0.35rem;
+  background: var(--color-surface-alt);
+  padding: 0.12em 0.34em;
+}
+
+.sl-markdown-content pre {
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.06);
+}
+
+/* Render every fenced code block as the same neutral code panel. */
+.expressive-code .frame {
+  margin: 0;
+}
+
+.expressive-code .frame pre {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--sl-text-code);
+  line-height: var(--sl-line-height);
+}
+
+.expressive-code .frame pre > code {
+  display: block;
+  font: inherit;
+  padding: 0;
+  white-space: inherit;
+}
+
+.expressive-code .ec-line {
+  display: grid;
+  grid-template-areas: 'gutter code';
+  grid-template-columns: auto 1fr;
+  position: relative;
+}
+
+.expressive-code .ec-line .gutter {
+  grid-area: gutter;
+}
+
+.expressive-code .ec-line .code {
+  grid-area: code;
+  position: relative;
+  box-sizing: content-box;
+  padding-inline-start: calc(
+    var(--ecIndent, 0ch) + var(--ec-codePadInl, 1rem) - var(--ecGtrBrdWd, 0px)
+  );
+  padding-inline-end: var(--ec-codePadInl, 1rem);
+  text-indent: calc(var(--ecIndent, 0ch) * -1);
+}
+
+.expressive-code :nth-child(1 of .ec-line) .code {
+  padding-inline-end: calc(2rem + var(--ec-codePadInl, 1rem));
+}
+
+.expressive-code .frame .copy {
+  display: flex;
+  position: absolute;
+  inset-block-start: 0.4rem;
+  inset-inline-end: 0.5rem;
+}
+
+.expressive-code .frame .copy button {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.2rem;
+  background: transparent;
+}
+
+.expressive-code .ec-line :where(span[style^='--']:not([class])) {
+  color: var(--0, inherit);
+  background-color: var(--0bg, transparent);
+  font-style: var(--0fs, inherit);
+  font-weight: var(--0fw, inherit);
+  text-decoration: var(--0td, inherit);
+}
+
+:root[data-theme='light'] .expressive-code .ec-line :where(span[style^='--']:not([class])) {
+  color: var(--1, inherit);
+  background-color: var(--1bg, transparent);
+  font-style: var(--1fs, inherit);
+  font-weight: var(--1fw, inherit);
+  text-decoration: var(--1td, inherit);
+}
+
+.expressive-code .frame {
+  --code-background: var(--color-surface-alt) !important;
+  --button-spacing: 0.4rem !important;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  box-shadow: none;
+}
+
+.expressive-code .frame .header {
+  display: none !important;
+}
+
+.expressive-code .frame pre,
+.expressive-code .frame.is-terminal pre,
+.expressive-code .frame.has-title pre {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--color-surface-alt) !important;
+}
+
+.sl-link-card {
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.sl-link-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-text-muted);
+  box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.1);
+}
+
+.pagination-links {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: none;
+  margin-inline: 0;
+}
+
+.pagination-links a {
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.pagination-links .link-title {
+  font-size: var(--sl-text-xl);
+}
+
+@media (min-width: 72rem) {
+  :root {
+    /* Keep the navigation rails balanced and let the document use the middle column. */
+    --sl-sidebar-width: 20rem;
+    --sl-content-width: 64rem;
+  }
+
+  [data-has-sidebar][data-has-toc] .main-pane {
+    --sl-content-margin-inline: 0 auto;
+  }
+
+  .right-sidebar-container {
+    flex: 0 0 var(--sl-sidebar-width);
+    width: var(--sl-sidebar-width);
+  }
+
+  .right-sidebar {
+    box-sizing: border-box;
+    width: var(--sl-sidebar-width);
+    padding-inline: 0.25rem;
+    border-inline-start: 1px solid var(--color-border);
+  }
+
+  [data-has-sidebar][data-has-toc] .main-pane {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  starlight-toc a,
+  starlight-toc span {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (min-width: 50rem) {
+  [data-has-sidebar] .sidebar-pane {
+    border-inline-end: 1px solid var(--color-border);
+  }
+}
+

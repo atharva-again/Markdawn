@@ -52,7 +52,14 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**/*", "!**/playwright-report", "!e2e/playwright"]
+    "includes": [
+      "**/*",
+      "!**/playwright-report",
+      "!e2e/playwright",
+      "!docs/openapi.json",
+      "!docs/src/**/*.astro",
+      "!docs/src/styles/**/*.css"
+    ]
   },
   "overrides": [
     {

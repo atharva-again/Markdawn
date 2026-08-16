@@ -1,0 +1,107 @@
+/* Make generated parameter lists read like compact API reference cards. */
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters'])
+  > .sl-heading-wrapper {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters'])
+  > .sl-heading-wrapper
+  .sl-openapi-heading {
+  font-size: var(--sl-text-lg);
+  font-weight: 650;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters'])
+  > .sl-openapi-section-panel {
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 0.65rem;
+  background: var(--color-surface-alt);
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']) .sl-openapi-keys {
+  display: block;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']) .sl-openapi-key {
+  display: grid;
+  grid-template-columns: minmax(8rem, 26%) minmax(0, 1fr);
+  column-gap: 1.25rem;
+  padding: 1rem 1.125rem;
+  margin: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters'])
+  .sl-openapi-key:first-child {
+  border-top: 0;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']) .sl-openapi-key-name {
+  min-width: 0;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']) .sl-openapi-key-name > strong {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.35rem;
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.8125rem;
+  line-height: 1.25;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']) .sl-openapi-key-description {
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']) .sl-openapi-type {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  margin-inline-end: 0.35rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.3rem;
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']) .sl-openapi-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']) .sl-openapi-tag {
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.3rem;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']) .sl-openapi-key-description .sl-openapi-markdown {
+  margin: 0.5rem 0 0;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']) .sl-openapi-key-description .sl-openapi-markdown p {
+  margin: 0;
+}
+

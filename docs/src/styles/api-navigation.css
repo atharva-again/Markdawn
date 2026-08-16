@@ -1,0 +1,273 @@
+/* Keep generated API method badges within the docs monochrome system. */
+:root {
+  --sl-openapi-method-bg-get: var(--api-get-bg) !important;
+  --sl-openapi-method-bg-put: var(--color-surface-elevated) !important;
+  --sl-openapi-method-bg-post: var(--api-post-bg) !important;
+  --sl-openapi-method-bg-delete: var(--api-delete-bg) !important;
+  --sl-openapi-method-bg-options: var(--color-surface-elevated) !important;
+  --sl-openapi-method-bg-head: var(--color-surface-elevated) !important;
+  --sl-openapi-method-bg-patch: var(--api-patch-bg) !important;
+  --sl-openapi-method-bg-trace: var(--color-surface-elevated) !important;
+  --sl-openapi-method-border-get: var(--api-get-border) !important;
+  --sl-openapi-method-border-put: var(--color-border) !important;
+  --sl-openapi-method-border-post: var(--api-post-border) !important;
+  --sl-openapi-method-border-delete: var(--api-delete-border) !important;
+  --sl-openapi-method-border-options: var(--color-border) !important;
+  --sl-openapi-method-border-head: var(--color-border) !important;
+  --sl-openapi-method-border-patch: var(--api-patch-border) !important;
+  --sl-openapi-method-border-trace: var(--color-border) !important;
+}
+
+.sidebar-content .sl-openapi-method-get {
+  --sl-color-text-badge: var(--api-get-text) !important;
+}
+
+.sidebar-content .sl-openapi-method-post {
+  --sl-color-text-badge: var(--api-post-text) !important;
+}
+
+.sidebar-content .sl-openapi-method-patch {
+  --sl-color-text-badge: var(--api-patch-text) !important;
+}
+
+.sidebar-content .sl-openapi-method-delete {
+  --sl-color-text-badge: var(--api-delete-text) !important;
+}
+
+.contextual-sidebar a[aria-current='page'] .sl-openapi-method-get {
+  --sl-color-bg-badge: transparent;
+  --sl-color-border-badge: var(--api-get-text);
+  color: var(--api-get-text) !important;
+}
+
+.contextual-sidebar a[aria-current='page'] .sl-openapi-method-post {
+  --sl-color-bg-badge: transparent;
+  --sl-color-border-badge: var(--api-post-text);
+  color: var(--api-post-text) !important;
+}
+
+.contextual-sidebar a[aria-current='page'] .sl-openapi-method-patch {
+  --sl-color-bg-badge: transparent;
+  --sl-color-border-badge: var(--api-patch-text);
+  color: var(--api-patch-text) !important;
+}
+
+.contextual-sidebar a[aria-current='page'] .sl-openapi-method-delete {
+  --sl-color-bg-badge: transparent;
+  --sl-color-border-badge: var(--api-delete-text);
+  color: var(--api-delete-text) !important;
+}
+
+.contextual-sidebar a:has(> .sl-openapi-method-get),
+.contextual-sidebar a:has(> .sl-openapi-method-put),
+.contextual-sidebar a:has(> .sl-openapi-method-post),
+.contextual-sidebar a:has(> .sl-openapi-method-patch),
+.contextual-sidebar a:has(> .sl-openapi-method-delete) {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.contextual-sidebar a:has(> .sl-openapi-method-get) > span:first-child,
+.contextual-sidebar a:has(> .sl-openapi-method-put) > span:first-child,
+.contextual-sidebar a:has(> .sl-openapi-method-post) > span:first-child,
+.contextual-sidebar a:has(> .sl-openapi-method-patch) > span:first-child,
+.contextual-sidebar a:has(> .sl-openapi-method-delete) > span:first-child {
+  min-width: 0;
+  margin-inline-end: 0;
+}
+
+.contextual-sidebar a:has(> .sl-openapi-method-get) > .sl-openapi-method-get,
+.contextual-sidebar a:has(> .sl-openapi-method-put) > .sl-openapi-method-put,
+.contextual-sidebar a:has(> .sl-openapi-method-post) > .sl-openapi-method-post,
+.contextual-sidebar a:has(> .sl-openapi-method-patch) > .sl-openapi-method-patch,
+.contextual-sidebar a:has(> .sl-openapi-method-delete) > .sl-openapi-method-delete {
+  order: -1;
+  flex: 0 0 auto;
+}
+
+.sl-openapi-operation-method-badge {
+  color: var(--color-text) !important;
+}
+
+.sl-openapi-operation-method-badge.get {
+  background-color: var(--api-get-bg);
+  border-color: var(--api-get-border);
+  color: var(--api-get-text) !important;
+}
+
+.sl-openapi-operation-method-badge.post {
+  background-color: var(--api-post-bg);
+  border-color: var(--api-post-border);
+  color: var(--api-post-text) !important;
+}
+
+.sl-openapi-operation-method-badge.patch {
+  background-color: var(--api-patch-bg);
+  border-color: var(--api-patch-border);
+  color: var(--api-patch-text) !important;
+}
+
+.sl-openapi-operation-method-badge.delete {
+  background-color: var(--api-delete-bg);
+  border-color: var(--api-delete-border);
+  color: var(--api-delete-text) !important;
+}
+
+/* The generated OpenAPI version card is build metadata, not API guidance. */
+.sl-openapi-overview-meta .card:has(code) {
+  display: none;
+}
+
+/* Base URLs are documented once in the API guidance instead of repeated on every endpoint. */
+.sl-openapi-operation-description-button {
+  display: none !important;
+}
+
+.sl-openapi-operation-description-header:has(.sl-openapi-operation-description-button) {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.sl-openapi-operation-description-header:has(.sl-openapi-operation-description-button):has(
+    .sl-openapi-snippet-picker
+  ) {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+}
+
+/* Match the main app's custom listbox treatment for generated code samples. */
+.sl-openapi-operation-description-header .sl-openapi-snippet-picker {
+  align-items: center;
+}
+
+.sl-openapi-operation-description-header .sl-openapi-snippet-picker select[hidden] {
+  display: none;
+}
+
+.markdawn-openapi-picker-trigger {
+  display: inline-flex;
+  min-block-size: 2rem;
+  min-inline-size: 6.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.45rem;
+  background: var(--color-surface-alt);
+  padding: 0.35rem 0.65rem;
+  color: var(--color-text);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.markdawn-openapi-picker-trigger:hover,
+.markdawn-openapi-picker-trigger[aria-expanded='true'] {
+  border-color: var(--color-text-muted);
+  background: var(--color-surface-elevated);
+}
+
+.markdawn-openapi-picker-trigger:focus-visible {
+  outline: 2px solid var(--color-text-muted);
+  outline-offset: 2px;
+}
+
+.markdawn-openapi-picker-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markdawn-openapi-picker-caret {
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: 0 0 auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-0.125rem) rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.markdawn-openapi-picker-trigger[aria-expanded='true'] .markdawn-openapi-picker-caret {
+  transform: translateY(0.125rem) rotate(225deg);
+}
+
+.markdawn-openapi-picker-menu {
+  position: fixed;
+  z-index: 9999;
+  max-width: calc(100vw - 1rem);
+  max-height: min(18rem, calc(100vh - 1rem));
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-surface-alt);
+  padding: 0.25rem;
+  box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.16);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.25rem);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.markdawn-openapi-picker-menu[hidden] {
+  display: none;
+}
+
+.markdawn-openapi-picker-menu[data-open='true'] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.markdawn-openapi-picker-option {
+  display: flex;
+  width: 100%;
+  min-block-size: 2rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  padding: 0.375rem 0.625rem;
+  color: var(--color-text-muted);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: start;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.markdawn-openapi-picker-option:hover,
+.markdawn-openapi-picker-option[data-highlighted='true'],
+.markdawn-openapi-picker-option[aria-selected='true'] {
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+}
+
+.markdawn-openapi-picker-option:focus-visible {
+  outline: 2px solid var(--color-text-muted);
+  outline-offset: -2px;
+}
+
+.markdawn-openapi-picker-option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markdawn-openapi-picker-check {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  visibility: hidden;
+}
+
+.markdawn-openapi-picker-option[aria-selected='true'] .markdawn-openapi-picker-check {
+  visibility: visible;
+}
+

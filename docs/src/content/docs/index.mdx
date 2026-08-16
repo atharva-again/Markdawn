@@ -1,0 +1,55 @@
+---
+title: Markdawn Docs
+description: Learn Markdawn, build with the API, and bring your own agents.
+template: splash
+hero:
+  tagline: A knowledge base for humans and their AI assistants.
+  actions:
+    - text: Start Here
+      link: /getting-started/
+      icon: right-arrow
+    - text: Explore the API
+      link: /api-reference/endpoints/
+      variant: minimal
+      icon: external
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Markdawn gives people and AI assistants one shared place to create, connect, and maintain knowledge.
+
+<CardGrid>
+  <LinkCard
+    title="Learn Markdawn"
+    description="Create your first page, organize your notes, and bring existing markdown with you."
+    href="/getting-started/"
+  />
+  <LinkCard
+    title="Build With The API"
+    description="Read and change pages safely through the same content layer used by the browser."
+    href="/api-reference/endpoints/"
+  />
+  <LinkCard
+    title="Work With AI Assistants"
+    description="Use the CLI and API to let assistants read, edit, and connect your pages."
+    href="/agents/"
+  />
+  <LinkCard
+    title="Run It Yourself"
+    description="Deploy Markdawn on infrastructure you control with the self-hosting guides."
+    href="/self-hosting/"
+  />
+</CardGrid>
+
+## Find Your Path
+
+| You want to... | Start with... |
+| --- | --- |
+| Get Started | [Getting Started](/getting-started/) |
+| Create your first page | [Create Your First Page](/getting-started/create-your-first-page/) |
+| Use markdown well | [Markdown Support](/getting-started/markdown-support/) |
+| Connect a script or tool | [API Reference](/api-reference/endpoints/) |
+| Give an AI assistant access | [Use Markdawn With AI Assistants](/agents/use-markdawn-with-ai-assistants/) |
+| Deploy your own instance | [Self-Hosting](/self-hosting/) |
+
+Markdawn documentation is written for people who want practical answers, not a tour of features.

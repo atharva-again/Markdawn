@@ -1,0 +1,58 @@
+/* Present generated authentication schemes as compact, readable cards. */
+.sl-markdown-content #authentication {
+  margin-bottom: 1rem;
+}
+
+.sl-markdown-content #authentication ~ .sl-openapi-section > .sl-heading-wrapper {
+  margin-top: 1.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  border-bottom: 0;
+  border-radius: 0.65rem 0.65rem 0 0;
+  background: var(--color-surface-alt);
+}
+
+.sl-markdown-content #authentication ~ .sl-openapi-section > .sl-heading-wrapper .sl-openapi-heading {
+  margin: 0;
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--sl-text-lg);
+}
+
+.sl-markdown-content #authentication ~ .sl-openapi-section .sl-openapi-section-panel {
+  border-top: 0;
+  border-radius: 0 0 0.65rem 0.65rem;
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.sl-markdown-content #authentication ~ .sl-openapi-section .sl-openapi-markdown {
+  margin: 0 0 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sl-markdown-content #authentication ~ .sl-openapi-section .sl-openapi-markdown p {
+  margin: 0;
+}
+
+.sl-markdown-content #authentication ~ .sl-openapi-section .sl-openapi-text {
+  display: grid;
+  grid-template-columns: minmax(10rem, max-content) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 1rem;
+  margin: 0.7rem 0 0;
+}
+
+.sl-markdown-content #authentication ~ .sl-openapi-section .sl-openapi-text b {
+  color: var(--color-text-muted);
+  font-size: var(--sl-text-sm);
+}
+
+.sl-markdown-content #authentication ~ .sl-openapi-section .sl-openapi-tag {
+  justify-self: start;
+  border-color: var(--color-border);
+  border-radius: 0.35rem;
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  padding: 0.2rem 0.5rem;
+}
+
