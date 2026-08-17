@@ -1,7 +1,6 @@
-import { Github, Monitor, Moon, Sun } from 'lucide-react';
+import { MARKDAWN_DOCS_URL, MARKDAWN_GITHUB_URL } from '@markdawn/shared';
+import { BookOpen, Github, Monitor, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
-
-const GITHUB_REPO = 'https://github.com/atharva-again/Markdawn';
 
 export function HeaderActions() {
   const { theme, setTheme } = useTheme();
@@ -40,7 +39,18 @@ export function HeaderActions() {
       </button>
 
       <a
-        href={GITHUB_REPO}
+        href={MARKDAWN_DOCS_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="p-1.5 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors text-zinc-600 dark:text-zinc-300 cursor-pointer"
+        title="Documentation"
+        aria-label="Documentation"
+      >
+        <BookOpen size={14} />
+      </a>
+
+      <a
+        href={MARKDAWN_GITHUB_URL}
         target="_blank"
         rel="noopener noreferrer"
         className="p-1.5 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors text-zinc-600 dark:text-zinc-300 cursor-pointer"

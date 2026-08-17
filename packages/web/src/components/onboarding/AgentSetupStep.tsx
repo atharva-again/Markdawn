@@ -1,8 +1,9 @@
+import { MARKDAWN_CLI_DOCS_URL } from '@markdawn/shared';
 import { Check, Copy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { OnboardingActionButton } from './OnboardingActionButton';
 
-export const CLI_GUIDE = 'https://github.com/atharva-again/Markdawn/blob/master/cli/README.md';
+export const CLI_GUIDE = MARKDAWN_CLI_DOCS_URL;
 const UNIX_CLI_INSTALL_COMMAND = 'curl -fsSL https://markdawn.space/install.sh | sh';
 const WINDOWS_CLI_INSTALL_COMMAND = 'irm https://markdawn.space/install.ps1 | iex';
 const AGENT_PROMPT = `Set up Markdawn for use in this agent session by following the full CLI guide:
@@ -193,7 +194,7 @@ export function AgentSetupStep({
             rel="noreferrer"
             className="inline-flex h-9 cursor-pointer items-center rounded-md border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
-            Read the CLI Guide
+            Read the Documentation
           </a>
           <OnboardingActionButton onClick={onFinish} disabled={isWorking} isWorking={isWorking}>
             Open App
