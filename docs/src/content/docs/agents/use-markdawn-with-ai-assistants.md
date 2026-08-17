@@ -1,9 +1,9 @@
 ---
-title: Use Markdawn With AI Assistants
-description: Connect terminal-based AI assistants to Markdawn with the CLI and scoped tokens.
+title: Connect AI Assistants To Markdawn
+description: Connect a terminal-based AI assistant to Markdawn with the CLI, scoped API tokens, read access, and safe exact edits.
 ---
 
-You can use Markdawn with AI assistants that can work with a terminal. The current path uses the Markdawn CLI and its optional skill.
+You can use Markdawn with an AI assistant that can work with a terminal, such as Claude Code or Codex. The current path uses the Markdawn CLI and its optional skill.
 
 ## How It Works
 
@@ -21,6 +21,8 @@ New tokens are read-only by default. Read access is enough for a tool to find pa
 
 Give a token write access only when you want the tool to create or edit pages.
 
+Read access is the right starting point for an assistant that only needs to answer questions from your pages. Add write access after you have tested the read workflow and decided which pages it should change.
+
 ## Use Targeted Changes
 
 For an edit:
@@ -37,3 +39,7 @@ Do not ask a tool to rewrite an important page from memory when a targeted edit 
 Never paste your token into a chat, commit it to a repository, or put it in a command that can be saved in shell history.
 
 See [Markdawn CLI](/agents/markdawn-cli/) for setup and the [generated API Reference](/api-reference/endpoints/) for endpoint details.
+
+## What The Assistant Can Do
+
+With read access, an assistant can list pages, view page content, inspect folders, and answer from the information it can access. With write access, it can create pages or apply targeted changes. It cannot bypass the permissions attached to the token or pages.

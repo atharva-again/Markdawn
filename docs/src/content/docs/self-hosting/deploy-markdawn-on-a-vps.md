@@ -1,9 +1,11 @@
 ---
-title: Deploy Markdawn on a VPS
-description: Deploy Markdawn on a Fedora VPS with Caddy, rootless Podman, and PostgreSQL.
+title: Deploy Markdawn On A Fedora VPS
+description: Deploy Markdawn on a Fedora VPS with Caddy, rootless Podman, PostgreSQL, OAuth, persistent storage, and database migrations.
 ---
 
 This guide documents the maintained deployment path for one Fedora VPS with Caddy, rootless Podman, and PostgreSQL.
+
+Follow this guide when you want a documented first installation. It assumes you can manage DNS, open firewall ports, edit environment values, and use `sudo` on the server.
 
 ## Prerequisites
 
@@ -102,6 +104,8 @@ curl https://your-domain.example/api/health
 
 A healthy service returns a JSON response with `status` set to `ok`. Then open the domain and sign in.
 
+After signing in, verify one page can be created and edited in the browser. If you use collaborative editing, open a second browser session and confirm that changes appear in both sessions.
+
 ## If Setup Fails
 
 ```bash
@@ -109,3 +113,5 @@ journalctl --user -u markdawn-postgres.service --no-pager
 journalctl --user -u markdawn-api.service --no-pager
 journalctl --user -u markdawn-collab.service --no-pager
 ```
+
+For later updates and migration safety, see [Maintain a Self-Hosted Markdawn](/self-hosting/maintain-a-self-hosted-markdawn/). To move the installation, see [Move a Markdawn Deployment](/self-hosting/move-a-markdawn-deployment/).

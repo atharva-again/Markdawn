@@ -1,9 +1,11 @@
 ---
-title: Maintain a Self-Hosted Markdawn
-description: Check services, update Markdawn, and recover from common deployment failures.
+title: Maintain A Self-Hosted Markdawn
+description: Check Markdawn services, update a self-hosted installation, protect migration history, and recover from common deployment failures.
 ---
 
 Use this guide after the first deployment to check services, update the application, and recover from common failures.
+
+Keep a recent database backup and an accessible copy of your environment file before updates. Do not put the environment file or API tokens in a repository.
 
 ## Check Service Status
 
@@ -84,3 +86,5 @@ Confirm that `VITE_API_URL` was set before building the web package. Caddy must 
 ## Migration Safety
 
 Do not use `db:push` on a migrated database. Use the checked-in schema migrations and run `db:migrate` through the deployment workflow.
+
+For a server move, follow [Move a Markdawn Deployment](/self-hosting/move-a-markdawn-deployment/). For a first installation, return to [Deploy Markdawn on a Fedora VPS](/self-hosting/deploy-markdawn-on-a-vps/).

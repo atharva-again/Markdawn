@@ -15,6 +15,14 @@ interface ApiOperation {
   tags: string[];
 }
 
+export interface ApiReferencePageMetadata {
+  description: string;
+  kind: 'overview' | 'tag' | 'operation';
+  method?: string;
+  path?: string;
+  title: string;
+}
+
 const API_BASE_SLUG = 'api-reference/endpoints';
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'];
 const document = openapiDocument as unknown as JsonObject;
@@ -150,7 +158,7 @@ function renderParameters(parameters: unknown): string[] {
     const requirement = item.required === true ? 'required' : 'optional';
     const description = asString(item.description);
     lines.push(
-      `- \`${name}\` (${location}, ${requirement})${description ? ` — ${description}` : ''}`,
+      `- \`${name}\` (${location}, ${requirement})${description ? `: ${description}` : ''}`,
     );
   }
   return lines.length > 2 ? lines : [];
@@ -375,6 +383,63 @@ function getOperations(): ApiOperation[] {
   return operations;
 }
 
+const apiOperations = getOperations();
+
+function metaDescription(value: string, fallback: string): string {
+  const description = value.replace(/\s+/g, ' ').trim() || fallback;
+  if (description.length <= 155) return description;
+  const cutoff = description.slice(0, 152).lastIndexOf(' ');
+  return `${description.slice(0, cutoff > 0 ? cutoff : 152)}...`;
+}
+
+export function getApiReferencePageMetadata(
+  pathname: string,
+): ApiReferencePageMetadata | undefined {
+  const sluggedPathname = normalizePathname(pathname);
+  if (sluggedPathname === API_BASE_SLUG) {
+    return {
+      kind: 'overview',
+      title: 'Markdawn API Reference | Markdawn Docs',
+      description: metaDescription(
+        asString(asObject(document.info)?.description) ?? '',
+        'Read and change Markdawn pages, folders, and markdown through the API.',
+      ),
+    };
+  }
+
+  const tag = (Array.isArray(document.tags) ? document.tags : []).map(asObject).find((item) => {
+    const tagSlug = asString(item?.['x-markdawn-docs-slug']);
+    return tagSlug && `${API_BASE_SLUG}/operations/tags/${tagSlug}` === sluggedPathname;
+  });
+  if (tag) {
+    const tagName = asString(tag.name) ?? 'API';
+    return {
+      kind: 'tag',
+      title: `${tagName} API Reference | Markdawn Docs`,
+      description: metaDescription(
+        `${tagName} endpoints in the Markdawn API. ${asString(tag.description) ?? ''}`,
+        `Use the ${tagName} endpoints in the Markdawn API.`,
+      ),
+    };
+  }
+
+  const operation = apiOperations.find((item) => item.routeSlug === sluggedPathname);
+  if (!operation) return undefined;
+
+  const title =
+    asString(operation.data.summary) ?? `${operation.method.toUpperCase()} ${operation.path}`;
+  return {
+    kind: 'operation',
+    title: `${title} API | Markdawn Docs`,
+    description: metaDescription(
+      `${operation.method.toUpperCase()} ${operation.path}. ${asString(operation.data.description) ?? ''}`,
+      `Use the Markdawn API to ${title.toLowerCase()}.`,
+    ),
+    method: operation.method.toUpperCase(),
+    path: operation.path,
+  };
+}
+
 function renderOperation(operation: ApiOperation): string {
   const title =
     asString(operation.data.summary) ?? `${operation.method.toUpperCase()} ${operation.path}`;
@@ -398,6 +463,17 @@ function renderOverview(): string {
   lines.push(
     'The API is available at `https://markdawn.space/api/v1` and supports bearer tokens and browser sessions.',
     '',
+    '## Quick Start',
+    '',
+    'Create a named API token in Markdawn Settings, store it in `MARKDAWN_TOKEN`, and send it as a bearer token:',
+    '',
+    '```bash',
+    'curl https://markdawn.space/api/v1/pages \\',
+    '  -H "Authorization: Bearer $MARKDAWN_TOKEN"',
+    '```',
+    '',
+    'Use the [Markdawn CLI](/agents/markdawn-cli/) when you want a terminal workflow instead of making HTTP requests directly.',
+    '',
     '## Endpoint Groups',
     '',
   );
@@ -408,7 +484,7 @@ function renderOverview(): string {
     const name = asString(item?.name);
     if (!name) continue;
     const descriptionText = asString(item?.description);
-    lines.push(`- **${name}**${descriptionText ? ` — ${descriptionText}` : ''}`);
+    lines.push(`- **${name}**${descriptionText ? `: ${descriptionText}` : ''}`);
   }
   return `${lines.join('\n').trim()}\n`;
 }
@@ -423,13 +499,13 @@ function renderTag(tagName: string, operations: ApiOperation[]): string {
   lines.push('## Endpoints', '');
   for (const operation of operations) {
     const title = asString(operation.data.summary) ?? operation.method.toUpperCase();
-    lines.push(`- \`${operation.method.toUpperCase()} ${operation.path}\` — ${title}`);
+    lines.push(`- \`${operation.method.toUpperCase()} ${operation.path}\`: ${title}`);
   }
   return `${lines.join('\n').trim()}\n`;
 }
 
 function createEntries(): ApiReferenceMarkdownEntry[] {
-  const operations = getOperations();
+  const operations = apiOperations;
   const entries: ApiReferenceMarkdownEntry[] = [{ slug: API_BASE_SLUG, body: renderOverview() }];
 
   const tags = Array.isArray(document.tags) ? document.tags : [];

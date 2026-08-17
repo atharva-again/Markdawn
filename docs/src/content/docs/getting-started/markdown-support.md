@@ -1,9 +1,9 @@
 ---
-title: Markdown Support
-description: See which markdown syntax Markdawn supports and which features remain partial.
+title: Markdown Support In Markdawn
+description: See which markdown syntax Markdawn supports, how page links and frontmatter work, and which features remain partial.
 ---
 
-Markdawn uses markdown for page content, with a few product-specific extensions.
+Markdawn uses markdown for page content, with a few product-specific extensions. The same authored markdown can be read through the browser, CLI, and API.
 
 ## Supported Markdown
 
@@ -39,6 +39,8 @@ Use double brackets when one Markdawn page should link to another:
 ```
 
 The editor suggests matching pages while you type. The double-bracket syntax is the underlying markdown form.
+
+Use page links when a page refers to information that already exists elsewhere. This keeps the source page shorter and gives readers a path to the related context.
 
 ## Callouts Are Partially Supported
 
@@ -79,3 +81,9 @@ Frontmatter is metadata, not visible page content. A page title is separate meta
 | Embedded third-party widgets | Use a normal link instead. |
 
 For portable content, prefer headings, paragraphs, lists, links, images, tables, code blocks, and ordinary blockquotes.
+
+## Related Guides
+
+- [Create A Page In Markdawn](/getting-started/create-your-first-page/) shows page titles and page links in a first page.
+- [Bring Your Notes to Markdawn](/getting-started/bring-your-notes/) explains what to check after an import.
+- [Markdawn CLI](/agents/markdawn-cli/) shows how to import and export markdown from a terminal.

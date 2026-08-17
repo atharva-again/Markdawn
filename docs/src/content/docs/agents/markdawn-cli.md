@@ -1,11 +1,15 @@
 ---
-title: Markdawn CLI
-description: Use Markdawn from a terminal and give compatible AI tools a safe way to work with pages.
+title: 'Markdawn CLI: Install And Manage Pages'
+description: Install the Markdawn CLI, sign in with a scoped token, read and edit pages, import and export markdown, and connect AI assistants.
 ---
 
-The Markdawn CLI lets you use Markdawn from a terminal. The browser and CLI use the same content layer.
+The Markdawn CLI lets you use Markdawn from a terminal. The browser and CLI use the same content layer, so a page created or edited by the CLI appears in the browser.
 
-## Install
+## Before You Begin
+
+You need a Markdawn account and a named API token from **Markdawn Settings → API tokens**. The token is shown only when it is created. Keep it private.
+
+## Install The CLI
 
 On Linux and macOS:
 
@@ -27,7 +31,9 @@ Check the installation:
 markdawn --version
 ```
 
-## Sign In
+You should see the installed CLI version. If the command is not found, open a new terminal or reload the profile that the installer changed.
+
+## Sign In To Markdawn
 
 Create a named token in **Markdawn Settings → API tokens**, then run:
 
@@ -91,3 +97,15 @@ Install the Markdawn skill for tools that support Agent Skills:
 ```sh
 markdawn skill install
 ```
+
+The skill gives supported tools instructions for safe page discovery and exact edits. It does not create a separate copy of your pages.
+
+## Keep Tokens Safe
+
+Do not paste a token into a chat, commit it to a repository, or put it directly in a command that could be saved in shell history. For non-interactive use, set `MARKDAWN_TOKEN` and, for a self-hosted server, `MARKDAWN_URL` in the environment.
+
+## Related Guides
+
+- [Connect AI Assistants To Markdawn](/agents/use-markdawn-with-ai-assistants/) explains read and write access.
+- [Markdown Support In Markdawn](/getting-started/markdown-support/) lists supported content syntax.
+- [API Reference](/api-reference/endpoints/) documents the direct HTTP interface.

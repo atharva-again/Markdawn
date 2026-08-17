@@ -1,6 +1,6 @@
 ---
-title: Organize Pages and Folders
-description: Build a useful Markdawn structure without over-organizing your knowledge base.
+title: Organize Markdawn Pages And Folders
+description: Organize Markdawn pages with clear titles, folders, and page links without building a filing system you will not maintain.
 ---
 
 You do not need a complicated filing system to use Markdawn. Start with clear page titles, then add folders when you have a group of related pages.
@@ -43,3 +43,9 @@ Use page links when one page refers to another. Links are useful even when the p
 ## Find A Page Again
 
 Use the page list or search to return to a page. Clear titles make search more useful than trying to remember exactly where you filed something.
+
+## A Simple Structure That Scales
+
+Start with a few pages at the top level. When a project has enough pages to repeat a pattern, create a folder for that project and move only the related pages into it. Keep cross-project context connected with page links.
+
+For a first page, see [Create A Page In Markdawn](/getting-started/create-your-first-page/). If you are bringing in an existing folder, see [Import Markdown And Obsidian Notes Into Markdawn](/getting-started/bring-your-notes/).

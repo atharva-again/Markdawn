@@ -106,15 +106,23 @@ export default defineConfig({
         {
           label: 'Comparisons',
           items: [
-            { label: 'Comparison Pages', link: '/comparisons/' },
-            {
-              label: 'All Comparisons',
-              items: [{ autogenerate: { directory: 'comparisons' } }],
-            },
+            { label: 'Apple Notes', link: '/comparisons/markdawn-vs-apple-notes/' },
+            { label: 'Coda / Superhuman Docs', link: '/comparisons/markdawn-vs-coda/' },
+            { label: 'Confluence', link: '/comparisons/markdawn-vs-confluence/' },
+            { label: 'Craft', link: '/comparisons/markdawn-vs-craft/' },
+            { label: 'Evernote', link: '/comparisons/markdawn-vs-evernote/' },
+            { label: 'GitBook', link: '/comparisons/markdawn-vs-gitbook/' },
+            { label: 'Google Docs', link: '/comparisons/markdawn-vs-google-docs/' },
+            { label: 'Notion', link: '/comparisons/markdawn-vs-notion/' },
+            { label: 'Obsidian', link: '/comparisons/markdawn-vs-obsidian/' },
+            { label: 'OneNote', link: '/comparisons/markdawn-vs-onenote/' },
+            { label: 'Outline', link: '/comparisons/markdawn-vs-outline/' },
+            { label: 'Slite', link: '/comparisons/markdawn-vs-slite/' },
           ],
         },
       ],
       components: {
+        Head: './src/components/Head.astro',
         Header: './src/components/Header.astro',
         Sidebar: './src/components/Sidebar.astro',
         PageSidebar: './src/components/PageSidebar.astro',

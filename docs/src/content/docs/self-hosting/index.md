@@ -1,9 +1,9 @@
 ---
-title: Self-Hosting
-description: Run Markdawn on infrastructure you control.
+title: Self-Host Markdawn
+description: Run Markdawn on infrastructure you control with the maintained Fedora, Caddy, rootless Podman, and PostgreSQL deployment path.
 ---
 
-Run Markdawn on infrastructure you control.
+Self-hosting runs Markdawn on infrastructure you control instead of using the hosted service. The maintained path uses one Fedora VPS, Caddy, rootless Podman containers, and PostgreSQL.
 
 The documented deployment path uses one Fedora VPS with Caddy, rootless Podman containers, and self-hosted PostgreSQL. This is the path covered by the included setup and deployment scripts.
 
@@ -35,3 +35,11 @@ Use the checked-in database migrations. Do not use `db:push` on a database that 
 Use the documented Fedora and Podman path when you want the shortest route from a clean server to a working installation.
 
 Use Ubuntu, Docker Compose, or another container runtime when you are comfortable translating the service definitions and maintaining the result yourself. Keep the same application boundaries, environment variables, persistent volumes, database migrations, health checks, OAuth callback paths, and collaboration WebSocket routing.
+
+## Before You Choose This Path
+
+Self-hosting means you are responsible for DNS, TLS, backups, updates, database migrations, secrets, storage, and service health. Use the maintained Fedora path when you want the documented setup. Adapt the deployment only when you are prepared to verify the equivalent services yourself.
+
+## Next Steps
+
+Start with [Deploy Markdawn on a VPS](/self-hosting/deploy-markdawn-on-a-vps/), then keep [Maintain a Self-Hosted Markdawn](/self-hosting/maintain-a-self-hosted-markdawn/) available for updates and recovery.

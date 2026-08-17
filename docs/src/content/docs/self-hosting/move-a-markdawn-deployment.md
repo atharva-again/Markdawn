@@ -1,9 +1,11 @@
 ---
-title: Move a Markdawn Deployment
-description: Move a compatible Markdawn installation and its persistent data to another server.
+title: Move A Self-Hosted Markdawn Deployment
+description: Move a self-hosted Markdawn installation, PostgreSQL data, uploads, environment values, and DNS to another compatible server.
 ---
 
 Use this runbook to move a compatible Markdawn installation from one Linux server to another.
+
+The goal is a new server with the same application services and persistent data. Keep the old server stopped until you have verified the new deployment.
 
 The documented commands assume Fedora, rootless Podman, external DNS, and administrative access on both servers. If the source or destination uses Ubuntu, Docker Compose, or another container runtime, adapt the service and volume commands while preserving the same application services and persistent data.
 
@@ -61,3 +63,5 @@ curl http://localhost:3001/api/health
 4. Keep the old server stopped until the new server is confirmed healthy.
 
 Keep the old server and both snapshots available until you have verified pages, uploads, login, sharing, and editing.
+
+For routine updates instead of a server move, use [Maintain a Self-Hosted Markdawn](/self-hosting/maintain-a-self-hosted-markdawn/).

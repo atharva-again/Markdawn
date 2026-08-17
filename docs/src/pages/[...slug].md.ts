@@ -28,6 +28,7 @@ export const GET: APIRoute = ({ props }) => {
   return new Response(body, {
     headers: {
       'Content-Type': 'text/markdown; charset=utf-8',
+      'X-Robots-Tag': 'noindex',
     },
   });
 };

@@ -1,9 +1,11 @@
 ---
-title: Comparisons
-description: Honest comparisons between Markdawn and tools used for notes, documents, and team knowledge.
+title: Markdawn Comparisons And Alternatives
+description: Compare Markdawn with Notion, Obsidian, GitBook, Outline, Confluence, and other tools for notes, documents, team knowledge, and self-hosting.
+sidebar:
+  hidden: true
 ---
 
-These pages compare Markdawn with established tools that people use for notes, team knowledge, documentation, and project information.
+These pages compare Markdawn with tools people use for notes, team knowledge, documentation, and project information. Use them to decide whether Markdawn fits your content model, collaboration needs, tool access, and hosting requirements.
 
 The goal is not to declare one universal winner. The right choice depends on how your team writes, collaborates, stores information, and uses AI tools.
 
@@ -12,7 +14,7 @@ The goal is not to declare one universal winner. The right choice depends on how
 | Product | Comparison |
 | --- | --- |
 | Apple Notes | [Markdawn vs Apple Notes](/comparisons/markdawn-vs-apple-notes/) |
-| Coda | [Markdawn vs Coda](/comparisons/markdawn-vs-coda/) |
+| Superhuman Docs (formerly Coda) | [Markdawn vs Coda (Superhuman Docs)](/comparisons/markdawn-vs-coda/) |
 | Confluence | [Markdawn vs Confluence](/comparisons/markdawn-vs-confluence/) |
 | Craft | [Markdawn vs Craft](/comparisons/markdawn-vs-craft/) |
 | Evernote | [Markdawn vs Evernote](/comparisons/markdawn-vs-evernote/) |
@@ -24,7 +26,14 @@ The goal is not to declare one universal winner. The right choice depends on how
 | Outline | [Markdawn vs Outline](/comparisons/markdawn-vs-outline/) |
 | Slite | [Markdawn vs Slite](/comparisons/markdawn-vs-slite/) |
 
-Start with the product you are considering, then use the sections that match your workflow. Product capabilities and pricing change, so verify important claims on the competitor's current documentation and pricing pages.
+Start with the product you are considering, then use the sections that match your workflow. Product capabilities and pricing change, so verify important claims on the competitor's current documentation and pricing pages before switching.
+
+## How To Use These Comparisons
+
+1. Choose the page for the product you use or are evaluating.
+2. Read the decision table to identify the largest workflow difference.
+3. Test a representative project, including links, images, permissions, and exports.
+4. Read the related Markdawn guides before deciding that a feature is missing.
 
 ## Our Standard
 
