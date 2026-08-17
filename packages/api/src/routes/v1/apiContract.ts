@@ -33,10 +33,14 @@ export type V1OperationContract = {
 function documentationSlug(value: string): string {
   return value
     .normalize('NFKD')
+    .replace(/\{([^}]+)\}/g, '$1')
+    .replace(/([a-z\d])([A-Z])/g, '$1-$2')
     .toLowerCase()
-    .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
+    .replace(/[^\p{Letter}\p{Number}\s-]/gu, '-')
     .trim()
-    .replace(/\s+/g, '-');
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 function contentDocument(
@@ -87,8 +91,9 @@ export function buildOpenApiPaths(
     const routeSlug =
       pathCounts.get(contract.openApiPath) === 1
         ? pathSlug
-        : `${pathSlug}/${documentationSlug(contract.method)}`;
+        : `${pathSlug}-${documentationSlug(contract.method)}`;
     const operation = {
+      operationId: routeSlug,
       summary: contract.summary,
       ...(contract.description ? { description: contract.description } : {}),
       ...(contract.tags ? { tags: contract.tags } : {}),

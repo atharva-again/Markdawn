@@ -97,9 +97,14 @@ describe('v1 OpenAPI lifecycle contract', () => {
       'x-required-scopes': string[];
       responses: Record<string, { description: string }>;
     };
-    expect(listPages['x-markdawn-docs-slug']).toBe('pages/get');
+    expect(listPages['x-markdawn-docs-slug']).toBe('pages-get');
     expect(listPages['x-required-scopes']).toEqual(['pages:read']);
     expect(listPages.responses['403']?.description).toContain('pages:read');
+
+    const pageMetadata = paths['/pages/{pageId}']?.get as {
+      'x-markdawn-docs-slug': string;
+    };
+    expect(pageMetadata['x-markdawn-docs-slug']).toBe('pages-page-id-get');
 
     const listTokens = paths['/tokens']?.get as {
       'x-required-scopes': string[];
