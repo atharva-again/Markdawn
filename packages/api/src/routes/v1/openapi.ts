@@ -11,12 +11,17 @@ const pageResponseJsonSchema = z.toJSONSchema(pageResponseSchema);
 
 const errorSchema = {
   type: 'object',
+  description: 'Structured error returned when the request cannot be completed.',
   required: ['error'],
   properties: {
     error: {
       type: 'object',
+      description: 'Error details for programmatic handling.',
       required: ['code', 'message'],
-      properties: { code: { type: 'string' }, message: { type: 'string' } },
+      properties: {
+        code: { type: 'string', description: 'Stable error code.' },
+        message: { type: 'string', description: 'Human-readable explanation.' },
+      },
     },
   },
 };
@@ -26,13 +31,59 @@ export const openApiV1 = {
   info: {
     title: 'Markdawn API',
     version: '1.0.0',
-    description: 'Client-neutral API for Markdawn pages and collaborative Markdown editing.',
+    description:
+      'Read and change pages, folders, and markdown content through the same content layer used by Markdawn.',
   },
-  servers: [{ url: '/api/v1' }],
+  tags: [
+    {
+      name: 'Identity',
+      description: 'Read the authenticated user and authentication context.',
+      'x-markdawn-docs-slug': 'identity',
+    },
+    {
+      name: 'Pages',
+      description: 'List, create, and update pages, including their markdown content.',
+      'x-markdawn-docs-slug': 'pages',
+    },
+    {
+      name: 'Folders',
+      description: 'List, create, and update folders.',
+      'x-markdawn-docs-slug': 'folders',
+    },
+    {
+      name: 'Lifecycle',
+      description: 'Copy, move, trash, restore, and permanently delete pages and folders.',
+      'x-markdawn-docs-slug': 'lifecycle',
+    },
+    {
+      name: 'Imports and Exports',
+      description: 'Import markdown and Obsidian content, or export pages and accessible content.',
+      'x-markdawn-docs-slug': 'imports-and-exports',
+    },
+    {
+      name: 'API Tokens',
+      description: 'Create, list, and revoke API tokens with a browser session.',
+      'x-markdawn-docs-slug': 'api-tokens',
+    },
+  ],
+  servers: [
+    { url: 'https://markdawn.space/api/v1', description: 'Hosted Markdawn API' },
+    { url: '/api/v1', description: 'Relative to the current Markdawn server.' },
+  ],
   components: {
     securitySchemes: {
-      bearerToken: { type: 'http', scheme: 'bearer', bearerFormat: 'Markdawn API token' },
-      browserSession: { type: 'apiKey', in: 'cookie', name: 'better-auth.session_token' },
+      bearerToken: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'Markdawn API token',
+        description: 'Send a named API token in the Authorization header.',
+      },
+      browserSession: {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'better-auth.session_token',
+        description: 'Use the Better Auth session cookie from a signed-in browser session.',
+      },
     },
     schemas: { Error: errorSchema, Page: pageResponseJsonSchema },
   },

@@ -11,10 +11,14 @@ export const getMeOperation = {
   method: 'get',
   routePath: '/',
   openApiPath: '/me',
-  summary: 'Get the authenticated user',
+  summary: 'Get The Current User',
+  description:
+    "Returns the authenticated user's profile and how the request was authenticated. Token-authenticated responses include the token's scopes; session-authenticated responses set `scopes` to `null`.",
+  tags: ['Identity'],
+  requiredScopes: [],
   responses: {
     '200': {
-      description: 'Authenticated user',
+      description: 'Current user and authentication context.',
       content: jsonContent(
         z.object({
           id: z.uuid(),
@@ -26,7 +30,7 @@ export const getMeOperation = {
         }),
       ),
     },
-    '401': { description: 'Unauthorized' },
+    '401': { description: 'Authentication failed or was not provided.' },
   },
 } as const satisfies V1OperationContract;
 

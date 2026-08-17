@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { normalizeLineEndings } from '@markdawn/shared';
 import { Hono } from 'hono';
-import { requireV1Scope } from '../../middleware/v1Auth';
+import { requireV1OperationScope } from '../../middleware/v1Auth';
 import { applyPageContentBoundaryOperation } from '../../utils/collaborationContentClient';
 import { parseIdempotencyKey, runIdempotentContentCommand } from './idempotency';
 import { contentBoundaryOperationSchema, pageOperations } from './pageContracts';
@@ -13,7 +13,7 @@ const contentBoundaryOperationsRoute = new Hono();
 
 contentBoundaryOperationsRoute.post(
   pageOperations.boundaryContentOperation.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(pageOperations.boundaryContentOperation),
   v1DocumentJsonBodyLimit,
   async (c) => {
     const principal = c.get('v1Principal');

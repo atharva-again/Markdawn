@@ -1,0 +1,26 @@
+{
+  "name": "@markdawn/docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate:openapi": "NODE_OPTIONS=--conditions=development tsx scripts/generate-openapi.mjs",
+    "predev": "pnpm generate:openapi",
+    "prebuild": "pnpm generate:openapi",
+    "precheck": "pnpm generate:openapi",
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "build:preview": "pnpm build && pnpm preview",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.41.7",
+    "astro": "^7.2.2",
+    "starlight-openapi": "^0.26.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

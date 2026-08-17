@@ -18,12 +18,19 @@ const uuid = z
   .string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Invalid parentId');
 
-export const createPageRequestSchema = z.object({
-  title: z.string({ error: 'title must be a string' }).optional(),
-  parentId: uuid.nullable().optional(),
-  icon: z.string({ error: 'icon must be a string' }).nullable().optional(),
-  markdown: z.string({ error: 'markdown must be a string' }).optional(),
-});
+export const createPageRequestSchema = z
+  .object({
+    title: z.string({ error: 'title must be a string' }).optional(),
+    parentId: uuid.nullable().optional(),
+    icon: z.string({ error: 'icon must be a string' }).nullable().optional(),
+    markdown: z.string({ error: 'markdown must be a string' }).optional(),
+  })
+  .meta({
+    example: {
+      title: 'Project notes',
+      markdown: '# Project notes\n\nStart writing here.',
+    },
+  });
 
 export const updatePageRequestSchema = z
   .object({
@@ -32,7 +39,8 @@ export const updatePageRequestSchema = z
   })
   .refine((request) => request.title !== undefined || request.icon !== undefined, {
     message: 'No supported fields were provided',
-  });
+  })
+  .meta({ example: { title: 'Updated project notes' } });
 
 export { exactEditsRequestSchema };
 export const exactEditsResponseSchema = exactEditCommandResponseSchema;
@@ -68,22 +76,47 @@ export type ContentBoundaryOperationRequest = ContentBoundaryOperation;
 export type PageResponse = z.infer<typeof pageResponseSchema>;
 
 const pageIdParameter = uuidPathParameter('pageId');
-const etagHeader = { ETag: { schema: { type: 'string' } } } as const;
+const etagHeader = {
+  ETag: {
+    description: 'Revision identifier for the returned page content.',
+    schema: { type: 'string' },
+  },
+} as const;
+const pagesTag = ['Pages'] as const;
 
 export const pageOperations = {
   list: {
     method: 'get',
     routePath: '/',
     openApiPath: '/pages',
-    summary: 'List accessible pages',
+    summary: 'List Pages',
+    description:
+      'Returns non-deleted pages the caller can access, ordered by most recently updated. Use `parentId` to list pages directly inside a folder, and follow `nextCursor` until it is `null`.',
+    tags: pagesTag,
+    requiredScopes: ['pages:read'],
     parameters: [
-      { name: 'cursor', in: 'query', schema: { type: 'string' } },
-      { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
-      { name: 'parentId', in: 'query', schema: { type: 'string', format: 'uuid' } },
+      {
+        name: 'cursor',
+        in: 'query',
+        description: 'Cursor returned by a previous list response.',
+        schema: { type: 'string' },
+      },
+      {
+        name: 'limit',
+        in: 'query',
+        description: 'Number of pages to return. Defaults to 50 and cannot exceed 100.',
+        schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
+      },
+      {
+        name: 'parentId',
+        in: 'query',
+        description: 'Return only pages directly inside this folder.',
+        schema: { type: 'string', format: 'uuid' },
+      },
     ],
     responses: {
       '200': {
-        description: 'Cursor-paginated page list',
+        description: 'A page of accessible pages and the cursor for the next page.',
         content: jsonContent(pageListResponseSchema),
       },
     },
@@ -92,13 +125,24 @@ export const pageOperations = {
     method: 'get',
     routePath: '/resolve',
     openApiPath: '/pages/resolve',
-    summary: 'Resolve an exact page title with server-computed folder paths',
+    summary: 'Find Pages By Exact Title',
+    description:
+      'Returns accessible, non-deleted pages whose titles match the `title` query without regard to case. Each result includes its computed folder path so duplicate titles can be distinguished.',
+    tags: pagesTag,
+    requiredScopes: ['pages:read'],
     parameters: [
-      { name: 'title', in: 'query', required: true, schema: { type: 'string', maxLength: 250 } },
+      {
+        name: 'title',
+        in: 'query',
+        required: true,
+        description:
+          'Title to match. Surrounding whitespace is ignored and matching is case-insensitive.',
+        schema: { type: 'string', maxLength: 250 },
+      },
     ],
     responses: {
       '200': {
-        description: 'Permission-filtered exact-title matches',
+        description: 'Accessible pages with matching titles and computed folder paths.',
         content: jsonContent(pageResolutionResponseSchema),
       },
     },
@@ -107,42 +151,58 @@ export const pageOperations = {
     method: 'post',
     routePath: '/',
     openApiPath: '/pages',
-    summary: 'Create a page with optional initial Markdown',
+    summary: 'Create A Page',
+    description:
+      'Creates a page in the requested folder, or at the Markdawn root when `parentId` is omitted or `null`. You can include initial markdown in the request body.',
+    tags: pagesTag,
+    requiredScopes: ['pages:write'],
     request: { required: true, ...jsonContent(createPageRequestSchema) },
     responses: {
-      '201': { description: 'Created page', content: jsonContent(pageResponseSchema) },
+      '201': { description: 'Created page metadata.', content: jsonContent(pageResponseSchema) },
     },
   },
   get: {
     method: 'get',
     routePath: '/:id',
     openApiPath: '/pages/{pageId}',
-    summary: 'Get page metadata',
+    summary: 'Get Page Metadata',
+    description:
+      "Returns metadata for an accessible, non-deleted page. This response does not include the page's markdown body.",
+    tags: pagesTag,
+    requiredScopes: ['pages:read'],
     parameters: [pageIdParameter],
     responses: {
-      '200': { description: 'Page metadata', content: jsonContent(pageResponseSchema) },
+      '200': { description: 'Page metadata.', content: jsonContent(pageResponseSchema) },
     },
   },
   update: {
     method: 'patch',
     routePath: '/:id',
     openApiPath: '/pages/{pageId}',
-    summary: 'Update basic page metadata',
+    summary: 'Update Page Metadata',
+    description:
+      "Updates a page's title and/or icon. Include at least one supported field, and use a client with page write access.",
+    tags: pagesTag,
+    requiredScopes: ['pages:write'],
     parameters: [pageIdParameter],
     request: { required: true, ...jsonContent(updatePageRequestSchema) },
     responses: {
-      '200': { description: 'Updated page', content: jsonContent(pageResponseSchema) },
+      '200': { description: 'Updated page metadata.', content: jsonContent(pageResponseSchema) },
     },
   },
   readContent: {
     method: 'get',
     routePath: '/:id/content',
     openApiPath: '/pages/{pageId}/content',
-    summary: 'Read Markdown content',
+    summary: 'Read Page Content',
+    description:
+      "Returns the page's frontmatter and authored markdown body as `text/markdown`. The `ETag` response header identifies this version for a later conditional replacement.",
+    tags: pagesTag,
+    requiredScopes: ['pages:read'],
     parameters: [pageIdParameter],
     responses: {
       '200': {
-        description: 'Frontmatter and authored Markdown body',
+        description: "The page's frontmatter and authored markdown body.",
         headers: etagHeader,
         content: markdownContent(z.string()),
       },
@@ -152,23 +212,40 @@ export const pageOperations = {
     method: 'put',
     routePath: '/:id/content',
     openApiPath: '/pages/{pageId}/content',
-    summary: 'Guarded whole-Markdown replacement',
+    summary: 'Replace Page Content',
+    description:
+      'Replaces the complete markdown representation only when `If-Match` matches the current `ETag`. Read the page first, then reconcile and retry after a revision conflict.',
+    tags: pagesTag,
+    requiredScopes: ['pages:write'],
     parameters: [
       pageIdParameter,
-      { name: 'If-Match', in: 'header', required: true, schema: { type: 'string' } },
+      {
+        name: 'If-Match',
+        in: 'header',
+        required: true,
+        description: 'ETag returned when the current page content was read.',
+        schema: { type: 'string' },
+      },
     ],
     request: { required: true, ...markdownContent(z.string()) },
     responses: {
-      '204': { description: 'Content replaced', headers: etagHeader },
-      '409': { description: 'Page revision conflict' },
-      '428': { description: 'If-Match required' },
+      '204': {
+        description: 'Page content replaced. The new ETag is returned in the response headers.',
+        headers: etagHeader,
+      },
+      '409': { description: 'If-Match did not match the current page revision.' },
+      '428': { description: 'The If-Match header is required.' },
     },
   },
   editContent: {
     method: 'post',
     routePath: '/:id/edits',
     openApiPath: '/pages/{pageId}/edits',
-    summary: 'Apply independent exact Markdown replacements',
+    summary: 'Apply Exact Content Edits',
+    description:
+      'Replaces one or more exact passages without replacing the full page. Each old passage must occur exactly once, and missing or overlapping matches are rejected. Use `Idempotency-Key` when retrying the same request.',
+    tags: pagesTag,
+    requiredScopes: ['pages:write'],
     parameters: [
       pageIdParameter,
       {
@@ -176,13 +253,13 @@ export const pageOperations = {
         in: 'header',
         schema: { type: 'string', minLength: 1, maxLength: 200, pattern: '\\S' },
         description:
-          'Replay completed edit responses for 24 hours. Incomplete reservations expire after 5 minutes.',
+          'Use the same key to retry the same request. Completed responses are replayed for 24 hours; incomplete reservations expire after 5 minutes.',
       },
     ],
     request: { required: true, ...jsonContent(exactEditsRequestSchema) },
     responses: {
       '200': {
-        description: 'One result per requested edit',
+        description: 'One result for each requested edit and the new ETag.',
         headers: etagHeader,
         content: jsonContent(exactEditsResponseSchema),
       },
@@ -192,7 +269,11 @@ export const pageOperations = {
     method: 'post',
     routePath: '/:id/content-operations',
     openApiPath: '/pages/{pageId}/content-operations',
-    summary: 'Append or prepend Markdown against the latest page content',
+    summary: 'Append Or Prepend Content',
+    description:
+      'Adds markdown at the beginning or end of the current page content. The operation runs against the latest content and returns the new `ETag`. Use `Idempotency-Key` when retrying the same request.',
+    tags: pagesTag,
+    requiredScopes: ['pages:write'],
     parameters: [
       pageIdParameter,
       {
@@ -200,13 +281,13 @@ export const pageOperations = {
         in: 'header',
         schema: { type: 'string', minLength: 1, maxLength: 200, pattern: '\\S' },
         description:
-          'Replay completed operation responses for 24 hours. Incomplete reservations expire after 5 minutes.',
+          'Use the same key to retry the same request. Completed responses are replayed for 24 hours; incomplete reservations expire after 5 minutes.',
       },
     ],
     request: { required: true, ...jsonContent(contentBoundaryOperationSchema) },
     responses: {
       '200': {
-        description: 'Markdown was appended or prepended',
+        description: 'Content was added and the new ETag is returned.',
         headers: etagHeader,
         content: jsonContent(contentBoundaryOperationResponseSchema),
       },

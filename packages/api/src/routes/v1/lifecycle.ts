@@ -5,7 +5,7 @@ import { HTTPException } from 'hono/http-exception';
 import {
   recordTokenAuditEventBestEffort,
   requireV1Auth,
-  requireV1Scope,
+  requireV1OperationScope,
 } from '../../middleware/v1Auth';
 import { ensureDocumentInputSize } from '../../utils/documentSize';
 import {
@@ -71,7 +71,7 @@ for (const { routePath } of Object.values(lifecyclePaths)) {
 
 lifecycleRoute.post(
   lifecyclePaths.pageCopy.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(lifecyclePaths.pageCopy),
   auditLifecycleMutation('page.lifecycle'),
   v1JsonBodyLimit,
   async (c) => {
@@ -89,7 +89,7 @@ lifecycleRoute.post(
 
 lifecycleRoute.patch(
   lifecyclePaths.pageMove.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(lifecyclePaths.pageMove),
   auditLifecycleMutation('page.lifecycle'),
   v1JsonBodyLimit,
   async (c) => {
@@ -104,7 +104,7 @@ lifecycleRoute.patch(
 
 lifecycleRoute.delete(
   lifecyclePaths.pageTrash.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(lifecyclePaths.pageTrash),
   auditLifecycleMutation('page.lifecycle'),
   async (c) => {
     const principal = c.get('v1Principal');
@@ -116,7 +116,7 @@ lifecycleRoute.delete(
 
 lifecycleRoute.patch(
   lifecyclePaths.pageRestore.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(lifecyclePaths.pageRestore),
   auditLifecycleMutation('page.lifecycle'),
   async (c) => {
     const principal = c.get('v1Principal');
@@ -127,7 +127,7 @@ lifecycleRoute.patch(
 
 lifecycleRoute.delete(
   lifecyclePaths.pagePermanentDelete.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(lifecyclePaths.pagePermanentDelete),
   auditLifecycleMutation('page.lifecycle'),
   async (c) => {
     const principal = c.get('v1Principal');
@@ -139,7 +139,7 @@ lifecycleRoute.delete(
 
 lifecycleRoute.post(
   lifecyclePaths.folderCopy.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(lifecyclePaths.folderCopy),
   auditLifecycleMutation('folder.lifecycle'),
   v1JsonBodyLimit,
   async (c) => {
@@ -163,7 +163,7 @@ lifecycleRoute.post(
 
 lifecycleRoute.delete(
   lifecyclePaths.folderTrash.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(lifecyclePaths.folderTrash),
   auditLifecycleMutation('folder.lifecycle'),
   async (c) => {
     const principal = c.get('v1Principal');
@@ -185,7 +185,7 @@ lifecycleRoute.delete(
 
 lifecycleRoute.patch(
   lifecyclePaths.folderRestore.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(lifecyclePaths.folderRestore),
   auditLifecycleMutation('folder.lifecycle'),
   async (c) => {
     const principal = c.get('v1Principal');
@@ -198,7 +198,7 @@ lifecycleRoute.patch(
 
 lifecycleRoute.delete(
   lifecyclePaths.folderPermanentDelete.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(lifecyclePaths.folderPermanentDelete),
   auditLifecycleMutation('folder.lifecycle'),
   async (c) => {
     const principal = c.get('v1Principal');
@@ -210,7 +210,7 @@ lifecycleRoute.delete(
 
 lifecycleRoute.delete(
   lifecyclePaths.trashEmpty.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(lifecyclePaths.trashEmpty),
   auditLifecycleMutation('trash.lifecycle'),
   async (c) => {
     const principal = c.get('v1Principal');
@@ -221,7 +221,7 @@ lifecycleRoute.delete(
 
 lifecycleRoute.post(
   lifecyclePaths.markdownImport.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(lifecyclePaths.markdownImport),
   auditLifecycleMutation('import.lifecycle'),
   async (c) => {
     const principal = c.get('v1Principal');
@@ -237,7 +237,7 @@ lifecycleRoute.post(
 
 lifecycleRoute.post(
   lifecyclePaths.obsidianImport.routePath,
-  requireV1Scope('pages:write'),
+  requireV1OperationScope(lifecyclePaths.obsidianImport),
   auditLifecycleMutation('import.lifecycle'),
   async (c) => {
     const principal = c.get('v1Principal');
@@ -251,7 +251,7 @@ lifecycleRoute.post(
 
 lifecycleRoute.get(
   lifecyclePaths.pageTrashList.routePath,
-  requireV1Scope('pages:read'),
+  requireV1OperationScope(lifecyclePaths.pageTrashList),
   async (c) => {
     const principal = c.get('v1Principal');
     const pages = await listTrashedPagesForUser(principal.userId);
@@ -261,7 +261,7 @@ lifecycleRoute.get(
 
 lifecycleRoute.get(
   lifecyclePaths.folderTrashList.routePath,
-  requireV1Scope('pages:read'),
+  requireV1OperationScope(lifecyclePaths.folderTrashList),
   async (c) => {
     const principal = c.get('v1Principal');
     return c.json(
@@ -272,7 +272,7 @@ lifecycleRoute.get(
 
 lifecycleRoute.get(
   lifecyclePaths.pageMarkdownExport.routePath,
-  requireV1Scope('pages:read'),
+  requireV1OperationScope(lifecyclePaths.pageMarkdownExport),
   async (c) => {
     const principal = c.get('v1Principal');
     const pageId = requireLifecycleId(c.req.param('id'), 'page');
@@ -290,7 +290,7 @@ lifecycleRoute.get(
 
 lifecycleRoute.get(
   lifecyclePaths.workspaceExport.routePath,
-  requireV1Scope('pages:read'),
+  requireV1OperationScope(lifecyclePaths.workspaceExport),
   async (c) => {
     const principal = c.get('v1Principal');
     const buffer = await exportAllPages(principal.userId);

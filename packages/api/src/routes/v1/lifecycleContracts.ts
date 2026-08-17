@@ -12,7 +12,10 @@ import {
 import { lifecyclePaths } from './lifecyclePaths';
 
 const uuid = z.uuid();
-export const parentRequestSchema = z.object({ parentId: uuid.nullable() }).strict();
+export const parentRequestSchema = z
+  .object({ parentId: uuid.nullable() })
+  .strict()
+  .meta({ example: { parentId: null } });
 export const markdownImportRequestSchema = z
   .object({ file: z.file({ error: 'File is required' }) })
   .strict();
@@ -169,17 +172,22 @@ export function toLifecycleVaultImportResponse(value: {
 
 const pageId = uuidPathParameter('pageId');
 const folderId = uuidPathParameter('folderId');
+const lifecycleTag = ['Lifecycle'] as const;
+const importsExportsTag = ['Imports and Exports'] as const;
 
 export const lifecycleOperations = [
   {
     method: 'post',
     ...lifecyclePaths.pageCopy,
-    summary: 'Copy a page to a folder or the workspace root',
+    summary: 'Copy A Page',
+    description:
+      'Creates a copy of an accessible page in the requested folder. Set `parentId` to `null` to copy it to the Markdawn root. The copy receives a new ID.',
+    tags: lifecycleTag,
     parameters: [pageId],
     request: { required: true, ...jsonContent(parentRequestSchema) },
     responses: {
       '201': {
-        description: 'Copied page',
+        description: 'The ID of the copied page.',
         content: jsonContent(lifecycleEntityResponseSchema),
       },
     },
@@ -187,12 +195,15 @@ export const lifecycleOperations = [
   {
     method: 'patch',
     ...lifecyclePaths.pageMove,
-    summary: 'Move a page to a folder or the workspace root',
+    summary: 'Move A Page',
+    description:
+      'Moves an accessible page to the requested folder. Set `parentId` to `null` to move it to the Markdawn root.',
+    tags: lifecycleTag,
     parameters: [pageId],
     request: { required: true, ...jsonContent(parentRequestSchema) },
     responses: {
       '200': {
-        description: 'Moved page',
+        description: 'The ID of the moved page.',
         content: jsonContent(lifecycleEntityResponseSchema),
       },
     },
@@ -200,11 +211,14 @@ export const lifecycleOperations = [
   {
     method: 'delete',
     ...lifecyclePaths.pageTrash,
-    summary: 'Move a page to Trash',
+    summary: 'Trash A Page',
+    description:
+      'Moves an accessible page to Trash. Trashed pages are excluded from normal page lists and can be restored or permanently deleted.',
+    tags: lifecycleTag,
     parameters: [pageId],
     responses: {
       '200': {
-        description: 'Trashed page',
+        description: 'Confirmation that the page was moved to Trash.',
         content: jsonContent(lifecycleDeletedResponseSchema),
       },
     },
@@ -212,10 +226,12 @@ export const lifecycleOperations = [
   {
     method: 'get',
     ...lifecyclePaths.pageTrashList,
-    summary: 'List trashed pages',
+    summary: 'List Trashed Pages',
+    description: 'Returns pages in Trash that the caller can access.',
+    tags: lifecycleTag,
     responses: {
       '200': {
-        description: 'Trashed pages',
+        description: 'Trashed page metadata.',
         content: jsonContent(z.array(lifecyclePageTrashItemSchema)),
       },
     },
@@ -223,11 +239,13 @@ export const lifecycleOperations = [
   {
     method: 'patch',
     ...lifecyclePaths.pageRestore,
-    summary: 'Restore a trashed page',
+    summary: 'Restore A Page',
+    description: 'Restores an accessible page from Trash.',
+    tags: lifecycleTag,
     parameters: [pageId],
     responses: {
       '200': {
-        description: 'Restored page',
+        description: 'The ID of the restored page.',
         content: jsonContent(lifecycleEntityResponseSchema),
       },
     },
@@ -235,11 +253,13 @@ export const lifecycleOperations = [
   {
     method: 'delete',
     ...lifecyclePaths.pagePermanentDelete,
-    summary: 'Permanently delete a trashed page',
+    summary: 'Permanently Delete A Page',
+    description: 'Permanently deletes an accessible page from Trash. This action cannot be undone.',
+    tags: lifecycleTag,
     parameters: [pageId],
     responses: {
       '200': {
-        description: 'Deleted page',
+        description: 'Confirmation that the page was permanently deleted.',
         content: jsonContent(lifecycleDeletedResponseSchema),
       },
     },
@@ -247,11 +267,14 @@ export const lifecycleOperations = [
   {
     method: 'get',
     ...lifecyclePaths.pageMarkdownExport,
-    summary: 'Export one page as Markdown or a ZIP with attachments',
+    summary: 'Export A Page',
+    description:
+      'Returns one page as markdown. When the page has attachments, the response is a ZIP containing the markdown and attachments.',
+    tags: importsExportsTag,
     parameters: [pageId],
     responses: {
       '200': {
-        description: 'Markdown export, or a ZIP containing Markdown and attachments',
+        description: 'The page as markdown, or a ZIP containing markdown and attachments.',
         content: [markdownContent(z.string()), zipContent(binaryResponseSchema)],
       },
     },
@@ -259,12 +282,15 @@ export const lifecycleOperations = [
   {
     method: 'post',
     ...lifecyclePaths.folderCopy,
-    summary: 'Copy a folder subtree to a folder or the workspace root',
+    summary: 'Copy A Folder',
+    description:
+      'Copies an accessible folder and its accessible subtree to the requested folder. Set `parentId` to `null` to copy it to the Markdawn root. The response reports whether restricted items were skipped.',
+    tags: lifecycleTag,
     parameters: [folderId],
     request: { required: true, ...jsonContent(parentRequestSchema) },
     responses: {
       '201': {
-        description: 'Copied folder',
+        description: 'The copied folder ID and whether restricted items were skipped.',
         content: jsonContent(lifecycleFolderCopyResponseSchema),
       },
     },
@@ -272,22 +298,38 @@ export const lifecycleOperations = [
   {
     method: 'delete',
     ...lifecyclePaths.folderTrash,
-    summary: 'Move a folder subtree to Trash',
-    parameters: [folderId, { name: 'force', in: 'query', schema: { type: 'boolean' } }],
+    summary: 'Trash A Folder',
+    description:
+      'Moves an accessible folder and its subtree to Trash. Set `force` to `true` to confirm recursive deletion when the folder is not empty.',
+    tags: lifecycleTag,
+    parameters: [
+      folderId,
+      {
+        name: 'force',
+        in: 'query',
+        description: 'Confirm that non-empty folders and their contents may be moved to Trash.',
+        schema: { type: 'boolean', default: false },
+      },
+    ],
     responses: {
       '200': {
-        description: 'Trashed folder',
+        description: 'Confirmation that the folder was moved to Trash.',
         content: jsonContent(lifecycleDeletedResponseSchema),
+      },
+      '409': {
+        description: 'The folder is not empty. Set `force=true` to confirm recursive deletion.',
       },
     },
   },
   {
     method: 'get',
     ...lifecyclePaths.folderTrashList,
-    summary: 'List trashed folders',
+    summary: 'List Trashed Folders',
+    description: 'Returns folders in Trash that the caller can access.',
+    tags: lifecycleTag,
     responses: {
       '200': {
-        description: 'Trashed folders',
+        description: 'Trashed folder metadata.',
         content: jsonContent(z.array(lifecycleFolderTrashItemSchema)),
       },
     },
@@ -295,11 +337,13 @@ export const lifecycleOperations = [
   {
     method: 'patch',
     ...lifecyclePaths.folderRestore,
-    summary: 'Restore a trashed folder subtree',
+    summary: 'Restore A Folder',
+    description: 'Restores an accessible folder and its subtree from Trash.',
+    tags: lifecycleTag,
     parameters: [folderId],
     responses: {
       '200': {
-        description: 'Restored folder',
+        description: 'The ID of the restored folder.',
         content: jsonContent(lifecycleEntityResponseSchema),
       },
     },
@@ -307,11 +351,14 @@ export const lifecycleOperations = [
   {
     method: 'delete',
     ...lifecyclePaths.folderPermanentDelete,
-    summary: 'Permanently delete a trashed folder subtree',
+    summary: 'Permanently Delete A Folder',
+    description:
+      'Permanently deletes an accessible folder and its subtree from Trash. This action cannot be undone.',
+    tags: lifecycleTag,
     parameters: [folderId],
     responses: {
       '200': {
-        description: 'Deleted folder',
+        description: 'Confirmation and counts for the permanently deleted folders and pages.',
         content: jsonContent(lifecyclePurgeResponseSchema),
       },
     },
@@ -319,10 +366,13 @@ export const lifecycleOperations = [
   {
     method: 'delete',
     ...lifecyclePaths.trashEmpty,
-    summary: 'Permanently delete all eligible Trash items',
+    summary: 'Empty Trash',
+    description:
+      'Permanently deletes every Trash item the caller is allowed to delete. This action cannot be undone.',
+    tags: lifecycleTag,
     responses: {
       '200': {
-        description: 'Emptied Trash',
+        description: 'Counts for the permanently deleted folders and pages.',
         content: jsonContent(lifecyclePurgeResponseSchema),
       },
     },
@@ -330,11 +380,14 @@ export const lifecycleOperations = [
   {
     method: 'post',
     ...lifecyclePaths.markdownImport,
-    summary: 'Import one Markdown page at the workspace root',
+    summary: 'Import A Page',
+    description:
+      'Accepts one .md file and creates a page at the Markdawn root. Local image references that cannot be uploaded are returned as warnings.',
+    tags: importsExportsTag,
     request: { required: true, ...multipartContent(markdownImportRequestSchema) },
     responses: {
       '201': {
-        description: 'Imported page',
+        description: 'The imported page and any local-image warnings.',
         content: jsonContent(lifecycleMarkdownImportResponseSchema),
       },
     },
@@ -342,14 +395,17 @@ export const lifecycleOperations = [
   {
     method: 'post',
     ...lifecyclePaths.obsidianImport,
-    summary: 'Import an Obsidian vault folder at the workspace root',
+    summary: 'Import An Obsidian Vault',
+    description:
+      'Imports a validated Obsidian vault file list and creates its folders, pages, images, and backlinks at the Markdawn root.',
+    tags: importsExportsTag,
     request: {
       required: true,
       ...jsonContent(obsidianImportRequestSchema),
     },
     responses: {
       '201': {
-        description: 'Import result',
+        description: 'Counts for created folders, pages, images, backlinks, and reported errors.',
         content: jsonContent(lifecycleVaultImportResponseSchema),
       },
     },
@@ -357,7 +413,14 @@ export const lifecycleOperations = [
   {
     method: 'get',
     ...lifecyclePaths.workspaceExport,
-    summary: 'Export all accessible pages as a ZIP',
-    responses: { '200': { description: 'ZIP export', content: zipContent(binaryResponseSchema) } },
+    summary: 'Export All Pages',
+    description: 'Returns a ZIP containing all pages the caller can access.',
+    tags: importsExportsTag,
+    responses: {
+      '200': {
+        description: 'A ZIP export of accessible pages.',
+        content: zipContent(binaryResponseSchema),
+      },
+    },
   },
 ] as const satisfies readonly V1OperationContract[];

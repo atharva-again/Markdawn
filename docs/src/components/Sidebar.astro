@@ -1,0 +1,93 @@
+---
+import MobileMenuFooter from 'virtual:starlight/components/MobileMenuFooter';
+import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro';
+import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
+
+const { sidebar } = Astro.locals.starlightRoute;
+const currentPath = Astro.url.pathname;
+
+const sectionForPath = (): string => {
+  if (
+    currentPath === '/' ||
+    currentPath.startsWith('/getting-started/')
+  ) {
+    return 'Getting Started';
+  }
+  if (currentPath.startsWith('/agents/')) {
+    return 'Agents';
+  }
+  if (
+    currentPath.startsWith('/api-reference/')
+  ) {
+    return 'API Reference';
+  }
+  if (
+    currentPath.startsWith('/self-hosting/')
+  ) {
+    return 'Self-Hosting';
+  }
+  if (currentPath.startsWith('/comparisons')) return 'Comparisons';
+  return 'Getting Started';
+};
+
+const activeSection = sectionForPath();
+const activeGroup = sidebar.find((entry) => entry.type === 'group' && entry.label === activeSection);
+const sectionEntries = activeGroup?.type === 'group' ? activeGroup.entries : [];
+const visibleSidebar =
+  activeSection === 'API Reference'
+    ? sectionEntries.flatMap((entry) =>
+        entry.type === 'group' && entry.label === 'Endpoints' ? entry.entries : [entry],
+      )
+    : sectionEntries;
+const sectionOptions = [
+  { label: 'Getting Started', href: '/getting-started/' },
+  { label: 'Agents', href: '/agents/' },
+  { label: 'API Reference', href: '/api-reference/endpoints/' },
+  { label: 'Self-Hosting', href: '/self-hosting/' },
+  { label: 'Comparisons', href: '/comparisons/' },
+];
+---
+
+<details class="mobile-section-switcher">
+  <summary>
+    <span>{activeSection}</span>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m7 9 5 5 5-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" />
+    </svg>
+  </summary>
+  <div class="mobile-section-options">
+    {sectionOptions.map((section) => (
+      <a class:list={{ active: section.label === activeSection }} href={section.href}>
+        {section.label}
+      </a>
+  ))}
+  </div>
+</details>
+
+<div class="contextual-sidebar desktop-contextual-sidebar" data-active-section={activeSection}>
+  <SidebarPersister>
+    <SidebarSublist sublist={visibleSidebar} nested />
+  </SidebarPersister>
+</div>
+
+<div class="mobile-menu-footer md:sl-hidden">
+  <MobileMenuFooter />
+</div>
+
+<script>
+  const menuHost = document.querySelector('starlight-menu-button');
+  const menuButton = menuHost?.querySelector<HTMLButtonElement>(
+    'button[aria-controls="starlight__sidebar"]',
+  );
+  const sidebar = document.getElementById('starlight__sidebar');
+
+  if (menuHost && menuButton && sidebar) {
+    document.addEventListener('click', (event) => {
+      if (!document.body.hasAttribute('data-mobile-menu-expanded')) return;
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (sidebar.contains(target) || menuHost.contains(target)) return;
+      menuButton.click();
+    });
+  }
+</script>

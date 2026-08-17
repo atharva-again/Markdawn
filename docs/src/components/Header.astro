@@ -1,0 +1,175 @@
+---
+import config from 'virtual:starlight/user-config';
+import LanguageSelect from 'virtual:starlight/components/LanguageSelect';
+import Search from 'virtual:starlight/components/Search';
+import SiteTitle from 'virtual:starlight/components/SiteTitle';
+import SocialIcons from 'virtual:starlight/components/SocialIcons';
+import ThemeSelect from 'virtual:starlight/components/ThemeSelect';
+
+const shouldRenderSearch =
+  config.pagefind || config.components.Search !== '@astrojs/starlight/components/Search.astro';
+const currentPath = Astro.url.pathname;
+const isActive = (path: string): boolean =>
+  currentPath === path || currentPath.startsWith(`${path}/`);
+const isGettingStarted = [
+  '/getting-started',
+  '/create-your-first-page',
+  '/markdown-support',
+  '/bring-your-notes',
+  '/organize-pages-and-folders',
+  '/share-a-page',
+].some((path) => isActive(path));
+const isApi = currentPath.startsWith('/api-reference');
+---
+
+<div class="header-content">
+  <div class="title-wrapper sl-flex">
+    <SiteTitle />
+  </div>
+
+  <nav class="section-nav print:hidden" aria-label="Documentation sections">
+    <a class:list={{ active: isGettingStarted }} href="/getting-started/">Getting Started</a>
+    <a class:list={{ active: isActive('/agents') }} href="/agents/">Agents</a>
+    <a class:list={{ active: isApi }} href="/api-reference/endpoints/">API Reference</a>
+    <a class:list={{ active: isActive('/self-hosting') || isActive('/deploy-markdawn') || isActive('/maintain-a-self-hosted') || isActive('/move-a-markdawn') }} href="/self-hosting/">Self-Hosting</a>
+    <a class:list={{ active: isActive('/comparisons') }} href="/comparisons/">Comparisons</a>
+  </nav>
+
+  <div class="sl-flex print:hidden search-wrapper">
+    {shouldRenderSearch && <Search />}
+  </div>
+  <div class="sl-flex print:hidden right-group">
+    <div class="sl-flex social-icons">
+      <SocialIcons />
+    </div>
+    <ThemeSelect />
+    <LanguageSelect />
+  </div>
+</div>
+
+<script>
+  import { initializeOpenAPISnippetPickers } from '../scripts/openApiSnippetPicker';
+  import { initializeSearchEnhancements } from '../scripts/searchEnhancements';
+
+  initializeOpenAPISnippetPickers();
+  initializeSearchEnhancements();
+</script>
+
+<style>
+  .header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sl-nav-gap);
+    height: 100%;
+  }
+
+  .title-wrapper {
+    min-width: 0;
+    overflow: clip;
+    padding: 0.25rem;
+    margin: -0.25rem;
+  }
+
+  .title-wrapper :global(.site-title) {
+    font-size: 1.25rem;
+  }
+
+  .right-group,
+  .social-icons {
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .section-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    height: 100%;
+    min-width: 0;
+    margin: 0;
+    padding-inline: 0.25rem;
+    overflow-x: auto;
+    border: 0;
+    background: transparent;
+    scrollbar-width: none;
+  }
+
+  .section-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .section-nav a {
+    display: inline-flex;
+    height: 2.25rem;
+    align-items: center;
+    padding: 0 0.875rem;
+    border-radius: 0;
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .section-nav a:hover {
+    color: var(--color-text);
+    background: transparent;
+  }
+
+  .section-nav a.active {
+    background: transparent;
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  @media (min-width: 50rem) {
+    .header-content {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      align-items: center;
+    }
+
+    .section-nav {
+      justify-content: center;
+    }
+
+    .search-wrapper {
+      width: 12.75rem;
+      justify-self: end;
+    }
+
+    .search-wrapper :global(site-search button[data-open-modal]) {
+      width: 100%;
+      max-width: none;
+    }
+  }
+
+  @media (max-width: 49.99rem) {
+    .header-content {
+      justify-content: flex-start;
+      gap: 0.75rem;
+    }
+
+    .section-nav {
+      display: none;
+    }
+
+    .title-wrapper {
+      flex: 1 1 auto;
+    }
+
+    .search-wrapper {
+      flex: 0 0 auto;
+    }
+
+    .right-group {
+      display: none !important;
+    }
+
+    .right-group,
+    .social-icons {
+      gap: 0.5rem;
+    }
+  }
+</style>

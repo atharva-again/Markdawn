@@ -47,7 +47,7 @@ This means:
 
 Open source under GNU AGPL v3. Run it on your own infrastructure.
 
-- [Deployment Guide](docs/deployment_guide.md) — step-by-step for a single VPS with Caddy, Podman, and PostgreSQL
+- [Deployment Guide](https://docs.markdawn.space/self-hosting/deploy-markdawn-on-a-vps/) — step-by-step for a single VPS with Caddy, Podman, and PostgreSQL
 - [deploy/](deploy/) — `setup.sh` (one-time server bootstrap) and `deploy.sh` (incremental deploy)
 
 ## Local Development

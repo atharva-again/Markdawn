@@ -25,6 +25,7 @@ jobs:
       test_collab_unit: ${{ steps.scope.outputs.test_collab_unit }}
       test_web: ${{ steps.scope.outputs.test_web }}
       test_e2e: ${{ steps.scope.outputs.test_e2e }}
+      docs: ${{ steps.scope.outputs.docs }}
       integration: ${{ steps.scope.outputs.integration }}
       build: ${{ steps.scope.outputs.build }}
       build_shared: ${{ steps.scope.outputs.build_shared }}
@@ -66,6 +67,7 @@ jobs:
           COLLAB_CHANGED: ${{ steps.filter.outputs.collab }}
           WEB_CHANGED: ${{ steps.filter.outputs.web }}
           E2E_CHANGED: ${{ steps.filter.outputs.e2e }}
+          DOCS_CHANGED: ${{ steps.filter.outputs.docs }}
         run: |
           set -euo pipefail
 
@@ -97,6 +99,9 @@ jobs:
           test_e2e="$full"
           if [[ "$E2E_CHANGED" == "true" ]]; then test_e2e=true; fi
 
+          docs="$full"
+          if [[ "$DOCS_CHANGED" == "true" ]]; then docs=true; fi
+
           integration="$full"
           if [[ "$SHARED_CHANGED" == "true" || "$API_CHANGED" == "true" || "$COLLAB_CHANGED" == "true" ]]; then integration=true; fi
 
@@ -121,6 +126,7 @@ jobs:
             "test_collab_unit=$test_collab_unit" \
             "test_web=$test_web" \
             "test_e2e=$test_e2e" \
+            "docs=$docs" \
             "integration=$integration" \
             "build=$build" \
             "build_shared=$build_shared" \
@@ -169,6 +175,35 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+  docs:
+    name: Documentation
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint supported documentation sources
+        run: >-
+          pnpm exec biome check docs/astro.config.mjs docs/src/content.config.ts docs/src/lib
+          docs/src/pages docs/src/scripts
+
+      - name: Check Astro and documentation types
+        run: pnpm --filter @markdawn/docs run check
+
+      - name: Build documentation
+        run: pnpm --filter @markdawn/docs run build
 
   test:
     name: Test
@@ -302,7 +337,7 @@ jobs:
 
   ci-gate:
     name: CI gate
-    needs: [changes, lint, typecheck, test, integration, build]
+    needs: [changes, lint, typecheck, test, docs, integration, build]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -315,6 +350,8 @@ jobs:
           LINT_RESULT: ${{ needs.lint.result }}
           TYPECHECK_RESULT: ${{ needs.typecheck.result }}
           TEST_RESULT: ${{ needs.test.result }}
+          DOCS_SCOPE: ${{ needs.changes.outputs.docs }}
+          DOCS_RESULT: ${{ needs.docs.result }}
           INTEGRATION_RESULT: ${{ needs.integration.result }}
           BUILD_RESULT: ${{ needs.build.result }}
         run: |
@@ -351,6 +388,12 @@ jobs:
             require_success_or_skip "Lint" "$LINT_RESULT"
             require_success_or_skip "Typecheck" "$TYPECHECK_RESULT"
             require_success_or_skip "Test" "$TEST_RESULT"
+          fi
+
+          if [[ "$DOCS_SCOPE" == "true" ]]; then
+            require_success "Documentation" "$DOCS_RESULT"
+          else
+            require_success_or_skip "Documentation" "$DOCS_RESULT"
           fi
 
           if [[ "$INTEGRATION_SCOPE" == "true" ]]; then

@@ -13,6 +13,23 @@ web:
 e2e:
   - 'e2e/**'
 
+docs:
+  - 'docs/**'
+  - 'docs/package.json'
+  - 'package.json'
+  - 'pnpm-lock.yaml'
+  - 'pnpm-workspace.yaml'
+  - 'biome.json'
+  - 'tsconfig*.json'
+  - 'patches/**'
+  - '.github/workflows/**'
+  - '.github/filters.yml'
+  - 'packages/api/src/routes/v1/**'
+  - 'packages/api/package.json'
+  - 'packages/api/src/utils/vaultImportValidation.ts'
+  - 'packages/shared/src/**'
+  - 'packages/shared/package.json'
+
 cli:
   - 'cli/**'
   - 'scripts/install-cli*'

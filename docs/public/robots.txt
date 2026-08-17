@@ -1,0 +1,32 @@
+# Markdawn documentation is public and intended to be useful in search results
+# and in answers from AI assistants. Training access can be managed separately
+# at the hosting layer without blocking retrieval.
+
+User-agent: *
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+Sitemap: https://docs.markdawn.space/sitemap-index.xml

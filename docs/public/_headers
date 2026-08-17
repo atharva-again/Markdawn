@@ -1,0 +1,18 @@
+# Keep the Markdown alternates available to AI assistants without creating
+# duplicate search results for the HTML documentation pages.
+/*.md
+  X-Robots-Tag: noindex
+/agents/*.md
+  X-Robots-Tag: noindex
+/api-reference/*.md
+  X-Robots-Tag: noindex
+/api-reference/endpoints/*.md
+  X-Robots-Tag: noindex
+/api-reference/endpoints/operations/*.md
+  X-Robots-Tag: noindex
+/comparisons/*.md
+  X-Robots-Tag: noindex
+/getting-started/*.md
+  X-Robots-Tag: noindex
+/self-hosting/*.md
+  X-Robots-Tag: noindex

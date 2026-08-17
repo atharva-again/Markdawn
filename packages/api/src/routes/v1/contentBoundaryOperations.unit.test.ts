@@ -14,7 +14,7 @@ const collaboration = vi.hoisted(() => ({
 
 vi.mock('../../db/query', () => ({ query: queryMock }));
 vi.mock('../../middleware/v1Auth', () => ({
-  requireV1Scope:
+  requireV1OperationScope:
     () =>
     async (context: { set: (key: string, value: unknown) => void }, next: () => Promise<void>) => {
       context.set('v1Principal', principal);

@@ -1,0 +1,115 @@
+---
+import { getApiReferencePageMetadata } from '../lib/apiReferenceMarkdown';
+
+const { head, entry, lastUpdated } = Astro.locals.starlightRoute;
+const pathname = Astro.url.pathname;
+const siteUrl = new URL(Astro.site ?? Astro.url.origin);
+const canonicalUrl = new URL(pathname, siteUrl).toString();
+const apiMetadata = getApiReferencePageMetadata(pathname);
+const sourceTitle = typeof entry.data.title === 'string' ? entry.data.title : 'Markdawn Documentation';
+const sourceDescription =
+  typeof entry.data.description === 'string'
+    ? entry.data.description
+    : 'Guides for using Markdawn pages, the API, the CLI, AI assistants, and self-hosting.';
+const pageTitle =
+  apiMetadata?.title ??
+  (pathname === '/' ? 'Documentation | Markdawn Docs' : `${sourceTitle} | Markdawn Docs`);
+const pageDescription = apiMetadata?.description ?? sourceDescription;
+const markdownPath = `/${pathname.replace(/^\/+|\/+$/g, '') || 'index'}.md`;
+const markdownUrl = new URL(markdownPath, siteUrl).toString();
+
+const sectionLabels: Record<string, { label: string; href: string }> = {
+  agents: { label: 'Agents', href: '/agents/' },
+  'api-reference': { label: 'API Reference', href: '/api-reference/endpoints/' },
+  comparisons: { label: 'Comparisons', href: '/comparisons/' },
+  'getting-started': { label: 'Getting Started', href: '/getting-started/' },
+  'self-hosting': { label: 'Self-Hosting', href: '/self-hosting/' },
+};
+
+const breadcrumbItems = [{ name: 'Home', item: new URL('/', siteUrl).toString() }];
+const firstSegment = pathname.replace(/^\/+/, '').split('/')[0] ?? '';
+const section = sectionLabels[firstSegment];
+if (section && section.href !== pathname) {
+  breadcrumbItems.push({ name: section.label, item: new URL(section.href, siteUrl).toString() });
+}
+if (pathname !== '/') {
+  breadcrumbItems.push({ name: pageTitle.replace(/ \| Markdawn Docs$/, ''), item: canonicalUrl });
+}
+
+const organizationId = 'https://markdawn.space/#organization';
+const siteId = `${siteUrl.toString().replace(/\/$/, '')}/#website`;
+const graph: Record<string, unknown>[] = [
+  {
+    '@type': 'Organization',
+    '@id': organizationId,
+    name: 'Markdawn',
+    url: 'https://markdawn.space',
+    logo: 'https://markdawn.space/icon-192.png',
+    sameAs: ['https://github.com/atharva-again/Markdawn'],
+  },
+  {
+    '@type': 'WebPage',
+    '@id': `${canonicalUrl}#webpage`,
+    url: canonicalUrl,
+    name: pageTitle,
+    description: pageDescription,
+    inLanguage: 'en',
+    isPartOf: { '@id': siteId },
+    about: { '@id': organizationId },
+    ...(lastUpdated ? { dateModified: lastUpdated.toISOString() } : {}),
+  },
+];
+
+if (pathname === '/') {
+  graph.push({
+    '@type': 'WebSite',
+    '@id': siteId,
+    name: 'Markdawn Docs',
+    url: siteUrl.toString(),
+    description: pageDescription,
+    publisher: { '@id': organizationId },
+    inLanguage: 'en',
+  });
+}
+
+if (breadcrumbItems.length > 1) {
+  graph.push({
+    '@type': 'BreadcrumbList',
+    itemListElement: breadcrumbItems.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      item: item.item,
+    })),
+  });
+}
+
+const jsonLd = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replaceAll(
+  '<',
+  '\\u003c',
+);
+
+const pageHead = head.map((item) => {
+  if (item.tag === 'title') return { ...item, content: pageTitle };
+  if (item.tag !== 'meta') return item;
+
+  const name = item.attrs?.name;
+  const property = item.attrs?.property;
+  if (
+    name === 'description' ||
+    property === 'og:description' ||
+    property === 'og:title'
+  ) {
+    const content = property === 'og:title' ? pageTitle : pageDescription;
+    return { ...item, attrs: { ...item.attrs, content } };
+  }
+  return item;
+});
+---
+
+{pageHead.map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}
+<link rel="alternate" type="text/markdown" href={markdownUrl} />
+<meta name="twitter:title" content={pageTitle} />
+<meta name="twitter:description" content={pageDescription} />
+{lastUpdated && <meta property="article:modified_time" content={lastUpdated.toISOString()} />}
+<script type="application/ld+json" is:inline set:html={jsonLd} />

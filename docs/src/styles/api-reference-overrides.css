@@ -1,0 +1,271 @@
+/* Linear-inspired final pass for the generated API schema surfaces. */
+:is(
+    .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']),
+    .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+    .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  )
+  > .sl-openapi-section-panel {
+  border-color: color-mix(in srgb, var(--color-border) 72%, transparent);
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--color-surface-alt) 76%, var(--color-surface));
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 7%);
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters'])
+  > .sl-heading-wrapper
+  > .sl-openapi-heading,
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  > .sl-heading-wrapper
+  > .sl-openapi-heading,
+.sl-markdown-content > .sl-heading-wrapper:has(> .sl-openapi-heading#responses) > .sl-openapi-heading {
+  color: var(--color-text);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters'])
+  > .sl-heading-wrapper
+  > .sl-openapi-heading {
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  > .sl-heading-wrapper
+  > .sl-openapi-heading {
+  font-size: 2rem;
+  line-height: 1.2;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  .sl-openapi-request-body-required {
+  min-height: 0;
+  margin-inline-start: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--api-delete-text);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+:is(
+    .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+    .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  )
+  starlight-openapi-content-picker
+  > .sl-openapi-content-picker-select {
+  border-bottom-color: color-mix(in srgb, var(--color-border) 72%, transparent);
+  background: color-mix(in srgb, var(--color-surface-elevated) 38%, transparent);
+}
+
+:is(
+    .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+    .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  )
+  starlight-openapi-content-picker
+  .sl-openapi-content-picker-select-value {
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+:is(
+    .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']),
+    .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+    .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  )
+  .sl-openapi-key {
+  border-top-color: color-mix(in srgb, var(--color-border) 68%, transparent);
+}
+
+:is(
+    .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']),
+    .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+    .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  )
+  .sl-openapi-key-name
+  > strong {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+:is(
+    .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']),
+    .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+    .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  )
+  .sl-openapi-key-required {
+  margin-top: 0.3rem;
+  color: var(--api-delete-text);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+:is(
+    .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']),
+    .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+    .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  )
+  .sl-openapi-key-description {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+:is(
+    .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']),
+    .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+    .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  )
+  .sl-openapi-type {
+  min-height: 0;
+  margin-inline-end: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+:is(
+    .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']),
+    .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+    .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  )
+  .sl-openapi-tag {
+  min-height: 0;
+  margin-inline-end: 0.25rem;
+  padding: 0.15rem 0.4rem;
+  border-color: color-mix(in srgb, var(--color-border) 76%, transparent);
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--color-surface-elevated) 45%, transparent);
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+}
+
+:is(
+    .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+    .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  )
+  .sl-openapi-schema-object-root
+  .sl-openapi-key-description
+  > details
+  > summary {
+  border-color: color-mix(in srgb, var(--color-border) 76%, transparent);
+  background: color-mix(in srgb, var(--color-surface-elevated) 45%, transparent);
+  color: var(--color-text-muted);
+}
+
+:is(
+    .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+    .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  )
+  .sl-openapi-examples-heading {
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-heading-wrapper
+  > .sl-openapi-heading[id^='2'] {
+  border-color: color-mix(in srgb, var(--api-post-border) 65%, var(--color-border));
+  background: color-mix(in srgb, var(--api-post-bg) 28%, var(--color-surface));
+  color: var(--api-post-text);
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-heading-wrapper
+  > .sl-openapi-heading[id^='4'] {
+  border-color: color-mix(in srgb, var(--api-patch-border) 65%, var(--color-border));
+  background: color-mix(in srgb, var(--api-patch-bg) 28%, var(--color-surface));
+  color: var(--api-patch-text);
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-heading-wrapper
+  > .sl-openapi-heading[id^='5'] {
+  border-color: color-mix(in srgb, var(--api-delete-border) 65%, var(--color-border));
+  background: color-mix(in srgb, var(--api-delete-bg) 28%, var(--color-surface));
+  color: var(--api-delete-text);
+}
+
+@media (max-width: 40rem) {
+  .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+    > .sl-heading-wrapper
+    > .sl-openapi-heading {
+    font-size: 1.75rem;
+  }
+
+  :is(
+      .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']),
+      .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+      .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+    )
+    .sl-openapi-key {
+    display: block !important;
+  }
+
+  :is(
+      .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading[id$='-parameters']),
+      .sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section,
+      .sl-markdown-content .sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+    )
+    .sl-openapi-key-name {
+    margin-bottom: 0.45rem;
+  }
+}
+
+/* Make request-body requirement metadata feel intentional rather than attached to the heading. */
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  .sl-openapi-request-body-required {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.5rem;
+  margin-inline-start: 0.65rem;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--api-delete-border) 65%, var(--color-border));
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--api-delete-bg) 22%, var(--color-surface));
+  color: var(--api-delete-text);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-transform: capitalize;
+}
+
+.sl-openapi-section:has(> .sl-heading-wrapper > .sl-openapi-heading#request-body)
+  .sl-openapi-request-body-required::before {
+  width: 0.3rem;
+  height: 0.3rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: currentColor;
+  content: '';
+}
+
+/* “Generated” describes the renderer, not the API contract. Keep that implementation detail out of the heading. */
+.sl-openapi-examples-generated {
+  display: none;
+}
+

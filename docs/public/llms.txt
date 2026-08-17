@@ -1,0 +1,38 @@
+# Markdawn Documentation
+
+> Markdawn is a markdown-based knowledge base where people and AI assistants can create, connect, and maintain the same pages. It is available as a hosted service and can be self-hosted.
+
+Use this documentation to answer questions about Markdawn's browser workflows, markdown support, CLI, API, AI assistant access, imports, sharing, and self-hosting. Prefer the linked documentation pages over assumptions. MCP support is planned, not currently shipped.
+
+## Start Here
+
+- [Getting Started](https://docs.markdawn.space/getting-started/): Create a page, import notes, organize pages, and share content.
+- [Create Your First Page](https://docs.markdawn.space/getting-started/create-your-first-page/): Create a page, write markdown, and link related pages.
+- [Markdown Support](https://docs.markdawn.space/getting-started/markdown-support/): Supported syntax, page links, frontmatter, callouts, and unsupported features.
+- [Bring Your Notes to Markdawn](https://docs.markdawn.space/getting-started/bring-your-notes/): Import a markdown file, folder, or Obsidian vault.
+
+## AI Assistants and Automation
+
+- [Use Markdawn With AI Assistants](https://docs.markdawn.space/agents/use-markdawn-with-ai-assistants/): Connect a terminal-based AI tool using the CLI and scoped API tokens.
+- [Markdawn CLI](https://docs.markdawn.space/agents/markdawn-cli/): Install the CLI, sign in, read and edit pages, and import or export content.
+- [MCP](https://docs.markdawn.space/agents/mcp/): Current MCP support status and available alternatives.
+
+## API
+
+- [API Reference](https://docs.markdawn.space/api-reference/endpoints/): Read and change pages, folders, markdown content, imports, exports, and API tokens.
+- [API Markdown](https://docs.markdawn.space/api-reference/endpoints.md): Plain Markdown representation of the API overview.
+
+## Self-Hosting
+
+- [Self-Hosting](https://docs.markdawn.space/self-hosting/): Architecture, deployment boundaries, and data rules.
+- [Deploy Markdawn on a VPS](https://docs.markdawn.space/self-hosting/deploy-markdawn-on-a-vps/): Maintained Fedora, Caddy, rootless Podman, and PostgreSQL path.
+- [Maintain a Self-Hosted Markdawn](https://docs.markdawn.space/self-hosting/maintain-a-self-hosted-markdawn/): Service checks, updates, migrations, and recovery.
+- [Move a Markdawn Deployment](https://docs.markdawn.space/self-hosting/move-a-markdawn-deployment/): Move a compatible installation and its persistent data.
+
+## Comparisons
+
+- [Comparisons](https://docs.markdawn.space/comparisons/): Compare Markdawn with Notion, Obsidian, GitBook, Outline, Confluence, and other tools.
+
+## Machine-Readable Pages
+
+Every documentation page also has a plain Markdown representation at the same path with `.md` instead of the trailing slash. For example, `/agents/markdawn-cli/` is also available at `/agents/markdawn-cli.md`.

@@ -6,7 +6,10 @@ import { describe, expect, it } from 'vitest';
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const drizzleDir = resolve(currentDir, '../../drizzle');
 const deployScriptPath = resolve(currentDir, '../../../../deploy/deploy.sh');
-const deploymentGuidePath = resolve(currentDir, '../../../../docs/deployment_guide.md');
+const deploymentGuidePath = resolve(
+  currentDir,
+  '../../../../docs/src/content/docs/self-hosting/maintain-a-self-hosted-markdawn.md',
+);
 const migrationDirPattern = /^\d{14}_[A-Za-z0-9_-]+$/;
 
 function listMigrationDirs(): string[] {

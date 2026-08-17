@@ -1,0 +1,411 @@
+/* Turn generated responses into scannable status and schema cards. */
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-heading-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-heading-wrapper
+  > .sl-openapi-heading {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.35rem;
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-heading-wrapper
+  > .sl-openapi-heading[id^='2'] {
+  border-color: var(--api-post-border);
+  background: var(--api-post-bg);
+  color: var(--api-post-text);
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-heading-wrapper
+  > .sl-openapi-heading[id^='4'] {
+  border-color: var(--api-patch-border);
+  background: var(--api-patch-bg);
+  color: var(--api-patch-text);
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-heading-wrapper
+  > .sl-openapi-heading[id^='5'] {
+  border-color: var(--api-delete-border);
+  background: var(--api-delete-bg);
+  color: var(--api-delete-text);
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-openapi-section-pre-panel {
+  margin: 0 0 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-openapi-section-pre-panel p {
+  margin: 0;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-openapi-section-panel {
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 0.65rem;
+  background: var(--color-surface-alt);
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  starlight-openapi-content-picker {
+  display: block;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  starlight-openapi-content-picker
+  > .sl-openapi-content-picker-select {
+  display: flex;
+  margin: 0;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  starlight-openapi-content-picker
+  .sl-openapi-content-picker-select-value,
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  starlight-openapi-content-picker
+  .sl-openapi-content-picker-select
+  select {
+  width: auto;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.35rem;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  starlight-openapi-content-picker
+  > [role='tabpanel'] {
+  padding: 1rem 1.125rem 1.125rem;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root {
+  padding-inline-start: 0;
+  border-inline-start: 0;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  > .sl-openapi-keys {
+  display: block;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  > .sl-openapi-keys
+  > .sl-openapi-key {
+  display: grid;
+  grid-template-columns: minmax(8rem, 26%) minmax(0, 1fr);
+  column-gap: 1.25rem;
+  padding: 1rem 0;
+  margin: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  > .sl-openapi-keys
+  > .sl-openapi-key:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  > .sl-openapi-keys
+  > .sl-openapi-key:last-child {
+  padding-bottom: 0;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  .sl-openapi-key-name
+  > strong {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.35rem;
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.8125rem;
+  line-height: 1.25;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  .sl-openapi-key-description {
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  .sl-openapi-type {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  margin-inline-end: 0.35rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.3rem;
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  .sl-openapi-key-required {
+  margin-top: 0.25rem;
+  color: var(--api-delete-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  .sl-openapi-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  margin-inline-end: 0.35rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.3rem;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  .sl-openapi-key-description
+  > details {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.35rem;
+  background: var(--color-surface);
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  .sl-openapi-schema-objects {
+  margin-top: 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  starlight-tabs
+  .tablist-wrapper {
+  margin-top: 0.5rem;
+  border: 0;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  starlight-tabs
+  ul[role='tablist'] {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  background: var(--color-surface-elevated);
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  starlight-tabs
+  a[role='tab'] {
+  border: 0;
+  border-radius: 0.3rem;
+  padding: 0.25rem 0.5rem;
+  color: var(--color-text-muted);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  starlight-tabs
+  a[role='tab'][aria-selected='true'] {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-examples {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-examples-heading {
+  margin: 0 0 0.5rem;
+  color: var(--color-text);
+  font-family: var(--__sl-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* Refine response composition so the status, description, and schema scan as one unit. */
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 0.75rem;
+  align-items: center;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-heading-wrapper {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-openapi-section-pre-panel {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-openapi-section-panel,
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-openapi-section-post-panel {
+  grid-column: 1 / -1;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  > .sl-openapi-section-panel {
+  grid-row: 2;
+  margin-top: 0.15rem;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  starlight-openapi-content-picker
+  > .sl-openapi-content-picker-select {
+  padding: 0.55rem 1rem;
+  background: transparent;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  starlight-openapi-content-picker
+  .sl-openapi-content-picker-select-value {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.01em;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  .sl-openapi-key-name
+  > strong {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.875rem;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  .sl-openapi-key-required {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  .sl-openapi-type {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.8125rem;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  .sl-openapi-key-description
+  > details {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-schema-object-root
+  .sl-openapi-key-description
+  > details
+  > summary {
+  width: fit-content;
+  margin: 0.5rem 0 0;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.35rem;
+  background: var(--color-surface-elevated);
+}
+
+.sl-markdown-content .sl-heading-wrapper:has(> .sl-openapi-heading#responses) ~ .sl-openapi-section
+  .sl-openapi-examples-heading {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+

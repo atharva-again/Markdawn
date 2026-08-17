@@ -1,0 +1,152 @@
+/* Give the empty search state useful starting points without changing Pagefind's results UI. */
+.markdawn-search-start {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Pagefind keeps its clear button in the tab order while it is visually suppressed. */
+#starlight__search .pagefind-ui__search-clear.pagefind-ui__suppressed {
+  display: none;
+}
+
+.markdawn-search-start[hidden] {
+  display: none;
+}
+
+.markdawn-search-group + .markdawn-search-group {
+  margin-top: 1.25rem;
+}
+
+.markdawn-search-group[hidden] {
+  display: none;
+}
+
+.markdawn-search-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdawn-search-group-heading {
+  margin: 0 0 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.markdawn-search-group-header .markdawn-search-group-heading {
+  margin-bottom: 0;
+}
+
+.markdawn-search-clear {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.markdawn-search-clear:hover {
+  color: var(--color-text);
+}
+
+.markdawn-search-clear:focus-visible,
+.markdawn-search-item:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+.markdawn-search-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.markdawn-search-suggestion-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+
+.markdawn-search-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  text-align: start;
+  cursor: pointer;
+}
+
+.markdawn-search-item:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface-alt);
+}
+
+.markdawn-search-item-icon {
+  position: relative;
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 1.25rem;
+  place-items: center;
+  color: var(--color-text-muted);
+}
+
+.markdawn-search-item-icon[data-icon='clock'] {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+
+.markdawn-search-item-icon[data-icon='clock']::before {
+  width: 1px;
+  height: 0.3rem;
+  background: currentColor;
+  content: '';
+  transform: translateY(-0.1rem);
+}
+
+.markdawn-search-item-icon[data-icon='clock']::after {
+  position: absolute;
+  width: 0.3rem;
+  height: 1px;
+  background: currentColor;
+  content: '';
+  transform: translate(0.1rem, 0.05rem) rotate(35deg);
+  transform-origin: left center;
+}
+
+.markdawn-search-item-icon[data-icon='arrow']::before {
+  color: currentColor;
+  content: '↗';
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.markdawn-search-item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 40rem) {
+  .markdawn-search-suggestion-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
