@@ -96,6 +96,19 @@ body {
   background: var(--color-surface);
 }
 
+.mobile-section-switcher {
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  a,
+  button,
+  summary,
+  [role='button'] {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
 .contextual-sidebar a[aria-current='page'],
 .contextual-sidebar a[aria-current='page']:hover,
 .contextual-sidebar a[aria-current='page']:focus {
@@ -253,7 +266,7 @@ header.header {
 }
 
 .pagination-links {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
   max-width: none;
   margin-inline: 0;
 }
@@ -265,6 +278,157 @@ header.header {
 
 .pagination-links .link-title {
   font-size: var(--sl-text-xl);
+}
+
+@media (min-width: 50rem) {
+  html[data-has-hero],
+  html[data-has-hero] body {
+    overflow: hidden;
+  }
+
+  .hero:not(:has(> img, > .hero-html)) {
+    grid-template-columns: minmax(0, 1fr);
+    padding-block: clamp(2.5rem, 6vh, 4rem) !important;
+  }
+}
+
+@media (max-width: 71.99rem) {
+  html[data-has-toc] {
+    --sl-mobile-toc-height: 0rem;
+  }
+}
+
+@media (max-width: 49.99rem) {
+  [data-has-sidebar] starlight-menu-button button {
+    top: calc((var(--sl-nav-height) - 2rem) / 2);
+    inset-inline-end: var(--sl-nav-pad-x);
+    width: 2rem;
+    height: 2rem;
+    padding: 0.375rem;
+    border: 0;
+    border-radius: 0.5rem;
+    color: var(--color-text-muted);
+    background: transparent;
+    box-shadow: none;
+    font-size: var(--sl-text-xl);
+  }
+
+  [data-has-sidebar] starlight-menu-button button:hover,
+  [data-has-sidebar] starlight-menu-button[aria-expanded='true'] button {
+    color: var(--color-text);
+    background: transparent;
+  }
+
+  [data-has-sidebar] .sidebar-pane {
+    width: min(21rem, calc(100vw - 1rem));
+    border-inline-end: 1px solid var(--color-border);
+    background: var(--sl-color-bg-sidebar);
+    box-shadow: 1rem 0 2.5rem rgba(0, 0, 0, 0.2);
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+  }
+
+  [data-has-sidebar] starlight-menu-button[aria-expanded='true'] ~ .sidebar-pane {
+    transform: translateX(0);
+  }
+
+  [data-has-sidebar] .sidebar-content {
+    box-sizing: border-box;
+    min-height: 100%;
+    padding: 1rem;
+  }
+
+  [data-has-sidebar] .contextual-sidebar {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  [data-has-sidebar] .desktop-contextual-sidebar {
+    display: block;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  [data-has-sidebar] .mobile-section-switcher {
+    display: block;
+  }
+
+  [data-has-sidebar] .mobile-section-switcher summary {
+    min-height: 0;
+    height: 2.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    color: var(--color-text);
+    background: var(--color-surface-alt);
+    cursor: pointer;
+    line-height: 1.25;
+    list-style: none;
+  }
+
+  [data-has-sidebar] .mobile-section-switcher summary::-webkit-details-marker {
+    display: none;
+  }
+
+  [data-has-sidebar] .mobile-section-switcher summary svg {
+    width: 1rem;
+    height: 1rem;
+    transition: transform 160ms ease;
+  }
+
+  [data-has-sidebar] .mobile-section-switcher[open] summary {
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+
+  [data-has-sidebar] .mobile-section-switcher[open] summary svg {
+    transform: rotate(180deg);
+  }
+
+  [data-has-sidebar] .mobile-section-options {
+    padding: 0.25rem;
+    border: 1px solid var(--color-border);
+    border-top: 0;
+    border-radius: 0 0 0.5rem 0.5rem;
+    background: var(--color-surface-alt);
+  }
+
+  [data-has-sidebar] .mobile-section-options a {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    color: var(--color-text-muted);
+    line-height: 1.25;
+    text-decoration: none;
+  }
+
+  [data-has-sidebar] .mobile-section-options a:hover,
+  [data-has-sidebar] .mobile-section-options a.active {
+    color: var(--color-text);
+    background: var(--color-surface-elevated);
+  }
+
+  [data-has-sidebar] .mobile-menu-footer {
+    width: 100%;
+    margin-top: auto;
+  }
+
+  [data-has-sidebar] .mobile-preferences {
+    border-top-color: var(--color-border);
+  }
+
+  body[data-mobile-menu-expanded]::before {
+    position: fixed;
+    z-index: calc(var(--sl-z-index-menu) - 1);
+    content: '';
+    background: rgba(0, 0, 0, 0.32);
+    inset: var(--sl-nav-height) 0 0;
+    pointer-events: auto;
+  }
 }
 
 @media (min-width: 72rem) {

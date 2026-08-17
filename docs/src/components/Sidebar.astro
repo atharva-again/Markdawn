@@ -39,14 +39,55 @@ const visibleSidebar =
         entry.type === 'group' && entry.label === 'Endpoints' ? entry.entries : [entry],
       )
     : sectionEntries;
+const sectionOptions = [
+  { label: 'Getting Started', href: '/getting-started/' },
+  { label: 'Agents', href: '/agents/' },
+  { label: 'API Reference', href: '/api-reference/endpoints/' },
+  { label: 'Self-Hosting', href: '/self-hosting/' },
+  { label: 'Comparisons', href: '/comparisons/' },
+];
 ---
 
-<div class="contextual-sidebar" data-active-section={activeSection}>
+<details class="mobile-section-switcher">
+  <summary>
+    <span>{activeSection}</span>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m7 9 5 5 5-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" />
+    </svg>
+  </summary>
+  <div class="mobile-section-options">
+    {sectionOptions.map((section) => (
+      <a class:list={{ active: section.label === activeSection }} href={section.href}>
+        {section.label}
+      </a>
+  ))}
+  </div>
+</details>
+
+<div class="contextual-sidebar desktop-contextual-sidebar" data-active-section={activeSection}>
   <SidebarPersister>
     <SidebarSublist sublist={visibleSidebar} nested />
   </SidebarPersister>
 </div>
 
-<div class="md:sl-hidden">
+<div class="mobile-menu-footer md:sl-hidden">
   <MobileMenuFooter />
 </div>
+
+<script>
+  const menuHost = document.querySelector('starlight-menu-button');
+  const menuButton = menuHost?.querySelector<HTMLButtonElement>(
+    'button[aria-controls="starlight__sidebar"]',
+  );
+  const sidebar = document.getElementById('starlight__sidebar');
+
+  if (menuHost && menuButton && sidebar) {
+    document.addEventListener('click', (event) => {
+      if (!document.body.hasAttribute('data-mobile-menu-expanded')) return;
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (sidebar.contains(target) || menuHost.contains(target)) return;
+      menuButton.click();
+    });
+  }
+</script>
