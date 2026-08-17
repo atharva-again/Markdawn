@@ -1,5 +1,6 @@
+import { MARKDAWN_DOCS_URL } from '@markdawn/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { Download, FolderOpen } from 'lucide-react';
+import { BookOpen, Download, FolderOpen } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ObsidianImportDialog } from '../components/import/ObsidianImportDialog';
@@ -54,6 +55,15 @@ export default function Settings() {
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           Manage your account and data.
         </p>
+        <a
+          href={MARKDAWN_DOCS_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
+        >
+          <BookOpen size={16} />
+          Read the documentation
+        </a>
       </div>
 
       <section className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-6">

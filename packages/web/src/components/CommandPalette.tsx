@@ -1,4 +1,5 @@
-import { FileText, Plus, Trash2 } from 'lucide-react';
+import { MARKDAWN_DOCS_URL } from '@markdawn/shared';
+import { BookOpen, FileText, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIdentityNavigate } from '../contexts/IdentityLifecycleContext';
 import { useShortcut, useShortcutScope } from '../contexts/KeyboardShortcutContext';
@@ -7,7 +8,6 @@ import { SHORTCUT_PATTERNS } from '../utils/keyboardShortcuts';
 import { buildPagePath } from '../utils/url';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
-
 type SearchResult = {
   id: string;
   title: string;
@@ -238,6 +238,22 @@ export function CommandPalette() {
                     <div className="text-sm font-medium truncate">Go to Trash</div>
                   </div>
                 </button>
+              </li>
+              <li>
+                <a
+                  href={MARKDAWN_DOCS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={closeDialog}
+                  className="w-full rounded-xl px-4 py-3 text-left transition-all duration-200 flex items-center gap-3 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 hover:text-zinc-900 dark:hover:text-zinc-200"
+                >
+                  <div className="flex items-center justify-center w-8 h-8 rounded-md bg-zinc-200/50 dark:bg-zinc-700/50 text-lg shrink-0">
+                    <BookOpen className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">Open Documentation</div>
+                  </div>
+                </a>
               </li>
             </ul>
           </div>

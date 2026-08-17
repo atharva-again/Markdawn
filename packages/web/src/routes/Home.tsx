@@ -13,14 +13,14 @@ import {
   useRole,
   useTransitionStyles,
 } from '@floating-ui/react';
+import { MARKDAWN_CLI_DOCS_URL, MARKDAWN_DOCS_URL } from '@markdawn/shared';
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { HeaderActions } from '../components/HeaderActions';
 import { useAuth } from '../hooks/useAuth';
 
-const GITHUB_REPO = 'https://github.com/atharva-again/Markdawn';
-const CLI_GUIDE = `${GITHUB_REPO}/blob/master/cli/README.md`;
+const CLI_GUIDE = MARKDAWN_CLI_DOCS_URL;
 const CLI_INSTALL_COMMANDS = [
   {
     label: 'Linux / macOS',
@@ -121,8 +121,8 @@ function CliInstallPopover() {
                   href={CLI_GUIDE}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label="Open CLI README"
-                  title="Open CLI README"
+                  aria-label="Open CLI documentation"
+                  title="Open CLI documentation"
                   className="cursor-pointer text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
                 >
                   <ExternalLink size={14} aria-hidden="true" />
@@ -217,7 +217,7 @@ export default function Home() {
           </Link>
           <CliInstallPopover />
           <a
-            href={GITHUB_REPO}
+            href={MARKDAWN_DOCS_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-white px-8 py-3.5 text-sm font-semibold text-zinc-700 shadow-sm transition-all duration-200 hover:bg-zinc-50 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
