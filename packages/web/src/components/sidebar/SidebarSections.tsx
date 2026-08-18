@@ -20,22 +20,22 @@ export function SidebarSection({
   children: ReactNode;
 }) {
   return (
-    <div className="mb-2">
+    <section className="mb-1" aria-label={title}>
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={!collapsed}
-        className="flex items-center px-1 mb-2 text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors w-full text-left"
+        className="group/section flex w-full items-center justify-between px-2.5 py-1.5 text-left text-[11px] font-bold uppercase tracking-wider text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 cursor-pointer transition-colors"
       >
-        {collapsed ? (
-          <ChevronRight size={14} className="mr-1 shrink-0" />
-        ) : (
-          <ChevronDown size={14} className="mr-1 shrink-0" />
-        )}
         <span>{title}</span>
+        {collapsed ? (
+          <ChevronRight size={13} className="shrink-0 opacity-70" />
+        ) : (
+          <ChevronDown size={13} className="shrink-0 opacity-70" />
+        )}
       </button>
       {!collapsed && children}
-    </div>
+    </section>
   );
 }
 
@@ -55,7 +55,7 @@ export function SidebarAliasSection({
   if (rows.length === 0) return null;
   return (
     <SidebarSection title={title} collapsed={collapsed} onToggle={onToggle}>
-      <div className="space-y-0.5">
+      <div className="space-y-px">
         {rows.map(({ key, row }) => (
           <SidebarEntityRow key={key} runtime={runtime} entity={row} placement="alias" />
         ))}
