@@ -104,13 +104,13 @@ export function PageTreeRow({
       role="button"
       tabIndex={0}
       className={clsx(
-        'group flex items-center h-8 pr-2 py-1 my-0.5 rounded-lg cursor-pointer transition-all duration-200 ease-in-out relative',
+        'group relative flex h-8 items-center rounded-lg py-1 pr-2 cursor-pointer transition-colors duration-150',
         isActive
-          ? 'bg-black/5 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 font-medium shadow-[0_1px_2px_rgba(0,0,0,0.02)]'
-          : 'text-zinc-600 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-zinc-100',
+          ? 'bg-zinc-200/75 text-zinc-950 font-medium shadow-[inset_0_0_0_1px_rgba(24,24,27,0.03)] dark:bg-zinc-800/90 dark:text-zinc-100 dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]'
+          : 'text-zinc-600 hover:bg-zinc-100/90 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100',
         isDragTarget && 'opacity-60',
       )}
-      style={{ paddingLeft: `${depth * 12 + 12}px`, marginLeft: '8px', marginRight: '8px' }}
+      style={{ paddingLeft: `${depth * 14 + 8}px`, marginLeft: '6px', marginRight: '6px' }}
       onClick={handleNavigate}
       onKeyDown={(e) => {
         if (isEditing) return;
@@ -128,11 +128,11 @@ export function PageTreeRow({
         type="button"
         onClick={hasChildren ? handleToggleExpand : undefined}
         className={clsx(
-          'flex items-center justify-center w-5 h-5 rounded-md mr-2 transition-colors',
+          'mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors',
           showDragHandle ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
           hasChildren
-            ? 'hover:bg-black/10 dark:hover:bg-white/10 text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300'
-            : 'text-zinc-400 dark:text-zinc-500 opacity-50',
+            ? 'text-zinc-400 hover:bg-black/5 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-white/10 dark:hover:text-zinc-300'
+            : 'text-zinc-400 opacity-55 dark:text-zinc-500',
         )}
         aria-label={hasChildren ? 'Toggle nested pages' : 'Page'}
       >
@@ -173,18 +173,18 @@ export function PageTreeRow({
             }
             onBlur={onEditSave}
             onKeyDown={onEditKeyDown}
-            className="flex-1 bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-md px-1 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 h-6 min-w-0 text-zinc-900 dark:text-zinc-100"
+            className="h-6 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-1.5 py-0.5 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400/60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-zinc-500/60"
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="truncate text-sm leading-none pt-0.5">{title}</span>
+          <span className="truncate text-sm leading-none">{title}</span>
         )}
       </div>
 
       {!isEditing && (
         <div
           className={clsx(
-            'absolute right-1 z-20 flex items-center gap-0.5 transition-opacity',
+            'absolute right-1.5 z-20 flex items-center gap-0.5 transition-opacity',
             isMenuOpen
               ? 'opacity-100 pointer-events-auto'
               : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto',
