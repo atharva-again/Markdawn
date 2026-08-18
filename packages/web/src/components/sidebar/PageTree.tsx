@@ -56,6 +56,7 @@ export function PageTree() {
   const { isAnonymous } = useShareContext();
   const { data: session } = useAuth();
   const currentUserId = session?.user?.id;
+  const sidebarIdentity = session?.user?.name?.trim().split(/\s+/)[0] || 'Markdawn';
   const createFolderShortcut = formatShortcut(SHORTCUT_PATTERNS.createFolder);
   const createNoteShortcut = formatShortcut(SHORTCUT_PATTERNS.createNote);
 
@@ -328,61 +329,71 @@ export function PageTree() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="shrink-0 px-2 pt-2 pb-1">
-        <div className="flex items-center justify-center gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              navigate('/app');
-            }}
-            className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-all text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 cursor-pointer"
-            title="Go to home"
-            data-testid="home-btn"
+      <div className="shrink-0 px-3 pb-3 pt-1">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <span
+            className="min-w-0 max-w-12 truncate text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+            title={session?.user?.name || 'Markdawn'}
           >
-            <Home size={16} />
-          </button>
-          <label
-            className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-all text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 cursor-pointer"
-            title="Import markdown file"
-          >
-            <input type="file" accept=".md" className="hidden" onChange={handleImportMarkdown} />
-            <Download size={16} />
-          </label>
-          <button
-            type="button"
-            onClick={() => {
-              void handleCreateRootFolder();
-            }}
-            className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-all text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 cursor-pointer"
-            title={`Create folder (${createFolderShortcut})`}
-            data-testid="new-folder-btn"
-          >
-            <FolderPlus size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              void handleCreateRootPage();
-            }}
-            className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-all text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 cursor-pointer"
-            title={`Create note (${createNoteShortcut})`}
-            data-testid="new-page-btn"
-          >
-            <FilePlus2 size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={sidebar.toggleAll}
-            className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-all text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 cursor-pointer"
-            title={sidebar.allExpanded ? 'Collapse all folders' : 'Expand all folders'}
-            data-testid="toggle-expand-all-btn"
-          >
-            {sidebar.allExpanded ? <ChevronsUp size={16} /> : <ChevronsDown size={16} />}
-          </button>
+            {sidebarIdentity}
+          </span>
+          <div className="flex shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                navigate('/app');
+              }}
+              className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-500 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 cursor-pointer"
+              title="Go to home"
+              data-testid="home-btn"
+            >
+              <Home size={16} />
+            </button>
+            <label
+              className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-500 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 cursor-pointer"
+              title="Import markdown file"
+            >
+              <input type="file" accept=".md" className="hidden" onChange={handleImportMarkdown} />
+              <Download size={16} />
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                void handleCreateRootFolder();
+              }}
+              className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-500 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 cursor-pointer"
+              title={`Create folder (${createFolderShortcut})`}
+              data-testid="new-folder-btn"
+            >
+              <FolderPlus size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void handleCreateRootPage();
+              }}
+              className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-500 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 cursor-pointer"
+              title={`Create note (${createNoteShortcut})`}
+              data-testid="new-page-btn"
+            >
+              <FilePlus2 size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={sidebar.toggleAll}
+              className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-500 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 cursor-pointer"
+              title={sidebar.allExpanded ? 'Collapse all folders' : 'Expand all folders'}
+              data-testid="toggle-expand-all-btn"
+            >
+              {sidebar.allExpanded ? <ChevronsUp size={16} /> : <ChevronsDown size={16} />}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-3">
+      <div className="mx-3 border-t border-zinc-200/70 dark:border-zinc-800/80" />
+
+      <div className="flex-1 overflow-y-auto px-1.5 py-3 space-y-3">
         <SidebarAliasSection
           title="Favorites"
           collapsed={sidebar.collapsedSections.has('favorites')}
@@ -404,14 +415,14 @@ export function PageTree() {
               type="button"
               onClick={() => sidebar.toggleSection('shared')}
               aria-expanded={!sidebar.collapsedSections.has('shared')}
-              className="flex items-center px-1 mb-2 text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors w-full text-left"
+              className="flex w-full items-center justify-between px-2.5 py-1.5 text-left text-[11px] font-bold uppercase tracking-wider text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 cursor-pointer transition-colors"
             >
-              {sidebar.collapsedSections.has('shared') ? (
-                <ChevronRight size={14} className="mr-1 shrink-0" />
-              ) : (
-                <ChevronDown size={14} className="mr-1 shrink-0" />
-              )}
               <span>Shared With Me</span>
+              {sidebar.collapsedSections.has('shared') ? (
+                <ChevronRight size={13} className="shrink-0 opacity-70" />
+              ) : (
+                <ChevronDown size={13} className="shrink-0 opacity-70" />
+              )}
             </button>
             {!sidebar.collapsedSections.has('shared') && (
               <div className="space-y-1">
@@ -504,14 +515,14 @@ export function PageTree() {
             type="button"
             onClick={() => sidebar.toggleSection('owned')}
             aria-expanded={!sidebar.collapsedSections.has('owned')}
-            className="flex items-center px-1 mb-2 text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors w-full text-left"
+            className="flex w-full items-center justify-between px-2.5 py-1.5 text-left text-[11px] font-bold uppercase tracking-wider text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 cursor-pointer transition-colors"
           >
-            {sidebar.collapsedSections.has('owned') ? (
-              <ChevronRight size={14} className="mr-1 shrink-0" />
-            ) : (
-              <ChevronDown size={14} className="mr-1 shrink-0" />
-            )}
             <span>Owned By Me</span>
+            {sidebar.collapsedSections.has('owned') ? (
+              <ChevronRight size={13} className="shrink-0 opacity-70" />
+            ) : (
+              <ChevronDown size={13} className="shrink-0 opacity-70" />
+            )}
           </button>
           {!sidebar.collapsedSections.has('owned') && (
             <div className="space-y-0.5">

@@ -55,7 +55,7 @@ export function ProfilePill({
   return (
     <div
       className={clsx(
-        'rounded-[2rem] border border-white/60 dark:border-zinc-700/50 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] flex-shrink-0 z-50 relative overflow-visible flex flex-col justify-center',
+        'relative z-50 flex flex-shrink-0 flex-col justify-center overflow-visible rounded-[1.25rem] border border-zinc-200/80 bg-white/95 backdrop-blur-xl shadow-[0_10px_30px_rgba(24,24,27,0.07)] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] dark:border-zinc-800 dark:bg-[#111113]/95 dark:shadow-[0_14px_36px_rgba(0,0,0,0.24)]',
         collapsed ? 'w-[68px] min-h-[160px] py-4' : 'w-[240px] p-3',
         className,
       )}
