@@ -4,7 +4,7 @@ import { createNewPage, focusEditor } from '../fixtures';
 test.describe('Breadcrumbs', () => {
   test('breadcrumb shows workspace name on a page', async ({ page }) => {
     await createNewPage(page);
-    const breadcrumb = page.locator('a[href="/app"]');
+    const breadcrumb = page.locator('a[href="/"]');
     await expect(breadcrumb).toBeVisible({ timeout: 5000 });
   });
 });

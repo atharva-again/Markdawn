@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test.describe('Markdown import', () => {
   test('import markdown file via sidebar', async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle', timeout: 20000 });
-    await page.waitForURL(/\/app(\/|$)/, { timeout: 15000 });
+    await page.waitForURL(/\/$/, { timeout: 15000 });
 
     const importLabel = page.locator('label[title="Import markdown file"]');
     await expect(importLabel).toBeVisible({ timeout: 5000 });

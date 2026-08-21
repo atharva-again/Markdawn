@@ -164,7 +164,7 @@ describe('CommandPalette', () => {
 
     await user.click(screen.getByText('Go to Trash'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/app/trash');
+    expect(mockNavigate).toHaveBeenCalledWith('/trash');
   });
 
   it('has no accessibility violations when open', async () => {

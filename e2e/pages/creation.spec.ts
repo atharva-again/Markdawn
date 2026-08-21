@@ -3,13 +3,13 @@ import { expect, test } from '@playwright/test';
 test.describe('Page creation', () => {
   test('create page via workspace home "New Page" button', async ({ page }) => {
     await page.goto('/');
-    await page.waitForURL(/\/app(\/|$)/);
+    await page.waitForURL(/\/$/);
 
     await page
       .getByRole('button', { name: /new page/i })
       .first()
       .click();
-    await page.waitForURL(/\/app\/untitled-/);
+    await page.waitForURL(/\/untitled-/);
 
     // A new page should have an empty editor
     await expect(page.locator('.ProseMirror')).toBeVisible();
@@ -19,7 +19,7 @@ test.describe('Page creation', () => {
 
   test('create page via sidebar "Create note" button', async ({ page }) => {
     await page.goto('/');
-    await page.waitForURL(/\/app(\/|$)/);
+    await page.waitForURL(/\/$/);
 
     // Count existing sidebar pages
     const beforeCount = await page.locator('text=Untitled').count();
@@ -35,13 +35,13 @@ test.describe('Page creation', () => {
 
   test('new page has "Untitled" as default title', async ({ page }) => {
     await page.goto('/');
-    await page.waitForURL(/\/app(\/|$)/);
+    await page.waitForURL(/\/$/);
 
     await page
       .getByRole('button', { name: /new page/i })
       .first()
       .click();
-    await page.waitForURL(/\/app\/untitled-/);
+    await page.waitForURL(/\/untitled-/);
 
     await expect(page.locator('input[data-testid="page-title"]')).toHaveValue('Untitled');
   });

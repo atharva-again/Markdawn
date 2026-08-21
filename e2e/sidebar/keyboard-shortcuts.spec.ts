@@ -80,11 +80,11 @@ test.describe('Keyboard shortcuts', () => {
       const urlBefore = page.url();
 
       await page.keyboard.press('Alt+n');
-      await page.waitForURL(/\/app\/.+\/.+/);
+      await page.waitForURL(/\/[^/]+$/);
 
       const urlAfter = page.url();
       expect(urlAfter).not.toBe(urlBefore);
-      expect(urlAfter).toMatch(/\/app\/.+\/.+/);
+      expect(new URL(urlAfter).pathname).toMatch(/^\/[^/]+$/);
     });
 
     test('Alt+N works while focused in the editor', async ({ page, browserName }) => {
@@ -99,7 +99,7 @@ test.describe('Keyboard shortcuts', () => {
 
       const urlBefore = page.url();
       await page.keyboard.press('Alt+n');
-      await page.waitForURL(/\/app\/.+\/.+/);
+      await page.waitForURL(/\/[^/]+$/);
 
       const urlAfter = page.url();
       expect(urlAfter).not.toBe(urlBefore);

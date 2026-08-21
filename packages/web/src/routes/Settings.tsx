@@ -8,6 +8,7 @@ import { ApiTokensPanel } from '../components/settings/ApiTokensPanel';
 import { WorkspaceMembersPanel } from '../components/workspace/WorkspaceMembersPanel';
 import { useIdentityLifecycle } from '../contexts/IdentityLifecycleContext';
 import { showErrorToast, showSuccessToast } from '../utils/toast';
+import { getWorkspacePath } from '../utils/url';
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -46,7 +47,7 @@ export default function Settings() {
     <div className="max-w-3xl space-y-8">
       <div>
         <Link
-          to="/app"
+          to={getWorkspacePath()}
           className="text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
         >
           Back to home

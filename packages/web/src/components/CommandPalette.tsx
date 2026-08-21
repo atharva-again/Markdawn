@@ -5,9 +5,10 @@ import { useIdentityNavigate } from '../contexts/IdentityLifecycleContext';
 import { useShortcut, useShortcutScope } from '../contexts/KeyboardShortcutContext';
 import { useEntityCreationActions } from '../hooks/useEntityCreationActions';
 import { SHORTCUT_PATTERNS } from '../utils/keyboardShortcuts';
-import { buildPagePath } from '../utils/url';
+import { buildPagePath, getWorkspacePath } from '../utils/url';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+const API_BASE = '/api';
+
 type SearchResult = {
   id: string;
   title: string;
@@ -82,7 +83,7 @@ export function CommandPalette() {
 
     const timeout = window.setTimeout(async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(trimmedQuery)}`, {
+        const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(trimmedQuery)}`, {
           credentials: 'include',
           signal: controller.signal,
         });
@@ -226,7 +227,7 @@ export function CommandPalette() {
                 <button
                   type="button"
                   onClick={() => {
-                    navigate('/app/trash');
+                    navigate(getWorkspacePath('trash'));
                     closeDialog();
                   }}
                   className="w-full rounded-xl px-4 py-3 text-left transition-all duration-200 flex items-center gap-3 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 hover:text-zinc-900 dark:hover:text-zinc-200"

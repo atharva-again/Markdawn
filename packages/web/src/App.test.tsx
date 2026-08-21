@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react';
 import type React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import { render } from './test-utils/render';
 
@@ -28,12 +28,24 @@ vi.mock('./hooks/useAuth', () => ({
 }));
 
 describe('App', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
     authState.data = { user: null, session: null };
     authState.isPending = false;
   });
 
-  it('renders the landing page at /', () => {
+  it('redirects the application root to login when unauthenticated', () => {
+    render(<App />, { route: '/' });
+
+    expect(screen.getByRole('button', { name: /continue with google/i })).toBeInTheDocument();
+  });
+
+  it('renders the landing page in landing mode', () => {
+    vi.stubEnv('MODE', 'landing');
+
     render(<App />, { route: '/' });
 
     expect(screen.getByText('Welcome to Markdawn')).toBeInTheDocument();
@@ -54,8 +66,8 @@ describe('App', () => {
     expect(screen.queryByRole('button', { name: /continue with google/i })).not.toBeInTheDocument();
   });
 
-  it('redirects protected route to login when unauthenticated', () => {
-    render(<App />, { route: '/app' });
+  it('redirects protected workspace routes to login when unauthenticated', () => {
+    render(<App />, { route: '/settings' });
 
     expect(screen.getByRole('button', { name: /continue with google/i })).toBeInTheDocument();
   });

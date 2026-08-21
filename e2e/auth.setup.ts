@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { expect, test as setup } from '@playwright/test';
-import { API_URL } from './fixtures';
+import { API_URL, WEB_HOSTNAME } from './fixtures';
 
 const authFile = path.join(__dirname, 'playwright/.auth/user.json');
 
@@ -23,13 +23,11 @@ setup('authenticate', async ({ page, request }) => {
 
   const { cookie } = (await res.json()) as { cookie: string };
 
-  const domain = new URL(API_URL).hostname;
-
   await page.context().addCookies([
     {
       name: 'better-auth.session_token',
       value: cookie,
-      domain,
+      domain: WEB_HOSTNAME,
       path: '/',
       httpOnly: true,
       secure: false,
@@ -37,7 +35,7 @@ setup('authenticate', async ({ page, request }) => {
     },
   ]);
 
-  await page.goto('/app/', { waitUntil: 'networkidle' });
-  expect(page.url()).toMatch(/\/app\//);
+  await page.goto('/', { waitUntil: 'networkidle' });
+  expect(new URL(page.url()).pathname).toBe('/');
   await page.context().storageState({ path: authFile });
 });

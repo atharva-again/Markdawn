@@ -46,8 +46,8 @@ import { PageTreeRow } from './PageTreeRow';
 
 describe('PageTreeRow keyboard actions', () => {
   it.each([
-    ['page', false, '/app/entity-page-1'],
-    ['folder', true, '/app/folder/entity-folder-1'],
+    ['page', false, '/entity-page-1'],
+    ['folder', true, '/folder/entity-folder-1'],
   ] as const)('uses the canonical %s path when the row is activated', async (_type, isFolder, path) => {
     const user = userEvent.setup();
     mocks.navigate.mockReset();
@@ -104,7 +104,7 @@ describe('PageTreeRow keyboard actions', () => {
 
     await user.click(screen.getByRole('button', { name: 'Complete removal' }));
 
-    expect(mocks.navigate).toHaveBeenCalledWith('/app/folder/folder-folder-1');
+    expect(mocks.navigate).toHaveBeenCalledWith('/folder/folder-folder-1');
   });
 
   it('navigates an active top-level item Home after removal', async () => {
@@ -114,7 +114,7 @@ describe('PageTreeRow keyboard actions', () => {
 
     await user.click(screen.getByRole('button', { name: 'Complete removal' }));
 
-    expect(mocks.navigate).toHaveBeenCalledWith('/app');
+    expect(mocks.navigate).toHaveBeenCalledWith('/');
   });
 
   it.each([

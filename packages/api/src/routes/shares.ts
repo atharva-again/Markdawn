@@ -1,4 +1,6 @@
 import {
+  buildFolderPath as buildSharedFolderPath,
+  buildPagePath as buildSharedPagePath,
   deriveCapabilities,
   type EntityAccessSource,
   type EntityShare,
@@ -13,6 +15,7 @@ import { db } from '../db/connection';
 import { executeQuery, type QueryExecutor, query } from '../db/query';
 import { requireAuth } from '../middleware/auth';
 import { getEnumerableFolderIds } from '../utils/folderEnumeration';
+import { buildPublicWebUrl } from '../utils/publicWebUrl';
 import {
   ensureCanAdminEntity,
   ensureFolderAccess,
@@ -113,16 +116,10 @@ type SharedNavigationItem = SharedNavigationPage | SharedNavigationFolder;
 const sharesRoute = new Hono();
 sharesRoute.use('*', requireAuth);
 
-const slugifyTitle = (title: string) =>
-  title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
 const buildPagePath = (title: string, pageId: string) =>
-  `/app/${slugifyTitle(title) || 'page'}-${pageId}`;
+  buildPublicWebUrl(buildSharedPagePath(title, pageId));
 const buildFolderPath = (title: string, folderId: string) =>
-  `/app/folder/${slugifyTitle(title) || 'folder'}-${folderId}`;
+  buildPublicWebUrl(buildSharedFolderPath(title, folderId));
 const buildEntityPath = (entity: EntityInfo, entityType: ShareEntityType) =>
   entityType === 'page'
     ? buildPagePath(entity.title, entity.id)

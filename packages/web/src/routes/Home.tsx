@@ -16,20 +16,20 @@ import {
 import { MARKDAWN_CLI_DOCS_URL, MARKDAWN_DOCS_URL } from '@markdawn/shared';
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
 import { HeaderActions } from '../components/HeaderActions';
-import { useAuth } from '../hooks/useAuth';
+import { getAppOrigin } from '../utils/url';
 
 const CLI_GUIDE = MARKDAWN_CLI_DOCS_URL;
+const SITE_ORIGIN = 'https://markdawn.space';
 const CLI_INSTALL_COMMANDS = [
   {
     label: 'Linux / macOS',
-    command: 'curl -fsSL https://markdawn.space/install.sh | sh',
+    command: `curl -fsSL ${SITE_ORIGIN}/install.sh | sh`,
     ariaLabel: 'Copy Linux and macOS install command',
   },
   {
     label: 'Windows',
-    command: 'irm https://markdawn.space/install.ps1 | iex',
+    command: `irm ${SITE_ORIGIN}/install.ps1 | iex`,
     ariaLabel: 'Copy Windows install command',
   },
 ] as const;
@@ -175,11 +175,8 @@ function CliInstallPopover() {
 }
 
 export default function Home() {
-  const { data: session } = useAuth();
+  const webAppHref = getAppOrigin();
 
-  if (session?.user) {
-    return <Navigate to="/app" replace />;
-  }
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen bg-zinc-50 dark:bg-zinc-950 overflow-hidden selection:bg-zinc-900 selection:text-white dark:selection:bg-white dark:selection:text-zinc-900">
       <div className="absolute top-4 right-4 z-50">
@@ -209,12 +206,12 @@ export default function Home() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-          <Link
-            to="/login"
+          <a
+            href={webAppHref}
             className="inline-flex cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-white px-8 py-3.5 text-sm font-semibold text-zinc-700 shadow-sm transition-all duration-200 hover:bg-zinc-50 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             Web
-          </Link>
+          </a>
           <CliInstallPopover />
           <a
             href={MARKDAWN_DOCS_URL}

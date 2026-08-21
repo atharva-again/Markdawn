@@ -8,9 +8,7 @@ type OnboardingNavigationState = {
   destination?: unknown;
 };
 
-function isWorkspacePath(path: string): boolean {
-  return path === '/app' || path.startsWith('/app/');
-}
+import { getWorkspaceRootPath, isWorkspacePath } from './url';
 
 function getSafeWorkspacePath(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -41,7 +39,7 @@ export function getWorkspaceDestination(location: LocationLike): string {
 }
 
 export function getOnboardingDestination(state: unknown): string {
-  return getSafeWorkspacePath(parseNavigationState(state)?.destination) ?? '/app';
+  return getSafeWorkspacePath(parseNavigationState(state)?.destination) ?? getWorkspaceRootPath();
 }
 
 export function withImportedDestination(state: unknown, importedDestination: string) {
@@ -52,6 +50,6 @@ export function withImportedDestination(state: unknown, importedDestination: str
 
   const destination = getOnboardingDestination(state);
   return {
-    destination: destination === '/app' ? parsedImportedDestination : destination,
+    destination: destination === getWorkspaceRootPath() ? parsedImportedDestination : destination,
   };
 }

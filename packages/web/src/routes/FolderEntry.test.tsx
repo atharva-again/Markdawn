@@ -207,9 +207,9 @@ describe('FolderEntry access refresh', () => {
     mocks.pagesPending = true;
 
     render(
-      <MemoryRouter initialEntries={[`/app/folder/fresh-${FOLDER_ID}`]}>
+      <MemoryRouter initialEntries={[`/folder/fresh-${FOLDER_ID}`]}>
         <Routes>
-          <Route path="/app/folder/:slugAndId" element={<FolderEntry />} />
+          <Route path="/folder/:slugAndId" element={<FolderEntry />} />
         </Routes>
       </MemoryRouter>,
     );
@@ -219,9 +219,9 @@ describe('FolderEntry access refresh', () => {
 
   it('uses fresh polled metadata for a router-aware canonical replace', async () => {
     render(
-      <MemoryRouter initialEntries={[`/app/folder/stale-${FOLDER_ID}?mode=grid#section`]}>
+      <MemoryRouter initialEntries={[`/folder/stale-${FOLDER_ID}?mode=grid#section`]}>
         <Routes>
-          <Route path="/app/folder/:slugAndId" element={<FolderEntry />} />
+          <Route path="/folder/:slugAndId" element={<FolderEntry />} />
         </Routes>
       </MemoryRouter>,
     );
@@ -241,9 +241,9 @@ describe('FolderEntry access refresh', () => {
     mocks.refetchPages.mockResolvedValue(undefined);
     mocks.refetchFolders.mockResolvedValue(undefined);
     render(
-      <MemoryRouter initialEntries={[`/app/folder/stale-${FOLDER_ID}`]}>
+      <MemoryRouter initialEntries={[`/folder/stale-${FOLDER_ID}`]}>
         <Routes>
-          <Route path="/app/folder/:slugAndId" element={<FolderEntry />} />
+          <Route path="/folder/:slugAndId" element={<FolderEntry />} />
         </Routes>
       </MemoryRouter>,
     );
@@ -260,9 +260,9 @@ describe('FolderEntry access refresh', () => {
     mocks.clipboardState = { action: 'copy', items: [{ id: 'page-1', type: 'page' }] };
 
     const rendered = render(
-      <MemoryRouter initialEntries={[`/app/folder/fresh-${FOLDER_ID}`]}>
+      <MemoryRouter initialEntries={[`/folder/fresh-${FOLDER_ID}`]}>
         <Routes>
-          <Route path="/app/folder/:slugAndId" element={<FolderEntry />} />
+          <Route path="/folder/:slugAndId" element={<FolderEntry />} />
         </Routes>
       </MemoryRouter>,
     );
@@ -273,9 +273,9 @@ describe('FolderEntry access refresh', () => {
 
     mocks.clipboardState = { action: 'cut', items: [{ id: 'page-1', type: 'page' }] };
     rendered.rerender(
-      <MemoryRouter initialEntries={[`/app/folder/fresh-${FOLDER_ID}`]}>
+      <MemoryRouter initialEntries={[`/folder/fresh-${FOLDER_ID}`]}>
         <Routes>
-          <Route path="/app/folder/:slugAndId" element={<FolderEntry />} />
+          <Route path="/folder/:slugAndId" element={<FolderEntry />} />
         </Routes>
       </MemoryRouter>,
     );
@@ -302,9 +302,9 @@ describe('FolderEntry access refresh', () => {
     ];
 
     render(
-      <MemoryRouter initialEntries={[`/app/folder/fresh-${FOLDER_ID}`]}>
+      <MemoryRouter initialEntries={[`/folder/fresh-${FOLDER_ID}`]}>
         <Routes>
-          <Route path="/app/folder/:slugAndId" element={<FolderEntry />} />
+          <Route path="/folder/:slugAndId" element={<FolderEntry />} />
         </Routes>
       </MemoryRouter>,
     );
@@ -348,9 +348,9 @@ describe('FolderEntry access refresh', () => {
     ];
 
     render(
-      <MemoryRouter initialEntries={[`/app/folder/fresh-${FOLDER_ID}`]}>
+      <MemoryRouter initialEntries={[`/folder/fresh-${FOLDER_ID}`]}>
         <Routes>
-          <Route path="/app/folder/:slugAndId" element={<FolderEntry />} />
+          <Route path="/folder/:slugAndId" element={<FolderEntry />} />
         </Routes>
       </MemoryRouter>,
     );

@@ -4,6 +4,7 @@ import { LoadingIndicator } from '../components/ui/LoadingIndicator';
 import { useIdentityLifecycle } from '../contexts/IdentityLifecycleContext';
 import { useAuth } from '../hooks/useAuth';
 import { authClient } from '../lib/auth-client';
+import { getWorkspaceRootPath } from '../utils/url';
 
 export default function Login() {
   const { data: session, isPending, isRefetching } = useAuth();
@@ -17,7 +18,7 @@ export default function Login() {
   const returnPath =
     typeof returnLocation?.pathname === 'string' && returnLocation.pathname.startsWith('/')
       ? `${returnLocation.pathname}${typeof returnLocation.search === 'string' ? returnLocation.search : ''}${typeof returnLocation.hash === 'string' ? returnLocation.hash : ''}`
-      : '/app';
+      : getWorkspaceRootPath();
 
   if (isPending || isRefetching) {
     return (

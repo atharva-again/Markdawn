@@ -140,7 +140,7 @@ function DeferredGrantMutationChild() {
             email: 'recipient@example.com',
             permission: 'edit',
           },
-          { onSuccess: () => mocks.lateNavigation('/app/a-private-page') },
+          { onSuccess: () => mocks.lateNavigation('/a-private-page') },
         );
       }}
     >
@@ -159,7 +159,7 @@ function DeferredCreateNavigationChild() {
       onClick={() => {
         pendingCreateNavigation = (async () => {
           const page = await createPage.mutateAsync({});
-          navigate(`/app/${page.title}-${page.id}`);
+          navigate(`/${page.title}-${page.id}`);
         })();
       }}
     >
@@ -263,7 +263,7 @@ describe('AuthIdentityBoundary', () => {
     document.head.appendChild(favicon);
     const canonical = document.createElement('link');
     canonical.rel = 'canonical';
-    canonical.href = `${window.location.origin}/app/secret-project-page-a`;
+    canonical.href = `${window.location.origin}/secret-project-page-a`;
     document.head.appendChild(canonical);
     act(() => showInfoToast('A private invitation'));
     expect(screen.getByText('A private invitation')).toBeInTheDocument();
@@ -294,7 +294,7 @@ describe('AuthIdentityBoundary', () => {
       'data:image/svg+xml,private',
     );
     expect(document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href).toContain(
-      '/app/secret-project-page-a',
+      '/secret-project-page-a',
     );
     expect(clearSpy).not.toHaveBeenCalled();
 
@@ -593,7 +593,7 @@ describe('AuthIdentityBoundary', () => {
     });
 
     expect(await screen.findByText('Active account access granted')).toBeInTheDocument();
-    expect(mocks.lateNavigation).toHaveBeenCalledWith('/app/a-private-page');
+    expect(mocks.lateNavigation).toHaveBeenCalledWith('/a-private-page');
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['shares', 'page', 'page-a'] });
   });
 
@@ -610,7 +610,7 @@ describe('AuthIdentityBoundary', () => {
     const rendered = render(
       <ToastProvider>
         <QueryClientProvider client={outerQueryClient}>
-          <MemoryRouter initialEntries={['/app']}>
+          <MemoryRouter initialEntries={['/']}>
             <AuthIdentityBoundary>
               <DeferredCreateNavigationChild />
               <CurrentLocation />
@@ -627,7 +627,7 @@ describe('AuthIdentityBoundary', () => {
       rendered.rerender(
         <ToastProvider>
           <QueryClientProvider client={outerQueryClient}>
-            <MemoryRouter initialEntries={['/app']}>
+            <MemoryRouter initialEntries={['/']}>
               <AuthIdentityBoundary>
                 <DeferredCreateNavigationChild />
                 <CurrentLocation />
@@ -638,7 +638,7 @@ describe('AuthIdentityBoundary', () => {
       ),
     );
     await screen.findByRole('button', { name: 'Create and open page' });
-    expect(screen.getByTestId('current-location')).toHaveTextContent('/app');
+    expect(screen.getByTestId('current-location')).toHaveTextContent('/');
 
     await act(async () => {
       resolveCreateRequest?.({
@@ -649,7 +649,7 @@ describe('AuthIdentityBoundary', () => {
       await pendingCreateNavigation;
     });
 
-    expect(screen.getByTestId('current-location')).toHaveTextContent('/app');
+    expect(screen.getByTestId('current-location')).toHaveTextContent('/');
     expect(screen.queryByText('Page created')).not.toBeInTheDocument();
   });
 });

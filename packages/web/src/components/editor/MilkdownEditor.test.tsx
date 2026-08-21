@@ -406,7 +406,7 @@ describe('MilkdownEditor anonymous uploads', () => {
       });
     });
 
-    expect(getByTestId('location-path')).toHaveTextContent('/app');
+    expect(getByTestId('location-path')).toHaveTextContent('/');
     expect(queryClient.getQueryData(pageQueryKey)).toBeUndefined();
     expect(mocks.setAccessPermission).toHaveBeenLastCalledWith(null);
     expect(mocks.showInfoToast).toHaveBeenCalledWith(toast);
@@ -470,7 +470,7 @@ describe('MilkdownEditor anonymous uploads', () => {
 
     const { getByTestId } = renderEditor();
 
-    expect(getByTestId('location-path')).toHaveTextContent('/app');
+    expect(getByTestId('location-path')).toHaveTextContent('/');
     expect(mocks.showInfoToast).toHaveBeenCalledWith('Page deleted');
   });
 
@@ -511,7 +511,7 @@ describe('MilkdownEditor anonymous uploads', () => {
     });
 
     expect(wrapper).not.toHaveClass('editor-scroll-past-end');
-    expect(getByTestId('location-path')).toHaveTextContent('/app');
+    expect(getByTestId('location-path')).toHaveTextContent('/');
     expect(queryClient.getQueryData(pageQueryKey)).toBeUndefined();
     expect(mocks.setAccessPermission).toHaveBeenLastCalledWith(null);
     expect(mocks.showInfoToast).toHaveBeenCalledWith('Removed from your view');
@@ -522,7 +522,7 @@ describe('MilkdownEditor anonymous uploads', () => {
 
     const { getByTestId } = renderEditor();
 
-    expect(getByTestId('location-path')).toHaveTextContent('/app');
+    expect(getByTestId('location-path')).toHaveTextContent('/');
     expect(mocks.showInfoToast).toHaveBeenCalledWith('Removed from your view');
   });
 
@@ -768,7 +768,7 @@ describe('MilkdownEditor anonymous uploads', () => {
 
     expect(mocks.showInfoToast).not.toHaveBeenCalledWith('Removed from your view');
     expect(consumeSelfLeave('page-1')).toBe(false);
-    expect(getByTestId('location-path')).toHaveTextContent('/app/folder/folder-folder-1');
+    expect(getByTestId('location-path')).toHaveTextContent('/folder/folder-folder-1');
   });
 
   it('scopes cached collaboration tokens to the current non-empty identity', async () => {

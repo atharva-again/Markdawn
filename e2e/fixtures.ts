@@ -1,6 +1,8 @@
 import { expect, type Page } from '@playwright/test';
 
 export const API_URL = process.env.API_URL ?? 'http://localhost:3001';
+export const WEB_URL = process.env.BASE_URL ?? 'http://localhost:5173';
+export const WEB_HOSTNAME = new URL(WEB_URL).hostname;
 
 export async function focusEditor(page: Page): Promise<void> {
   const editor = page.locator('.ProseMirror').first();
@@ -37,7 +39,7 @@ export async function focusEditor(page: Page): Promise<void> {
 
 export async function createNewPage(page: Page): Promise<string> {
   await page.goto('/', { waitUntil: 'networkidle', timeout: 20000 });
-  await page.waitForURL(/\/app(\/|$)/, { timeout: 15000 });
+  await page.waitForURL(/\/$/, { timeout: 15000 });
   await page
     .getByRole('button', { name: /new page/i })
     .first()

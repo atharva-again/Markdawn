@@ -149,7 +149,7 @@ describe('parsePageMetaStatelessMessage', () => {
     const shouldRedirect = applyPageMetaStatelessMessage(
       { type: 'entity_deleted', entityType: 'folder', entityId: 'folder-1' },
       queryClient,
-      '/app/folder/deleted-folder-folder-1',
+      '/folder/deleted-folder-folder-1',
     );
 
     expect(shouldRedirect).toBe(true);
@@ -172,7 +172,7 @@ describe('parsePageMetaStatelessMessage', () => {
         refreshViaAccessVersion: true,
       },
       queryClient,
-      '/app',
+      '/',
     );
 
     expect(invalidateSpy).not.toHaveBeenCalled();
@@ -191,7 +191,7 @@ describe('parsePageMetaStatelessMessage', () => {
         sharedByName: 'Owner',
       },
       queryClient,
-      '/app',
+      '/',
     );
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['shared-with-me'] });
@@ -211,7 +211,7 @@ describe('parsePageMetaStatelessMessage', () => {
         refreshViaAccessVersion: true,
       },
       queryClient,
-      '/app/settings',
+      '/settings',
     );
 
     expect(invalidateSpy).not.toHaveBeenCalled();
@@ -229,7 +229,7 @@ describe('parsePageMetaStatelessMessage', () => {
         entityId: 'page-1',
       },
       queryClient,
-      '/app/page-page-1',
+      '/page-page-1',
     );
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['pages', 'detail'] });
@@ -256,7 +256,7 @@ describe('parsePageMetaStatelessMessage', () => {
         ownerId: 'owner-1',
       },
       queryClient,
-      '/app/settings',
+      '/settings',
     );
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['workspace-members'] });
@@ -270,7 +270,7 @@ describe('parsePageMetaStatelessMessage', () => {
     applyPageMetaStatelessMessage(
       { type: 'entity_deleted', entityType: 'folder', entityId: 'folder-1' },
       queryClient,
-      '/app',
+      '/',
       true,
     );
 

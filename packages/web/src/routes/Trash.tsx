@@ -6,6 +6,7 @@ import { EmptyState } from '../components/EmptyState';
 import { usePermanentDeleteFolder, useRestoreFolder, useTrashFolders } from '../hooks/use-folders';
 import { usePermanentDeletePage, useRestorePage, useTrashPages } from '../hooks/use-pages';
 import { useEmptyAllTrash } from '../hooks/use-trash';
+import { getWorkspacePath } from '../utils/url';
 
 type TrashItem = {
   id: string;
@@ -97,7 +98,7 @@ export default function Trash() {
       <div className="flex items-start justify-between">
         <div>
           <Link
-            to="/app"
+            to={getWorkspacePath()}
             className="text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
           >
             Back to home

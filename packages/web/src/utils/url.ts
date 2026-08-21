@@ -1,6 +1,107 @@
+import {
+  buildFolderPath as buildSharedFolderPath,
+  buildPagePath as buildSharedPagePath,
+  slugifyTitle as slugifySharedTitle,
+} from '@markdawn/shared';
 import { find } from 'linkifyjs';
+import { matchPath } from 'react-router-dom';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const APEX_HOSTNAME = 'markdawn.space';
+const APP_HOSTNAME = 'app.markdawn.space';
+const LOCAL_APP_PORT = '5173';
+const LOCAL_LANDING_PORT = '8888';
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
+const RESERVED_APP_PATHS = new Set([
+  'api',
+  'collab',
+  'install.ps1',
+  'install.sh',
+  'login',
+  'onboarding',
+]);
+
+export const WORKSPACE_ROUTE_PATHS = {
+  root: '/',
+  settings: '/settings',
+  trash: '/trash',
+  sharedWithMe: '/shared-with-me',
+  page: '/:slugAndId',
+  folder: '/folder/:slugAndId',
+} as const;
+
+type WorkspaceLocation = Pick<Location, 'hostname'> &
+  Partial<Pick<Location, 'origin' | 'port' | 'protocol'>>;
+
+export function isHostedApex(location: WorkspaceLocation = window.location): boolean {
+  return location.hostname === APEX_HOSTNAME;
+}
+
+export function isAppHost(location: WorkspaceLocation = window.location): boolean {
+  return location.hostname !== APEX_HOSTNAME;
+}
+
+function originForHost(hostname: string, location: WorkspaceLocation): string {
+  const protocol = location.protocol ?? (hostname.endsWith('.localhost') ? 'http:' : 'https:');
+  const port = location.port ? `:${location.port}` : '';
+  const formattedHostname = hostname.includes(':')
+    ? `[${hostname.replace(/^\[|\]$/g, '')}]`
+    : hostname;
+  return `${protocol}//${formattedHostname}${port}`;
+}
+
+export function getAppOrigin(location: WorkspaceLocation = window.location): string {
+  if (location.hostname === APEX_HOSTNAME) return `https://${APP_HOSTNAME}`;
+  if (LOCAL_HOSTNAMES.has(location.hostname) && location.port === LOCAL_LANDING_PORT) {
+    const hostname = location.hostname === '::1' ? '[::1]' : location.hostname;
+    return `http://${hostname}:${LOCAL_APP_PORT}`;
+  }
+  return location.origin ?? originForHost(location.hostname, location);
+}
+
+export function getWorkspaceRootPath(location: WorkspaceLocation = window.location): string {
+  return isAppHost(location) ? '/' : '/app';
+}
+
+export function getWorkspaceRoutePath(
+  routePath: (typeof WORKSPACE_ROUTE_PATHS)[keyof typeof WORKSPACE_ROUTE_PATHS],
+  location: WorkspaceLocation = window.location,
+): string {
+  if (routePath === WORKSPACE_ROUTE_PATHS.root) return getWorkspaceRootPath(location);
+  return getWorkspacePath(routePath.slice(1), location);
+}
+
+export function getLegacyWorkspacePath(pathname: string, search = '', hash = ''): string {
+  const nextPath = pathname.replace(/^\/app(?=\/|$)/, '') || '/';
+  return `${nextPath}${search}${hash}`;
+}
+
+export function getWorkspacePath(
+  segment = '',
+  location: WorkspaceLocation = window.location,
+): string {
+  const root = getWorkspaceRootPath(location);
+  if (!segment) return root;
+  return root === '/' ? `/${segment}` : `${root}/${segment}`;
+}
+
+export function getWorkspacePathPrefix(location: WorkspaceLocation = window.location): string {
+  const root = getWorkspaceRootPath(location);
+  return root === '/' ? '/' : `${root}/`;
+}
+
+export function isWorkspacePath(
+  pathname: string,
+  location: WorkspaceLocation = window.location,
+): boolean {
+  const root = getWorkspaceRootPath(location);
+  const relativePath = root === '/' ? pathname : pathname.slice(root.length) || '/';
+  const firstSegment = relativePath.split('/').filter(Boolean)[0];
+  if (firstSegment && RESERVED_APP_PATHS.has(firstSegment)) return false;
+  return Object.values(WORKSPACE_ROUTE_PATHS).some((routePath) =>
+    matchPath({ path: routePath, end: true }, relativePath),
+  );
+}
 
 export function extractUuidFromSlug(slug: string): string | undefined {
   const uuidMatch = slug.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
@@ -9,30 +110,36 @@ export function extractUuidFromSlug(slug: string): string | undefined {
 }
 
 export function slugifyTitle(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  return slugifySharedTitle(title);
 }
 
-export function buildPagePath(title: string, pageId: string): string {
-  const slug = slugifyTitle(title) || 'page';
-  return `/app/${slug}-${pageId}`;
+export function buildPagePath(
+  title: string,
+  pageId: string,
+  location: WorkspaceLocation = window.location,
+): string {
+  const path = buildSharedPagePath(title, pageId);
+  return getWorkspacePath(path.slice(1), location);
 }
 
-export function buildFolderPath(name: string, folderId: string): string {
-  const slug = slugifyTitle(name) || 'folder';
-  return `/app/folder/${slug}-${folderId}`;
+export function buildFolderPath(
+  name: string,
+  folderId: string,
+  location: WorkspaceLocation = window.location,
+): string {
+  const path = buildSharedFolderPath(name, folderId);
+  return getWorkspacePath(path.slice(1), location);
 }
 
 export function buildEntityPath(
   entityType: 'page' | 'folder',
   title: string,
   entityId: string,
+  location: WorkspaceLocation = window.location,
 ): string {
   return entityType === 'folder'
-    ? buildFolderPath(title, entityId)
-    : buildPagePath(title, entityId);
+    ? buildFolderPath(title, entityId, location)
+    : buildPagePath(title, entityId, location);
 }
 
 const SAFE_LINK_SCHEMES = new Set(['http', 'https', 'mailto', 'tel', 'sms', 'fax']);

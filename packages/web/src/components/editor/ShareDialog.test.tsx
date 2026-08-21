@@ -32,7 +32,7 @@ function adminSummary(): ShareSummary {
       title: 'Shared page',
       ownerId: 'owner-1',
     },
-    publicAccess: { permission: 'private', url: '/app/shared-page-page-1' },
+    publicAccess: { permission: 'private', url: '/shared-page-page-1' },
     inheritance: { policy: 'inherit' },
     grants: [],
     collaborators: [
@@ -304,7 +304,7 @@ describe('ShareDialog admin self-removal', () => {
         entityId: 'folder-1',
         entityTitle: 'Public Folder',
         permission: 'edit',
-        url: '/app/folder/public-folder-folder-1',
+        url: '/folder/public-folder-folder-1',
       },
     ];
     mocks.summary = summary;

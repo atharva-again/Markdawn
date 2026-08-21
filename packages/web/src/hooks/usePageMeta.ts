@@ -19,6 +19,7 @@ import { isBulkRemovalInProgress } from '../utils/bulkRemovalState';
 import { getCollaborationUrl } from '../utils/collaborationUrl';
 import { formatGrantNotification } from '../utils/grantNotification';
 import { showInfoToast } from '../utils/toast';
+import { getWorkspacePath, getWorkspacePathPrefix } from '../utils/url';
 import { shareQueryKeys } from './use-share';
 import { invalidateWorkspaceAccessQueries, WORKSPACE_ACCESS_QUERY_KEYS } from './use-workspace';
 import { useAuth } from './useAuth';
@@ -80,7 +81,7 @@ export function applyPageMetaStatelessMessage(
   }
   return (
     message.type === 'entity_deleted' &&
-    pathname.startsWith('/app/folder/') &&
+    pathname.startsWith(`${getWorkspacePathPrefix()}folder/`) &&
     pathname.endsWith(message.entityId)
   );
 }
@@ -335,7 +336,7 @@ export function usePageMeta() {
           isBulkRemovalInProgress(),
         )
       ) {
-        navigate('/app', { replace: true });
+        navigate(getWorkspacePath(), { replace: true });
       }
     };
     provider.on('stateless', handleStateless);

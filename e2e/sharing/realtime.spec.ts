@@ -6,7 +6,7 @@ import {
   test,
   type WebSocketRoute,
 } from '@playwright/test';
-import { API_URL } from '../fixtures';
+import { API_URL, WEB_HOSTNAME } from '../fixtures';
 
 type SetupResult = {
   cookie: string;
@@ -29,8 +29,6 @@ type ShareSummary = {
   }>;
 };
 
-const webHostname = new URL(process.env.BASE_URL ?? 'http://localhost:5173').hostname;
-
 async function createUser(request: APIRequestContext, name: string): Promise<SetupResult> {
   const testToken = process.env.TEST_SETUP_TOKEN;
   if (!testToken) throw new Error('TEST_SETUP_TOKEN is required');
@@ -51,7 +49,7 @@ async function createAuthenticatedContext(
     {
       name: 'better-auth.session_token',
       value: session.cookie,
-      domain: webHostname,
+      domain: WEB_HOSTNAME,
       path: '/',
       httpOnly: true,
       secure: false,
@@ -135,7 +133,7 @@ test.describe('sharing realtime propagation', () => {
       const recipientPage = await recipientContext.newPage();
       const initialContent = `PRIMITIVE-CONTENT-${sharedPage.id.slice(0, 8)}`;
 
-      await ownerPage.goto(`/app/page-${sharedPage.id}`);
+      await ownerPage.goto(`/page-${sharedPage.id}`);
       const ownerEditor = ownerPage.locator('.ProseMirror');
       await expect(ownerEditor).toHaveAttribute('contenteditable', 'true');
       await ownerEditor.click();
@@ -170,7 +168,7 @@ test.describe('sharing realtime propagation', () => {
         ).ok(),
       ).toBeTruthy();
 
-      await recipientPage.goto(`/app/page-${sharedPage.id}`);
+      await recipientPage.goto(`/page-${sharedPage.id}`);
       const recipientEditor = recipientPage.locator('.ProseMirror');
       await expect(recipientEditor).toContainText(initialContent, { timeout: 15_000 });
       await expect(recipientEditor).toHaveAttribute('contenteditable', 'true');
@@ -228,7 +226,7 @@ test.describe('sharing realtime propagation', () => {
       await expect(recipientEditor).toContainText(initialContent);
 
       // A view-only peer leaving must not evict or blank the owner's room.
-      await recipientPage.goto('/app');
+      await recipientPage.goto('/');
       await expect(ownerPage.locator('.ProseMirror')).toContainText(initialContent);
       const postDisconnectContent = '-OWNER-AFTER-VIEWER-LEFT';
       await ownerPage.locator('.ProseMirror').click();
@@ -253,7 +251,7 @@ test.describe('sharing realtime propagation', () => {
           })
         ).ok(),
       ).toBeTruthy();
-      await recipientPage.goto(`/app/page-${sharedPage.id}`);
+      await recipientPage.goto(`/page-${sharedPage.id}`);
       await expect(recipientPage.locator('.ProseMirror')).toHaveAttribute(
         'contenteditable',
         'true',
@@ -299,7 +297,7 @@ test.describe('sharing realtime propagation', () => {
       ).toBeTruthy();
 
       const recipientPage = await recipientContext.newPage();
-      await recipientPage.goto(`/app/folder/public-${folder.id}`);
+      await recipientPage.goto(`/folder/public-${folder.id}`);
       await expect(recipientPage.getByText(childTitle, { exact: true })).toBeVisible();
 
       expect(
@@ -312,7 +310,7 @@ test.describe('sharing realtime propagation', () => {
       const directGrantId = await getDirectGrantId(ownerApi, 'folder', folder.id, recipient.userId);
       expect((await ownerApi.delete(`/api/shares/grants/${directGrantId}`)).ok()).toBeTruthy();
 
-      await recipientPage.goto('/app/shared-with-me');
+      await recipientPage.goto('/shared-with-me');
       await expect(recipientPage.getByText(folderName, { exact: true }).first()).toBeVisible({
         timeout: 15_000,
       });
@@ -349,7 +347,7 @@ test.describe('sharing realtime propagation', () => {
       const grantTitle = `Realtime direct grant ${Date.now()}`;
       const grantPage = await createEntity(ownerApi, '/api/pages', { title: grantTitle });
 
-      await recipientPage.goto('/app');
+      await recipientPage.goto('/');
       await expect(recipientPage.getByText(grantTitle, { exact: true })).toHaveCount(0);
       const grantResponse = await ownerApi.post(`/api/shares/entity/page/${grantPage.id}/grants`, {
         data: { email: recipientEmail, permission: 'view' },
@@ -359,7 +357,7 @@ test.describe('sharing realtime propagation', () => {
         timeout: 15_000,
       });
 
-      await ownerPage.goto(`/app/page-${grantPage.id}`);
+      await ownerPage.goto(`/page-${grantPage.id}`);
       await ownerPage.locator('[data-testid="page-share-btn"]').click();
       await expect(ownerPage.getByRole('dialog')).toContainText('Realtime Sharing Recipient');
       const leaveResponse = await recipientApi.post(`/api/pages/${grantPage.id}/leave`);
@@ -377,7 +375,7 @@ test.describe('sharing realtime propagation', () => {
       await ownerApi.post(`/api/shares/entity/page/${fallbackPage.id}/grants`, {
         data: { email: recipientEmail, permission: 'edit' },
       });
-      await recipientPage.goto(`/app/page-${fallbackPage.id}`);
+      await recipientPage.goto(`/page-${fallbackPage.id}`);
       const fallbackEditor = recipientPage.locator('.ProseMirror');
       await expect(fallbackEditor).toHaveAttribute('contenteditable', 'true');
       const fallbackGrantId = await getDirectGrantId(
@@ -402,7 +400,7 @@ test.describe('sharing realtime propagation', () => {
       await ownerApi.post(`/api/shares/entity/page/${child.id}/grants`, {
         data: { email: recipientEmail, permission: 'view' },
       });
-      await recipientPage.goto(`/app/page-${child.id}`);
+      await recipientPage.goto(`/page-${child.id}`);
       const inheritedEditor = recipientPage.locator('.ProseMirror');
       await expect(inheritedEditor).toHaveAttribute('contenteditable', 'true');
       expect(
@@ -432,7 +430,7 @@ test.describe('sharing realtime propagation', () => {
       await expect(recipientPage.locator('.ProseMirror')).toHaveCount(0, { timeout: 10_000 });
       await expect
         .poll(async () => {
-          const redirected = /\/app\/?$/.test(recipientPage.url());
+          const redirected = /\/$/.test(new URL(recipientPage.url()).pathname);
           const denied = await recipientPage
             .getByRole('heading', { name: "You don't have access" })
             .isVisible();
@@ -486,7 +484,7 @@ test.describe('sharing realtime propagation', () => {
       ).toBeTruthy();
 
       const anonymousPage = await anonymousContext.newPage();
-      await anonymousPage.goto(`/app/page-${publicPage.id}`);
+      await anonymousPage.goto(`/page-${publicPage.id}`);
       const anonymousEditor = anonymousPage.locator('.ProseMirror');
       await expect(anonymousPage.locator('[data-testid="page-title"]')).toHaveValue(
         confidentialTitle,
@@ -565,8 +563,8 @@ test.describe('sharing realtime propagation', () => {
           })
         ).ok(),
       ).toBeTruthy();
-      await ownerPage.goto(`/app/page-${publicPage.id}`);
-      await anonymousPage.goto(`/app/page-${publicPage.id}`);
+      await ownerPage.goto(`/page-${publicPage.id}`);
+      await anonymousPage.goto(`/page-${publicPage.id}`);
       await anonymousPage.bringToFront();
       await expect(anonymousPage.locator('.ProseMirror')).toHaveAttribute(
         'contenteditable',
@@ -598,12 +596,12 @@ test.describe('sharing realtime propagation', () => {
       await expect(anonymousPage.locator('.ProseMirror')).toHaveCount(0, { timeout: 10_000 });
       await expect
         .poll(async () => {
-          const redirected = /\/app\/?$/.test(ownerPage.url());
+          const redirected = /\/$/.test(new URL(ownerPage.url()).pathname);
           const missing = await ownerPage.getByText('Page not found', { exact: true }).isVisible();
           return redirected || missing;
         })
         .toBe(true);
-      // Anonymous users are sent through /app, then the auth boundary lands
+      // Anonymous users are sent through the app root, then the auth boundary lands
       // them on login. The editor assertion above is the content-eviction
       // guarantee; this URL assertion proves the old public route is gone.
       await expect(anonymousPage).toHaveURL(/\/login\/?$/, { timeout: 10_000 });
@@ -616,7 +614,7 @@ test.describe('sharing realtime propagation', () => {
           })
         ).ok(),
       ).toBeTruthy();
-      await ownerPage.goto('/app/settings');
+      await ownerPage.goto('/settings');
       await expect(ownerPage.getByText('Realtime Metadata Member', { exact: true })).toBeVisible();
       const leaveWorkspace = await memberApi.delete(
         `/api/workspace/members/${member.userId}?workspaceOwnerId=${owner.userId}`,

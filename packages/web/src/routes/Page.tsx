@@ -38,7 +38,7 @@ import { getLogger } from '../logger-init';
 import { ApiError } from '../utils/api';
 import { resetDocumentMetadata } from '../utils/documentMeta';
 import { findRenderedHeading, getMilkdownHeadingId } from '../utils/headingNavigation';
-import { buildPagePath, extractUuidFromSlug } from '../utils/url';
+import { buildPagePath, extractUuidFromSlug, getWorkspacePathPrefix } from '../utils/url';
 
 const API_BASE = '/api';
 
@@ -308,7 +308,7 @@ export default function Page() {
 
   useEffect(() => {
     if (!page || !slugAndId) return;
-    const expectedPath = buildPagePath(page.title, page.id).slice('/app/'.length);
+    const expectedPath = buildPagePath(page.title, page.id).slice(getWorkspacePathPrefix().length);
 
     if (slugAndId !== expectedPath) {
       const canonicalUrl = new URL(window.location.href);

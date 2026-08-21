@@ -18,6 +18,7 @@ export * from './utils/anonymous.js';
 export * from './utils/apiToken.js';
 export * from './utils/collaborationSecret.js';
 export * from './utils/color.js';
+export * from './utils/entityPaths.js';
 export * from './utils/entityPayload.js';
 export * from './utils/guestIdentity.js';
 export * from './utils/importPayload.js';

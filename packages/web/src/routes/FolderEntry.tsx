@@ -39,7 +39,13 @@ import { useStableValueWhile } from '../hooks/useStableValue';
 import { canRenameEntity, preservesEffectiveOwnerAtRoot } from '../utils/entity-actions';
 import { getInitialQueriesState } from '../utils/queryState';
 import { showSuccessToast } from '../utils/toast';
-import { buildFolderPath, buildPagePath, extractUuidFromSlug } from '../utils/url';
+import {
+  buildFolderPath,
+  buildPagePath,
+  extractUuidFromSlug,
+  getWorkspacePath,
+  getWorkspacePathPrefix,
+} from '../utils/url';
 import { getFolderContentsModel } from './folderContentsModel';
 
 export default function FolderEntry() {
@@ -132,7 +138,7 @@ export default function FolderEntry() {
   useEffect(() => {
     if (!currentFolder || !slugAndId) return;
     const expectedSlug = buildFolderPath(currentFolder.name, currentFolder.id).slice(
-      '/app/folder/'.length,
+      `${getWorkspacePathPrefix()}folder/`.length,
     );
     if (slugAndId === expectedSlug) return;
     navigate(
@@ -498,7 +504,7 @@ export default function FolderEntry() {
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-1 text-sm text-zinc-500 dark:text-zinc-400 min-w-0">
           <Link
-            to="/app"
+            to={getWorkspacePath()}
             className="flex items-center gap-1 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
           >
             <HomeIcon size={14} />

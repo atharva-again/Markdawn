@@ -144,10 +144,10 @@ function renderPage() {
   const queryClient = createTestQueryClient();
   const result = render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[`/app/test-page-${PAGE_ID}`]}>
+      <MemoryRouter initialEntries={[`/test-page-${PAGE_ID}`]}>
         <LocationProbe />
         <Routes>
-          <Route path="/app/:slugAndId" element={<Page />} />
+          <Route path="/:slugAndId" element={<Page />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -309,7 +309,7 @@ describe('Page permission presentation', () => {
       expect(fetchMock).toHaveBeenCalledWith(`/api/pages/${WIKI_TARGET_ID}`);
     });
     expect(screen.getByTestId('location')).toHaveTextContent(
-      `/app/renamed-target-${WIKI_TARGET_ID}#release-milestones`,
+      `/renamed-target-${WIKI_TARGET_ID}#release-milestones`,
     );
   });
 
