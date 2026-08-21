@@ -72,6 +72,10 @@ git pull origin master
 
 # shellcheck source=collaboration-secret.sh
 . "$REPO_DIR/deploy/collaboration-secret.sh"
+# shellcheck source=migrate-hosted-environment.sh
+. "$REPO_DIR/deploy/migrate-hosted-environment.sh"
+
+migrateHostedEnvironment .env
 
 # Existing installations predate the private API-to-collaboration command
 # boundary. Generate its independent credential once during upgrade, and
@@ -167,4 +171,4 @@ echo ""
 echo "Deployed commit: $DEPLOYED_COMMIT"
 echo "Check status: systemctl --user status markdawn-postgres.service markdawn-api.service markdawn-collab.service"
 echo "View logs:    journalctl --user -u markdawn-api.service -f"
-echo "API health:   curl https://markdawn.space/api/health"
+echo "API health:   curl https://app.markdawn.space/api/health"
