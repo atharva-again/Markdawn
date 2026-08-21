@@ -33,7 +33,7 @@ func TestStandaloneUninstallHelperRestoresReceiptWhenBinaryRemovalFails(t *testi
 		t.Fatal(err)
 	}
 	configPath := filepath.Join(stateDir, "config.json")
-	config := []byte(`{"baseUrl":"https://markdawn.space","token":"secret"}`)
+	config := []byte(`{"baseUrl":"https://app.markdawn.space","token":"secret"}`)
 	if err := os.WriteFile(configPath, config, 0o600); err != nil {
 		t.Fatal(err)
 	}

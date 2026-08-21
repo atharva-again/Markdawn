@@ -86,8 +86,33 @@ func TestLoadConfigDefaultsToMarkdawnCloud(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config.BaseURL != "https://markdawn.space" {
+	if config.BaseURL != "https://app.markdawn.space" {
 		t.Fatalf("default base URL = %q", config.BaseURL)
+	}
+}
+
+func TestLoadConfigMigratesLegacyHostedURL(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("MARKDAWN_CONFIG_DIR", dir)
+	path := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(path, []byte(`{"baseUrl":"https://markdawn.space/","token":"secret"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := loadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.BaseURL != defaultBaseURL {
+		t.Fatalf("migrated base URL = %q", got.BaseURL)
+	}
+
+	migrated, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(migrated), `"baseUrl": "`+defaultBaseURL+`"`) {
+		t.Fatalf("config was not migrated: %s", migrated)
 	}
 }
 
