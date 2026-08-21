@@ -49,9 +49,9 @@ The script prompts you to edit `.env`, installs required tools, creates persiste
 
 ### Custom domains
 
-The checked-in Caddy configuration currently uses `markdawn.space` as its site address. The setup script copies that file to `/etc/caddy/Caddyfile`; setting `FRONTEND_URL` does not change the Caddy hostname automatically. Custom domains therefore require a manual Caddyfile edit.
+The checked-in Caddy configuration uses separate `markdawn.space` and `app.markdawn.space` site blocks. The setup script copies that file to `/etc/caddy/Caddyfile`; setting `FRONTEND_URL` does not change the Caddy hostnames automatically. Custom domains therefore require a manual Caddyfile edit.
 
-For a custom deployment, replace the first line of `deploy/Caddyfile` before running the setup script when using an existing checkout, or edit the installed file after setup:
+For a root-based custom deployment, remove the `markdawn.space` site block and rename the `app.markdawn.space` site block to your domain in `deploy/Caddyfile` before running the setup script when using an existing checkout, or make the same edit after setup. The app site block includes compatibility redirects from legacy `/app/...` paths to root-based paths.
 
 ```sh
 sudoedit /etc/caddy/Caddyfile
@@ -59,7 +59,7 @@ sudo caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl reload caddy
 ```
 
-Replace `markdawn.space` with the domain that points to the VPS. Use the same domain in `FRONTEND_URL`, `CORS_ORIGINS`, `VITE_API_URL`, and the OAuth redirect URLs below. Caddy must be able to resolve the domain and reach ports 80 and 443 to obtain its certificate.
+Replace the site addresses with the domain that points to the VPS. For a root-based self-hosted deployment, use that domain in `FRONTEND_URL`, `CORS_ORIGINS`, `VITE_API_URL`, and the OAuth redirect URLs below. Caddy must be able to resolve the domain and reach ports 80 and 443 to obtain its certificate.
 
 ## Configure Environment Values
 
@@ -84,6 +84,16 @@ VITE_API_URL
 ```
 
 Use a secret of at least 32 characters for `BETTER_AUTH_SECRET`. Create a unique `COLLAB_INTERNAL_SECRET` of at least 32 characters. Do not reuse example passwords or commit `.env`.
+
+The incremental deployment script migrates exact legacy hosted values from `markdawn.space` to `app.markdawn.space` for `FRONTEND_URL`, `CORS_ORIGINS`, and `VITE_API_URL`, and removes the obsolete `VITE_APP_URL` setting. Custom environment values are left unchanged; review `.env` before deploying. Normal application deployments do not modify Caddy.
+
+To apply the checked-in Caddy changes explicitly, review and run:
+
+```sh
+sudo /var/www/markdawn/deploy/update-caddy.sh
+```
+
+This command validates the repository configuration, backs up the installed configuration, installs the new file, reloads Caddy, and verifies that the service remains active. It intentionally replaces `/etc/caddy/Caddyfile`; merge custom domains and rules into `deploy/Caddyfile` first.
 
 ## Configure OAuth Redirects
 

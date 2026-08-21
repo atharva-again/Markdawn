@@ -25,12 +25,12 @@ vi.mock('../../hooks/useOnboarding', () => ({
 
 import { OnboardingGate } from './OnboardingGate';
 
-function renderGate(initialEntry = '/app') {
+function renderGate(initialEntry = '/') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route
-          path="/app/*"
+          path="/*"
           element={
             <OnboardingGate>
               <p>Workspace</p>
@@ -64,11 +64,11 @@ describe('OnboardingGate', () => {
   });
 
   it('redirects users with incomplete onboarding', () => {
-    renderGate('/app/settings?tab=tokens#new');
+    renderGate('/settings?tab=tokens#new');
 
     expect(screen.getByText('Onboarding')).toBeInTheDocument();
     expect(screen.queryByText('Workspace')).not.toBeInTheDocument();
-    expect(screen.getByTestId('destination')).toHaveTextContent('/app/settings?tab=tokens#new');
+    expect(screen.getByTestId('destination')).toHaveTextContent('/settings?tab=tokens#new');
   });
 
   it('renders the protected content after onboarding is completed', () => {
@@ -82,7 +82,7 @@ describe('OnboardingGate', () => {
   it('does not enforce onboarding for anonymous public links', () => {
     mocks.auth.data = null;
 
-    renderGate('/app/public-page');
+    renderGate('/public-page');
 
     expect(screen.getByText('Workspace')).toBeInTheDocument();
   });

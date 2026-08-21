@@ -10,7 +10,7 @@ import {
 import { type ChangeEvent, type ReactNode, useRef, useState } from 'react';
 import { useIdentityLifecycle } from '../../contexts/IdentityLifecycleContext';
 import { useImportMarkdown } from '../../hooks/use-pages';
-import { buildPagePath } from '../../utils/url';
+import { buildPagePath, getWorkspacePath } from '../../utils/url';
 import { ObsidianImportDialog } from '../import/ObsidianImportDialog';
 import { OnboardingActionButton } from './OnboardingActionButton';
 
@@ -261,7 +261,7 @@ export function ContentSetupStep({
           variant={flow.variant}
           onClose={(outcome) => {
             if (outcome.kind === 'imported') {
-              onAdvance('/app');
+              onAdvance(getWorkspacePath());
               return;
             }
             setFlow({ kind: 'choose-import' });

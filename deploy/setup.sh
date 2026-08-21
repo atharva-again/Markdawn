@@ -44,6 +44,8 @@ cd "$REPO_DIR"
 
 # shellcheck source=collaboration-secret.sh
 . "$REPO_DIR/deploy/collaboration-secret.sh"
+# shellcheck source=migrate-hosted-environment.sh
+. "$REPO_DIR/deploy/migrate-hosted-environment.sh"
 
 echo -e "${YELLOW}[STEP 4/8] Installing Node.js and pnpm...${NC}"
 curl -fsSL https://fnm.vercel.app/install | bash
@@ -64,6 +66,7 @@ else
     created_env=true
 fi
 ensureCollaborationSecret .env
+migrateHostedEnvironment .env
 if [ "$created_env" = "true" ]; then
     echo -e "${YELLOW}.env created from .env.production. Edit it now:${NC}"
     nano .env
@@ -92,6 +95,7 @@ podman build -t localhost/markdawn-api:latest -f "$REPO_DIR/deploy/Containerfile
 podman build -t localhost/markdawn-collab:latest -f "$REPO_DIR/deploy/Containerfile.collab" "$REPO_DIR"
 
 echo -e "${YELLOW}[STEP 8/8] Configuring Caddy reverse proxy...${NC}"
+sudo caddy validate --config "$REPO_DIR/deploy/Caddyfile"
 sudo cp "$REPO_DIR/deploy/Caddyfile" /etc/caddy/Caddyfile
 
 if command -v semanage &>/dev/null && command -v restorecon &>/dev/null; then
@@ -128,4 +132,4 @@ echo -e "${GREEN}[DONE] Setup complete!${NC}"
 echo ""
 echo "Check status: systemctl --user status markdawn-postgres.service markdawn-api.service markdawn-collab.service"
 echo "View logs:    journalctl --user -u markdawn-api.service -f"
-echo "API health:   curl https://markdawn.space/api/health"
+echo "API health:   curl https://app.markdawn.space/api/health"

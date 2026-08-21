@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { API_URL } from '../fixtures';
+import { API_URL, WEB_HOSTNAME } from '../fixtures';
 
 type SetupResult = {
   cookie: string;
@@ -92,7 +92,7 @@ test('removes a mixed owned and shared selection with one progress state', async
       {
         name: 'better-auth.session_token',
         value: recipient.cookie,
-        domain: new URL(API_URL).hostname,
+        domain: WEB_HOSTNAME,
         path: '/',
         httpOnly: true,
         secure: false,
@@ -100,7 +100,7 @@ test('removes a mixed owned and shared selection with one progress state', async
       },
     ]);
 
-    await page.goto('/app/', { waitUntil: 'networkidle' });
+    await page.goto('/', { waitUntil: 'networkidle' });
     const sidebar = page.getByRole('region', { name: 'Sidebar' });
     for (const title of Object.values(titles)) {
       await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 15_000 });

@@ -461,14 +461,14 @@ function renderOverview(): string {
   const description = asString(info?.description);
   if (description) lines.push(description, '');
   lines.push(
-    'The API is available at `https://markdawn.space/api/v1` and supports bearer tokens and browser sessions.',
+    'The API is available at `https://app.markdawn.space/api/v1` and supports bearer tokens and browser sessions.',
     '',
     '## Quick Start',
     '',
     'Create a named API token in Markdawn Settings, store it in `MARKDAWN_TOKEN`, and send it as a bearer token:',
     '',
     '```bash',
-    'curl https://markdawn.space/api/v1/pages \\',
+    'curl https://app.markdawn.space/api/v1/pages \\',
     '  -H "Authorization: Bearer $MARKDAWN_TOKEN"',
     '```',
     '',

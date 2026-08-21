@@ -8,7 +8,7 @@ test.describe('Data persistence', () => {
     await page.keyboard.type('hello world');
 
     await page.reload();
-    await page.waitForURL(/\/app(\/|$)/);
+    await expect(page).toHaveURL(/\/[^/]+$/);
     await expect(page.locator('.ProseMirror')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('.ProseMirror')).toContainText('hello world');
   });
@@ -20,7 +20,7 @@ test.describe('Data persistence', () => {
     await page.keyboard.type('This is some sample content.');
 
     await page.reload();
-    await page.waitForURL(/\/app(\/|$)/);
+    await expect(page).toHaveURL(/\/[^/]+$/);
     await expect(page.locator('.ProseMirror')).toBeVisible({ timeout: 10_000 });
 
     await expect(page.locator('input[data-testid="page-title"]')).toHaveValue('Full Test Page');
@@ -37,7 +37,7 @@ test.describe('Data persistence', () => {
     await page.keyboard.press('Delete');
 
     await page.reload();
-    await page.waitForURL(/\/app(\/|$)/);
+    await expect(page).toHaveURL(/\/[^/]+$/);
     await expect(page.locator('.ProseMirror')).toBeVisible({ timeout: 10_000 });
 
     // After deleting and reloading, the deleted text should not appear
@@ -57,7 +57,7 @@ test.describe('Data persistence', () => {
     await page.close();
     const newPage = await context.newPage();
     await newPage.goto(url);
-    await newPage.waitForURL(/\/app(\/|$)/);
+    await expect(newPage).toHaveURL(/\/[^/]+$/);
 
     await expect(newPage.locator('.ProseMirror')).toBeVisible({ timeout: 10_000 });
     await expect(newPage.locator('.ProseMirror')).toContainText('Tab close test');

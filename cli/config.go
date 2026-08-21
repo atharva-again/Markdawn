@@ -12,7 +12,8 @@ import (
 	"unicode/utf8"
 )
 
-const defaultBaseURL = "https://markdawn.space"
+const defaultBaseURL = "https://app.markdawn.space"
+const legacyHostedBaseURL = "https://markdawn.space"
 
 type config struct {
 	BaseURL string `json:"baseUrl"`
@@ -62,6 +63,12 @@ func loadConfig() (config, error) {
 		result.BaseURL = defaultBaseURL
 	}
 	result.BaseURL = strings.TrimRight(result.BaseURL, "/")
+	if result.BaseURL == legacyHostedBaseURL {
+		result.BaseURL = defaultBaseURL
+		if err := saveConfig(result); err != nil {
+			return result, fmt.Errorf("migrate config: %w", err)
+		}
+	}
 	return result, nil
 }
 

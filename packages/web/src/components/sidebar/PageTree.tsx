@@ -31,7 +31,7 @@ import { useStableValueWhile } from '../../hooks/useStableValue';
 import { formatShortcut, SHORTCUT_PATTERNS } from '../../utils/keyboardShortcuts';
 import { getInitialQueriesState } from '../../utils/queryState';
 import { showErrorToast } from '../../utils/toast';
-import { buildPagePath, extractUuidFromSlug } from '../../utils/url';
+import { buildPagePath, extractUuidFromSlug, getWorkspacePath } from '../../utils/url';
 import { LoadingIndicator } from '../ui/LoadingIndicator';
 import { SidebarEntityRow } from './SidebarEntityRow';
 import { SidebarAliasSection } from './SidebarSections';
@@ -333,7 +333,7 @@ export function PageTree() {
           <button
             type="button"
             onClick={() => {
-              navigate('/app');
+              navigate(getWorkspacePath());
             }}
             className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-all text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 cursor-pointer"
             title="Go to home"
@@ -488,7 +488,7 @@ export function PageTree() {
                 {hasMoreShared && (
                   <button
                     type="button"
-                    onClick={() => navigate('/app?filter=shared-with-me')}
+                    onClick={() => navigate(`${getWorkspacePath()}?filter=shared-with-me`)}
                     className="w-full px-4 py-1.5 text-left text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 cursor-pointer"
                   >
                     View more

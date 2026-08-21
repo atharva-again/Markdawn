@@ -101,10 +101,10 @@ describe('ShareablePageRoute', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[`/app/folder/folder-${FOLDER_ID}`]}>
+        <MemoryRouter initialEntries={[`/folder/folder-${FOLDER_ID}`]}>
           <Routes>
             <Route
-              path="/app/folder/:slugAndId"
+              path="/folder/:slugAndId"
               element={
                 <ShareablePageRoute
                   entityType="folder"
@@ -144,10 +144,10 @@ describe('ShareablePageRoute', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[`/app/folder/folder-${FOLDER_ID}`]}>
+        <MemoryRouter initialEntries={[`/folder/folder-${FOLDER_ID}`]}>
           <Routes>
             <Route
-              path="/app/folder/:slugAndId"
+              path="/folder/:slugAndId"
               element={
                 <ShareablePageRoute
                   entityType="folder"
@@ -208,10 +208,10 @@ describe('ShareablePageRoute', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[`/app/folder/folder-${FOLDER_ID}`]}>
+        <MemoryRouter initialEntries={[`/folder/folder-${FOLDER_ID}`]}>
           <Routes>
             <Route
-              path="/app/folder/:slugAndId"
+              path="/folder/:slugAndId"
               element={
                 <ShareablePageRoute
                   entityType="folder"
@@ -244,10 +244,10 @@ describe('ShareablePageRoute', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[`/app/page/page-${PAGE_ID}`]}>
+        <MemoryRouter initialEntries={[`/page-${PAGE_ID}`]}>
           <Routes>
             <Route
-              path="/app/page/:slugAndId"
+              path="/:slugAndId"
               element={
                 <ShareablePageRoute
                   entityType="page"
@@ -285,10 +285,10 @@ describe('ShareablePageRoute', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[`/app/folder/folder-${FOLDER_ID}`]}>
+        <MemoryRouter initialEntries={[`/folder/folder-${FOLDER_ID}`]}>
           <Routes>
             <Route
-              path="/app/folder/:slugAndId"
+              path="/folder/:slugAndId"
               element={
                 <ShareablePageRoute
                   entityType="folder"
@@ -322,10 +322,10 @@ describe('ShareablePageRoute', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[`/app/page/page-${PAGE_ID}`]}>
+        <MemoryRouter initialEntries={[`/page-${PAGE_ID}`]}>
           <Routes>
             <Route
-              path="/app/page/:slugAndId"
+              path="/:slugAndId"
               element={
                 <ShareablePageRoute
                   entityType="page"
@@ -363,10 +363,10 @@ describe('ShareablePageRoute', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[`/app/page/page-${PAGE_ID}`]}>
+        <MemoryRouter initialEntries={[`/page-${PAGE_ID}`]}>
           <Routes>
             <Route
-              path="/app/page/:slugAndId"
+              path="/:slugAndId"
               element={
                 <ShareablePageRoute
                   entityType="page"
@@ -380,9 +380,7 @@ describe('ShareablePageRoute', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByTestId('login-return-path')).toHaveTextContent(
-      `/app/page/page-${PAGE_ID}`,
-    );
+    expect(await screen.findByTestId('login-return-path')).toHaveTextContent(`/page-${PAGE_ID}`);
   });
 
   it('keeps the entity route retryable when session revalidation fails temporarily', async () => {
@@ -403,10 +401,10 @@ describe('ShareablePageRoute', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[`/app/page/page-${PAGE_ID}`]}>
+        <MemoryRouter initialEntries={[`/page-${PAGE_ID}`]}>
           <Routes>
             <Route
-              path="/app/page/:slugAndId"
+              path="/:slugAndId"
               element={
                 <ShareablePageRoute
                   entityType="page"

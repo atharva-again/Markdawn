@@ -16,6 +16,7 @@ import { useTrashPages } from '../hooks/use-pages';
 import { useAuth } from '../hooks/useAuth';
 import { authClient } from '../lib/auth-client';
 import { formatShortcut, SHORTCUT_PATTERNS } from '../utils/keyboardShortcuts';
+import { getWorkspacePath } from '../utils/url';
 import { ThemeToggle } from './ThemeToggle';
 import { Tooltip } from './Tooltip';
 
@@ -131,7 +132,7 @@ export function ProfilePill({
           <Tooltip label="Settings" position="top">
             <button
               type="button"
-              onClick={() => navigate('/app/settings')}
+              onClick={() => navigate(getWorkspacePath('settings'))}
               className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
             >
               <Settings size={18} />
@@ -140,7 +141,7 @@ export function ProfilePill({
           <Tooltip label="Trash" position="top">
             <button
               type="button"
-              onClick={() => navigate('/app/trash')}
+              onClick={() => navigate(getWorkspacePath('trash'))}
               className="relative p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
             >
               <Trash2 size={18} />

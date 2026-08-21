@@ -112,7 +112,7 @@ Create a named token in **Markdawn Settings → API tokens**, then run:
 markdawn login
 ```
 
-`markdawn login` defaults to `https://markdawn.space`. Pass `--url URL` or set `MARKDAWN_URL`
+`markdawn login` defaults to `https://app.markdawn.space`. Pass `--url URL` or set `MARKDAWN_URL`
 for a self-hosted server.
 
 The token is validated before it is saved. The config directory is created with mode `0700` and the config file with mode `0600`.

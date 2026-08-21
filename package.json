@@ -2,7 +2,8 @@
   "name": "markdawn",
   "private": true,
   "scripts": {
-    "dev": "pnpm -r --parallel run dev",
+    "dev": "pnpm --filter './packages/*' --parallel run dev",
+    "dev:landing": "pnpm --filter @markdawn/web run dev:landing",
     "build": "pnpm -r --workspace-concurrency=1 run build",
     "test": "pnpm -r --workspace-concurrency=1 run test",
     "e2e": "cd e2e && npx playwright test",

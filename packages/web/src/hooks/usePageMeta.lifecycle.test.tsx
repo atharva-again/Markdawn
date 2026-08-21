@@ -90,7 +90,7 @@ function renderMeta(lifecycle: IdentityLifecycle = createIdentityLifecycle()) {
     queryClient,
     ...render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/app']}>
+        <MemoryRouter initialEntries={['/']}>
           <IdentityLifecycleProvider lifecycle={lifecycle}>
             <MetaHarness />
           </IdentityLifecycleProvider>
@@ -170,7 +170,7 @@ describe('usePageMeta authentication lifecycle', () => {
       });
     });
 
-    expect(getByTestId('location-path')).toHaveTextContent('/app');
+    expect(getByTestId('location-path')).toHaveTextContent('/');
     expect(queryClient.getQueryData(['pageTree'])).toEqual([
       { id: 'private-page', title: 'Private page' },
     ]);
@@ -231,7 +231,7 @@ describe('usePageMeta authentication lifecycle', () => {
       });
     });
 
-    expect(getByTestId('location-path')).toHaveTextContent('/app');
+    expect(getByTestId('location-path')).toHaveTextContent('/');
     expect(queryClient.getQueryData(['folderTree'])).toEqual([
       { id: 'private-folder', title: 'Private folder' },
     ]);

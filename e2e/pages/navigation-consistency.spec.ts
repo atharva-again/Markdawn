@@ -18,7 +18,7 @@ async function openLoadedDashboard(page: Page): Promise<void> {
       (response) => new URL(response.url()).pathname === '/api/folders/tree' && response.ok(),
       { timeout: 20_000 },
     ),
-    page.goto('/app'),
+    page.goto('/'),
   ]);
   await expect(page.getByRole('region', { name: 'Sidebar' }).getByText('Loading...')).toHaveCount(
     0,
@@ -54,7 +54,7 @@ test.describe('Dashboard and sidebar consistency', () => {
       .first()
       .click();
     const created = (await (await createResponse).json()) as { id: string };
-    await page.waitForURL(new RegExp(`/app/untitled-${created.id}$`));
+    await page.waitForURL(new RegExp(`/untitled-${created.id}$`));
     await expect(page.locator('main .bg-emerald-500')).toBeVisible({ timeout: 10_000 });
 
     const sidebarPage = page
@@ -72,7 +72,7 @@ test.describe('Dashboard and sidebar consistency', () => {
     await page.getByRole('menuitem', { name: 'Move to Trash' }).click();
     await page.getByRole('button', { name: 'Move to Trash', exact: true }).click();
     await deleteResponse;
-    await page.waitForURL(/\/app$/);
+    await page.waitForURL(/\/$/);
 
     await expect(page.getByText('Moved "Untitled" To Trash', { exact: true })).toHaveCount(1);
     // The collaboration deletion event arrives independently of the HTTP
@@ -97,7 +97,7 @@ test.describe('Dashboard and sidebar consistency', () => {
     expect(pageResponse.status()).toBe(201);
     const created = (await pageResponse.json()) as { id: string };
 
-    await page.goto(`/app/page-${created.id}`);
+    await page.goto(`/page-${created.id}`);
     await expect(page.locator('main .bg-emerald-500')).toBeVisible({ timeout: 10_000 });
     const sidebarPage = page
       .getByRole('region', { name: 'Sidebar' })
@@ -116,7 +116,7 @@ test.describe('Dashboard and sidebar consistency', () => {
     await page.getByRole('button', { name: 'Move to Trash', exact: true }).click();
     await deleteResponse;
 
-    await page.waitForURL(new RegExp(`/app/folder/[^/]*-${folder.id}$`));
+    await page.waitForURL(new RegExp(`/folder/[^/]*-${folder.id}$`));
     await expect(page.getByText(`Moved "${pageTitle}" To Trash`, { exact: true })).toHaveCount(1);
   });
 
@@ -137,7 +137,7 @@ test.describe('Dashboard and sidebar consistency', () => {
         .first()
         .click();
       const created = (await (await createResponse).json()) as { id: string };
-      await page.waitForURL(new RegExp(`/app/untitled-${created.id}$`));
+      await page.waitForURL(new RegExp(`/untitled-${created.id}$`));
 
       const sidebarPage = page
         .getByRole('region', { name: 'Sidebar' })
@@ -166,7 +166,7 @@ test.describe('Dashboard and sidebar consistency', () => {
       await dashboardPage.getByRole('button', { name: 'Open menu' }).click();
       await page.getByRole('menuitem', { name: 'Move to Trash' }).click();
       await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-      await expect(page).toHaveURL(/\/app$/);
+      await expect(page).toHaveURL(/\/$/);
       await expect(dashboardPage).toBeVisible();
 
       await dashboardPage.hover();
@@ -183,7 +183,7 @@ test.describe('Dashboard and sidebar consistency', () => {
 
       await expect(page.locator(`main ${entitySelector('page', created.id)}`)).toHaveCount(0);
       await expect(sidebarPage).toHaveCount(0);
-      await expect(page).toHaveURL(/\/app$/);
+      await expect(page).toHaveURL(/\/$/);
     } finally {
       await releaseTreeRefreshes();
     }
@@ -240,7 +240,7 @@ test.describe('Dashboard and sidebar consistency', () => {
 
       await expect(dashboardFolder).toHaveCount(0);
       await expect(sidebarFolder).toHaveCount(0);
-      await expect(page).toHaveURL(/\/app$/);
+      await expect(page).toHaveURL(/\/$/);
     } finally {
       await releaseTreeRefreshes();
     }

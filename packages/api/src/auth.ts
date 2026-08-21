@@ -2,9 +2,8 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { authDatabase, getAuthTransaction } from './db/authTransaction';
 import { accounts, sessions, users, verifications } from './db/schema';
+import { publicFrontendUrl } from './utils/publicWebUrl';
 import { createWelcomePageForUser } from './utils/welcomePage';
-
-const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
 
 type CreateAuthOptions = {
   provisionWelcomePage?: typeof createWelcomePageForUser;
@@ -14,8 +13,8 @@ export function createAuth(options: CreateAuthOptions = {}) {
   const provisionWelcomePage = options.provisionWelcomePage ?? createWelcomePageForUser;
 
   return betterAuth({
-    baseURL: FRONTEND_URL,
-    trustedOrigins: [FRONTEND_URL],
+    baseURL: publicFrontendUrl,
+    trustedOrigins: [publicFrontendUrl],
     database: drizzleAdapter(authDatabase, {
       provider: 'pg',
       transaction: true,

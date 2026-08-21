@@ -24,7 +24,7 @@ import type { CollaborationEventBridge } from './collaborationEventBridge';
 import { formatGrantNotification } from './grantNotification';
 import { consumeSelfLeave } from './leave-page';
 import { showInfoToast } from './toast';
-import { buildFolderPath } from './url';
+import { buildFolderPath, getWorkspacePath } from './url';
 
 type Logger = ReturnType<typeof getLogger>;
 type TerminalCollabEviction = 'access_revoked' | 'page_deleted';
@@ -140,7 +140,7 @@ export class CollaborationLifecycleController {
       );
     }
     this.options.navigate(
-      suppressToast && parentId ? buildFolderPath('folder', parentId) : '/app',
+      suppressToast && parentId ? buildFolderPath('folder', parentId) : getWorkspacePath(),
       {
         replace: true,
       },

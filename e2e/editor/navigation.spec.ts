@@ -9,13 +9,13 @@ test.describe('Navigation between pages', () => {
 
     // Go back to workspace and create another
     await page.goto('/', { waitUntil: 'networkidle' });
-    await page.waitForURL(/\/app(\/|$)/);
+    await page.waitForURL(/\/$/);
 
     await page
       .getByRole('button', { name: /new page/i })
       .first()
       .click();
-    await page.waitForURL(/\/app\/untitled-/);
+    await page.waitForURL(/\/untitled-/);
     await focusEditor(page);
     await page.keyboard.type('Page two content');
     await expect(page.locator('.ProseMirror')).toContainText('Page two content');

@@ -147,7 +147,7 @@ export function ShareDialog({ entityType, entityId, title, onClose }: ShareDialo
   }));
 
   const publicUrl = summary?.publicAccess.url
-    ? `${window.location.origin}${summary.publicAccess.url}`
+    ? new URL(summary.publicAccess.url, window.location.origin).toString()
     : '';
   const inheritedPublicAccess = summary?.inheritedPublicAccess ?? [];
   const hasPublicAccess =

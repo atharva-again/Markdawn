@@ -9,7 +9,7 @@ import { ChevronDown, ChevronRight, FileText, Plus } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useIdentityNavigate } from '../../contexts/IdentityLifecycleContext';
-import { buildEntityPath, buildFolderPath } from '../../utils/url';
+import { buildEntityPath, buildFolderPath, getWorkspacePath } from '../../utils/url';
 import { PageContextMenu } from '../ui/PageContextMenu';
 
 interface PageTreeRowProps {
@@ -221,7 +221,7 @@ export function PageTreeRow({
             {...(isActive
               ? {
                   onDeleted: () =>
-                    navigate(parentId ? buildFolderPath('folder', parentId) : '/app'),
+                    navigate(parentId ? buildFolderPath('folder', parentId) : getWorkspacePath()),
                 }
               : {})}
           />

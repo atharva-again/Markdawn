@@ -74,7 +74,7 @@ npx playwright install chromium firefox
 The setup test (`auth.setup.ts`) calls `POST /api/test/setup` with `TEST_SETUP_TOKEN`, which:
 1. Creates a uniquely identified test user
 2. Creates a signed session cookie
-3. Navigates to `/app`
+3. Navigates to the app root (`/`)
 4. Saves browser storage state to `e2e/playwright/.auth/user.json`
 
 Subsequent tests load this storage state to be authenticated. Each setup call uses a unique email address, so repeated runs do not collide with a fixed workspace slug.

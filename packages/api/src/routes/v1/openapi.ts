@@ -67,7 +67,7 @@ export const openApiV1 = {
     },
   ],
   servers: [
-    { url: 'https://markdawn.space/api/v1', description: 'Hosted Markdawn API' },
+    { url: 'https://app.markdawn.space/api/v1', description: 'Hosted Markdawn API' },
     { url: '/api/v1', description: 'Relative to the current Markdawn server.' },
   ],
   components: {

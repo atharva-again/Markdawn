@@ -43,7 +43,7 @@ describe('useEntityCreationActions', () => {
     });
 
     expect(mocks.createPage).toHaveBeenCalledWith({ parentId: 'folder-1' });
-    expect(mocks.navigate).toHaveBeenCalledWith('/app/created-page-page-1');
+    expect(mocks.navigate).toHaveBeenCalledWith('/created-page-page-1');
     expect(created).toBe(page);
   });
 

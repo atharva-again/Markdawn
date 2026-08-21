@@ -13,6 +13,9 @@ const jsonHeaders = (cookie: string) => ({
   'Content-Type': 'application/json',
 });
 
+const publicWebUrl = (pathname: string) =>
+  `${(process.env.FRONTEND_URL ?? 'http://localhost:5173').replace(/\/+$/, '')}${pathname}`;
+
 async function setPublicAccess(
   app: Awaited<ReturnType<typeof createTestApp>>,
   cookie: string,
@@ -90,7 +93,7 @@ describe('sharing API', () => {
     };
     expect(summary.publicAccess).toEqual({
       permission: 'private',
-      url: `/app/grant-target-${page.id}`,
+      url: publicWebUrl(`/grant-target-${page.id}`),
     });
     expect(summary.grants).toEqual([
       expect.objectContaining({ recipientUserId: recipient.id, permission: 'edit' }),
@@ -214,7 +217,7 @@ describe('sharing API', () => {
     const owner = await createTestUser();
     const ownerSession = await createTestSession(owner.id);
     const page = await createTestPage(owner.id, { title: 'Stable Address' });
-    const expectedUrl = `/app/stable-address-${page.id}`;
+    const expectedUrl = publicWebUrl(`/stable-address-${page.id}`);
 
     expect((await app.request(`/api/pages/${page.id}`)).status).toBe(401);
 
@@ -620,7 +623,7 @@ describe('sharing API', () => {
         entityId: folder.id,
         entityTitle: folder.name,
         permission: 'edit',
-        url: `/app/folder/public-ancestor-${folder.id}`,
+        url: publicWebUrl(`/folder/public-ancestor-${folder.id}`),
       },
     ]);
     expect(JSON.stringify(body)).not.toMatch(/token|expires/i);

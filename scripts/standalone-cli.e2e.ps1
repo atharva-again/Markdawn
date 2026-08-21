@@ -16,7 +16,7 @@ try {
   $entry = "`$env:Path = '$($installDir.Replace("'", "''"))' + [IO.Path]::PathSeparator + `$env:Path"
   [IO.File]::WriteAllText($profilePath, "before`r`n# >>> markdawn >>>`r`n$entry`r`n# <<< markdawn <<<`r`nafter`r`n", [Text.UTF8Encoding]::new($false))
   $profileBefore = [IO.File]::ReadAllText($profilePath)
-  [IO.File]::WriteAllText((Join-Path $configDir 'config.json'), '{"baseUrl":"https://markdawn.space","token":"secret"}', [Text.UTF8Encoding]::new($false))
+  [IO.File]::WriteAllText((Join-Path $configDir 'config.json'), '{"baseUrl":"https://app.markdawn.space","token":"secret"}', [Text.UTF8Encoding]::new($false))
   $receipt = [PSCustomObject]@{
     schemaVersion = 1
     installMethod = 'standalone'

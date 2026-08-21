@@ -78,7 +78,7 @@ func TestRemoveStandaloneBinaryRestoresReceiptWhenBinaryRemovalFails(t *testing.
 	configDir := t.TempDir()
 	t.Setenv("MARKDAWN_CONFIG_DIR", configDir)
 	configPath := filepath.Join(configDir, "config.json")
-	config := []byte(`{"baseUrl":"https://markdawn.space","token":"secret"}`)
+	config := []byte(`{"baseUrl":"https://app.markdawn.space","token":"secret"}`)
 	if err := os.WriteFile(configPath, config, 0o600); err != nil {
 		t.Fatal(err)
 	}

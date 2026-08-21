@@ -7,7 +7,7 @@ test.describe('Dark mode', () => {
 
     await page.evaluate(() => localStorage.setItem('markdawn-theme', 'dark'));
     await page.reload();
-    await page.waitForURL(/\/app(\/|$)/);
+    await expect(page).toHaveURL(/\/[^/]+$/);
 
     await expect(page.locator('html')).toHaveClass(/dark/, { timeout: 10000 });
     await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark');
@@ -18,7 +18,7 @@ test.describe('Dark mode', () => {
 
     await page.evaluate(() => localStorage.setItem('markdawn-theme', 'light'));
     await page.reload();
-    await page.waitForURL(/\/app(\/|$)/);
+    await expect(page).toHaveURL(/\/[^/]+$/);
 
     await expect(page.locator('html')).not.toHaveClass(/dark/, { timeout: 10000 });
   });
