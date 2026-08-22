@@ -61,7 +61,7 @@ Use `http://localhost:5173` for the application. This keeps local OAuth
 callbacks compatible with providers such as Google. In a second terminal, run:
 
 ```bash
-pnpm dev:landing
+pnpm dev:marketing-site
 ```
 
 Then use `http://localhost:8888` for the landing page. Its Web link points to
