@@ -49,9 +49,9 @@ The script prompts you to edit `.env`, installs required tools, creates persiste
 
 ### Custom domains
 
-The checked-in Caddy configuration uses separate `markdawn.space` and `app.markdawn.space` site blocks. The setup script copies that file to `/etc/caddy/Caddyfile`; setting `FRONTEND_URL` does not change the Caddy hostnames automatically. Custom domains therefore require a manual Caddyfile edit.
+The checked-in Caddy configuration serves the application at `app.markdawn.space`. The public marketing site is hosted separately. The setup script copies the Caddy file to `/etc/caddy/Caddyfile`; setting `FRONTEND_URL` does not change the Caddy hostname automatically. Custom domains therefore require a manual Caddyfile edit.
 
-For a root-based custom deployment, remove the `markdawn.space` site block and rename the `app.markdawn.space` site block to your domain in `deploy/Caddyfile` before running the setup script when using an existing checkout, or make the same edit after setup. The app site block includes compatibility redirects from legacy `/app/...` paths to root-based paths.
+For a custom deployment, rename the `app.markdawn.space` site block to your domain in `deploy/Caddyfile` before running the setup script when using an existing checkout, or make the same edit after setup. The app site block includes compatibility redirects from legacy `/app/...` paths to root-based paths.
 
 ```sh
 sudoedit /etc/caddy/Caddyfile
