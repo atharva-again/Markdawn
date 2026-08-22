@@ -32,6 +32,7 @@ jobs:
       build_api: ${{ steps.scope.outputs.build_api }}
       build_collab: ${{ steps.scope.outputs.build_collab }}
       build_web: ${{ steps.scope.outputs.build_web }}
+      build_marketing_site: ${{ steps.scope.outputs.build_marketing_site }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -66,6 +67,7 @@ jobs:
           API_CHANGED: ${{ steps.filter.outputs.api }}
           COLLAB_CHANGED: ${{ steps.filter.outputs.collab }}
           WEB_CHANGED: ${{ steps.filter.outputs.web }}
+          MARKETING_SITE_CHANGED: ${{ steps.filter.outputs.marketing_site }}
           E2E_CHANGED: ${{ steps.filter.outputs.e2e }}
           DOCS_CHANGED: ${{ steps.filter.outputs.docs }}
         run: |
@@ -80,7 +82,7 @@ jobs:
           fi
 
           js="$full"
-          if [[ "$SHARED_CHANGED" == "true" || "$API_CHANGED" == "true" || "$COLLAB_CHANGED" == "true" || "$WEB_CHANGED" == "true" || "$E2E_CHANGED" == "true" ]]; then
+          if [[ "$SHARED_CHANGED" == "true" || "$API_CHANGED" == "true" || "$COLLAB_CHANGED" == "true" || "$WEB_CHANGED" == "true" || "$MARKETING_SITE_CHANGED" == "true" || "$E2E_CHANGED" == "true" ]]; then
             js=true
           fi
 
@@ -106,7 +108,7 @@ jobs:
           if [[ "$SHARED_CHANGED" == "true" || "$API_CHANGED" == "true" || "$COLLAB_CHANGED" == "true" ]]; then integration=true; fi
 
           build="$full"
-          if [[ "$SHARED_CHANGED" == "true" || "$API_CHANGED" == "true" || "$COLLAB_CHANGED" == "true" || "$WEB_CHANGED" == "true" ]]; then build=true; fi
+          if [[ "$SHARED_CHANGED" == "true" || "$API_CHANGED" == "true" || "$COLLAB_CHANGED" == "true" || "$WEB_CHANGED" == "true" || "$MARKETING_SITE_CHANGED" == "true" ]]; then build=true; fi
 
           build_shared="$build"
           build_api="$full"
@@ -117,6 +119,9 @@ jobs:
 
           build_web="$full"
           if [[ "$SHARED_CHANGED" == "true" || "$WEB_CHANGED" == "true" ]]; then build_web=true; fi
+
+          build_marketing_site="$full"
+          if [[ "$MARKETING_SITE_CHANGED" == "true" ]]; then build_marketing_site=true; fi
 
           printf '%s\n' \
             "full=$full" \
@@ -132,7 +137,8 @@ jobs:
             "build_shared=$build_shared" \
             "build_api=$build_api" \
             "build_collab=$build_collab" \
-            "build_web=$build_web" >>"$GITHUB_OUTPUT"
+            "build_web=$build_web" \
+            "build_marketing_site=$build_marketing_site" >>"$GITHUB_OUTPUT"
 
   lint:
     name: Lint
@@ -334,6 +340,10 @@ jobs:
       - name: Build web
         if: needs.changes.outputs.build_web == 'true'
         run: pnpm --filter @markdawn/web run build
+
+      - name: Build marketing site
+        if: needs.changes.outputs.build_marketing_site == 'true'
+        run: pnpm --filter @markdawn/marketing-site run build
 
   ci-gate:
     name: CI gate

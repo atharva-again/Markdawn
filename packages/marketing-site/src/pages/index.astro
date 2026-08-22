@@ -1,0 +1,690 @@
+---
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
+
+const SITE_ORIGIN = 'https://markdawn.space';
+// biome-ignore lint/correctness/noUnusedVariables: Astro uses this value in the template below.
+const APP_ORIGIN = 'https://app.markdawn.space';
+const DOCS_URL = 'https://docs.markdawn.space';
+// biome-ignore lint/correctness/noUnusedVariables: Astro uses this value in the template below.
+const CLI_GUIDE = `${DOCS_URL}/agents/markdawn-cli/`;
+// biome-ignore lint/correctness/noUnusedVariables: Astro uses this value in the template below.
+const GITHUB_URL = 'https://github.com/atharva-again/Markdawn';
+// biome-ignore lint/correctness/noUnusedVariables: Astro uses this value in the template below.
+const INSTALL_COMMANDS = [
+  {
+    label: 'Linux / macOS',
+    command: `curl -fsSL ${SITE_ORIGIN}/install.sh | sh`,
+    ariaLabel: 'Copy Linux and macOS install command',
+  },
+  {
+    label: 'Windows',
+    command: `irm ${SITE_ORIGIN}/install.ps1 | iex`,
+    ariaLabel: 'Copy Windows install command',
+  },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta
+      name="description"
+      content="The collaborative markdown editor for people, terminals, and AI agents working on the same versioned pages."
+    />
+    <meta property="og:title" content="Markdawn" />
+    <meta
+      property="og:description"
+      content="The collaborative markdown editor for people, terminals, and AI agents working on the same versioned pages."
+    />
+    <meta property="og:url" content={SITE_ORIGIN} />
+    <meta property="og:type" content="website" />
+    <link rel="canonical" href={SITE_ORIGIN} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Markdawn</title>
+    <script is:inline>
+      (() => {
+        const storedTheme = localStorage.getItem('markdawn-theme');
+        const theme = ['light', 'dark', 'system'].includes(storedTheme) ? storedTheme : 'system';
+        const isDark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+      })();
+    </script>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+        background: #fafafa;
+        color: #18181b;
+      }
+
+      :root.dark {
+        color-scheme: dark;
+        background: #09090b;
+        color: #fafafa;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-width: 320px;
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        overflow-x: hidden;
+        background: #fafafa;
+      }
+
+      body,
+      a,
+      button {
+        transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+      }
+
+      a,
+      button {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      a:focus-visible,
+      button:focus-visible {
+        outline: 2px solid #a1a1aa;
+        outline-offset: 2px;
+      }
+
+      .page-shell {
+        position: relative;
+        display: flex;
+        min-height: 100vh;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: #fafafa;
+        color: #18181b;
+      }
+
+      .page-shell::before {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background: linear-gradient(to bottom, transparent, rgb(244 244 245 / 50%));
+        content: '';
+        pointer-events: none;
+      }
+
+      .dark .page-shell {
+        background: #09090b;
+        color: #fafafa;
+      }
+
+      .dark .page-shell::before {
+        background: linear-gradient(to bottom, transparent, rgb(24 24 27 / 50%));
+      }
+
+      .dawn-glow {
+        position: absolute;
+        top: -400px;
+        left: 50%;
+        z-index: 0;
+        width: 800px;
+        height: 800px;
+        transform: translateX(-50%);
+        pointer-events: none;
+      }
+
+      .dawn-glow::before {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(to bottom, #f43f5e, #fb923c, #fcd34d);
+        box-shadow: 0 0 120px rgb(245 158 11 / 40%);
+        content: '';
+        filter: blur(12px);
+        animation: dawn-pulse 15s ease-in-out infinite alternate;
+      }
+
+      .dark .dawn-glow::before {
+        background: linear-gradient(to bottom, #881337, #9a3412, #b45309);
+        box-shadow: 0 0 120px rgb(234 88 12 / 20%);
+      }
+
+      .header-actions {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem;
+      }
+
+      .header-action,
+      .theme-button {
+        display: inline-flex;
+        width: 28px;
+        height: 28px;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: #52525b;
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      .header-action:hover,
+      .theme-button:hover {
+        background: #e4e4e7;
+        color: #18181b;
+      }
+
+      .dark .header-action,
+      .dark .theme-button {
+        color: #d4d4d8;
+      }
+
+      .dark .header-action:hover,
+      .dark .theme-button:hover {
+        background: #3f3f46;
+        color: #fafafa;
+      }
+
+      .theme-icon {
+        position: absolute;
+        display: inline-flex;
+        opacity: 0;
+        transform: scale(0.5) rotate(90deg);
+        transition: opacity 300ms ease, transform 300ms ease;
+      }
+
+      html[data-theme='light'] [data-theme-icon='light'],
+      html[data-theme='dark'] [data-theme-icon='dark'],
+      html[data-theme='system'] [data-theme-icon='system'],
+      html:not([data-theme]) [data-theme-icon='system'] {
+        opacity: 1;
+        transform: scale(1) rotate(0);
+      }
+
+      .hero {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        z-index: 10;
+        max-width: 48rem;
+        margin: 0 auto;
+        padding: 1.5rem;
+        text-align: center;
+        animation: fade-in 150ms ease-out;
+      }
+
+      .beta-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 2rem;
+        padding: 0.25rem 0.75rem;
+        border: 1px solid #e4e4e7;
+        border-radius: 999px;
+        background: #f4f4f5;
+        box-shadow: 0 1px 2px rgb(24 24 27 / 5%);
+        color: #52525b;
+        font-size: 0.875rem;
+      }
+
+      .dark .beta-badge {
+        border-color: #27272a;
+        background: #18181b;
+        color: #a1a1aa;
+      }
+
+      .status-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 999px;
+        background: #22c55e;
+      }
+
+      h1 {
+        margin: 0 0 1.5rem;
+        color: #18181b;
+        font-size: clamp(3rem, 8vw, 4.5rem);
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        line-height: 1.1;
+      }
+
+      .dark h1 {
+        color: #fff;
+      }
+
+      .hero-copy {
+        max-width: 42rem;
+        margin: 0 auto 2.5rem;
+        color: #52525b;
+        font-size: clamp(1.125rem, 2.5vw, 1.25rem);
+        font-weight: 500;
+        line-height: 1.625;
+      }
+
+      .dark .hero-copy {
+        color: #a1a1aa;
+      }
+
+      .actions {
+        display: flex;
+        width: 100%;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .action-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #e4e4e7;
+        border-radius: 999px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgb(24 24 27 / 5%);
+        color: #3f3f46;
+        cursor: pointer;
+        font-size: 0.875rem;
+        font-weight: 600;
+        padding: 0.875rem 2rem;
+        text-decoration: none;
+      }
+
+      .action-button:hover {
+        background: #f4f4f5;
+        box-shadow: 0 4px 12px rgb(24 24 27 / 8%);
+      }
+
+      .dark .action-button {
+        border-color: #27272a;
+        background: #18181b;
+        color: #d4d4d8;
+      }
+
+      .dark .action-button:hover {
+        background: #27272a;
+      }
+
+      .cli-popover-container {
+        position: relative;
+        display: inline-flex;
+        width: 100%;
+      }
+
+      .cli-popover-container .action-button {
+        width: 100%;
+      }
+
+      .cli-popover {
+        position: absolute;
+        top: calc(100% + 0.75rem);
+        left: 50%;
+        z-index: 20;
+        width: 20rem;
+        max-width: calc(100vw - 2rem);
+        padding: 1rem;
+        transform: translateX(-50%);
+        border: 1px solid #e4e4e7;
+        border-radius: 1rem;
+        background: #fff;
+        box-shadow: 0 20px 40px rgb(24 24 27 / 16%);
+        text-align: left;
+      }
+
+      .dark .cli-popover {
+        border-color: #3f3f46;
+        background: #18181b;
+      }
+
+      .cli-popover[hidden] {
+        display: none;
+      }
+
+      .cli-popover-title {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+        color: #18181b;
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+
+      .dark .cli-popover-title {
+        color: #fafafa;
+      }
+
+      .cli-popover-title a {
+        color: #71717a;
+      }
+
+      .cli-command + .cli-command {
+        margin-top: 0.75rem;
+      }
+
+      .cli-command-label {
+        margin: 0 0 0.25rem;
+        color: #52525b;
+        font-size: 0.75rem;
+        font-weight: 500;
+      }
+
+      .dark .cli-command-label {
+        color: #a1a1aa;
+      }
+
+      .cli-command-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.5rem;
+        background: #f4f4f5;
+      }
+
+      .dark .cli-command-row {
+        background: #27272a;
+      }
+
+      .cli-command-row code {
+        min-width: 0;
+        flex: 1;
+        overflow-x: auto;
+        color: #27272a;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.75rem;
+      }
+
+      .dark .cli-command-row code {
+        color: #e4e4e7;
+      }
+
+      .copy-button {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        padding: 0;
+        border: 0;
+        border-radius: 0.375rem;
+        background: transparent;
+        color: #71717a;
+        cursor: pointer;
+      }
+
+      .copy-button:hover {
+        color: #18181b;
+      }
+
+      .dark .copy-button:hover {
+        color: #fafafa;
+      }
+
+      @keyframes dawn-pulse {
+        0% { opacity: 0.8; transform: scale(1) translateY(-2%); }
+        50% { opacity: 1; transform: scale(1.05) translateY(2%); }
+        100% { opacity: 0.9; transform: scale(1.02) translateY(0); }
+      }
+
+      @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      @media (min-width: 640px) {
+        .actions {
+          width: auto;
+          flex-direction: row;
+        }
+
+        .cli-popover-container {
+          width: auto;
+        }
+
+        .cli-popover-container .action-button {
+          width: auto;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          scroll-behavior: auto !important;
+          transition-duration: 0ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-shell">
+      <div class="dawn-glow" aria-hidden="true"></div>
+
+      <div class="header-actions" aria-label="Site actions">
+        <button class="theme-button" type="button" data-theme-button title="Theme: system">
+          <span class="theme-icon" data-theme-icon="light" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path>
+            </svg>
+          </span>
+          <span class="theme-icon" data-theme-icon="dark" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+            </svg>
+          </span>
+          <span class="theme-icon" data-theme-icon="system" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line>
+            </svg>
+          </span>
+        </button>
+        <a class="header-action" href={DOCS_URL} target="_blank" rel="noopener noreferrer" title="Documentation" aria-label="Documentation">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 7v14"></path><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"></path>
+          </svg>
+        </a>
+        <a class="header-action" href={GITHUB_URL} target="_blank" rel="noopener noreferrer" title="GitHub Repository" aria-label="GitHub Repository">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path><path d="M9 18c-4.51 2-5-2-7-2"></path>
+          </svg>
+        </a>
+      </div>
+
+      <main class="hero">
+        <div class="beta-badge">
+          <span class="status-dot" aria-hidden="true"></span>
+          Markdawn is now in public beta
+        </div>
+
+        <h1>Welcome to Markdawn</h1>
+
+        <p class="hero-copy">
+          The collaborative markdown editor designed for speed, simplicity, and seamless team
+          synchronization. Write together in the browser, or let your terminal and AI agents work
+          through the same versioned API.
+        </p>
+
+        <div class="actions">
+          <a class="action-button" href={APP_ORIGIN} data-app-link>Web</a>
+
+          <div class="cli-popover-container" data-cli-popover-container>
+            <a
+              class="action-button"
+              href={CLI_GUIDE}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              data-cli-trigger
+            >CLI &amp; Agents</a>
+
+            <div class="cli-popover" role="dialog" aria-label="Install the CLI" hidden data-cli-popover>
+              <div class="cli-popover-title">
+                <span>Install the CLI</span>
+                <a href={CLI_GUIDE} target="_blank" rel="noopener noreferrer" aria-label="Open CLI documentation" title="Open CLI documentation">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  </svg>
+                </a>
+              </div>
+
+              {INSTALL_COMMANDS.map(({ label, command, ariaLabel }) => (
+                <div class="cli-command">
+                  <p class="cli-command-label">{label}</p>
+                  <div class="cli-command-row">
+                    <code>{command}</code>
+                    <button class="copy-button" type="button" data-copy-command={command} aria-label={ariaLabel} title="Copy command">
+                      <svg data-copy-icon width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+                      </svg>
+                      <svg data-copied-icon style="display: none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m5 12 4 4L19 6"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <a class="action-button" href={DOCS_URL} target="_blank" rel="noopener noreferrer">Learn More</a>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      const appLink = document.querySelector<HTMLAnchorElement>('[data-app-link]');
+      if (appLink) {
+        const localHostnames = new Set(['localhost', '127.0.0.1', '::1']);
+        const hostname = window.location.hostname;
+
+        if (localHostnames.has(hostname) && window.location.port === '8888') {
+          const formattedHostname = hostname === '::1' ? '[::1]' : hostname;
+          appLink.href = `http://${formattedHostname}:5173`;
+        } else if (hostname === 'markdawn.space') {
+          appLink.href = 'https://app.markdawn.space';
+        } else {
+          appLink.href = window.location.origin;
+        }
+      }
+
+      const themeButton = document.querySelector<HTMLButtonElement>('[data-theme-button]');
+      const themeOrder = ['light', 'dark', 'system'] as const;
+      type Theme = (typeof themeOrder)[number];
+
+      function isTheme(theme: string | null): theme is Theme {
+        return theme !== null && themeOrder.includes(theme as Theme);
+      }
+
+      function readTheme(): Theme {
+        const theme = localStorage.getItem('markdawn-theme');
+        return isTheme(theme) ? theme : 'system';
+      }
+
+      function applyTheme(theme: Theme) {
+        const isDark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isDark ? '#09090b' : '#ffffff');
+        localStorage.setItem('markdawn-theme', theme);
+        themeButton?.setAttribute('title', `Theme: ${theme}`);
+      }
+
+      themeButton?.addEventListener('click', () => {
+        const currentTheme = readTheme();
+        const nextTheme = themeOrder[(themeOrder.indexOf(currentTheme) + 1) % themeOrder.length] ?? 'system';
+        applyTheme(nextTheme);
+      });
+
+      matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (readTheme() === 'system') applyTheme('system');
+      });
+
+      const cliContainer = document.querySelector<HTMLElement>('[data-cli-popover-container]');
+      const cliTrigger = document.querySelector<HTMLAnchorElement>('[data-cli-trigger]');
+      const cliPopover = document.querySelector<HTMLElement>('[data-cli-popover]');
+      let hidePopoverTimeout: number | undefined;
+
+      function showPopover() {
+        window.clearTimeout(hidePopoverTimeout);
+        if (!cliPopover || !cliTrigger) return;
+        cliPopover.hidden = false;
+        cliTrigger.setAttribute('aria-expanded', 'true');
+      }
+
+      function hidePopover() {
+        if (!cliPopover || !cliTrigger) return;
+        cliPopover.hidden = true;
+        cliTrigger.setAttribute('aria-expanded', 'false');
+      }
+
+      function schedulePopoverHide() {
+        hidePopoverTimeout = window.setTimeout(hidePopover, 150);
+      }
+
+      cliContainer?.addEventListener('mouseenter', showPopover);
+      cliContainer?.addEventListener('mouseleave', schedulePopoverHide);
+      cliContainer?.addEventListener('focusin', showPopover);
+      cliContainer?.addEventListener('focusout', (event) => {
+        if (!(event.relatedTarget instanceof Node) || !cliContainer.contains(event.relatedTarget)) schedulePopoverHide();
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') hidePopover();
+      });
+
+      document.querySelectorAll<HTMLButtonElement>('[data-copy-command]').forEach((button) => {
+        const copyIcon = button.querySelector<SVGElement>('[data-copy-icon]');
+        const copiedIcon = button.querySelector<SVGElement>('[data-copied-icon]');
+
+        const setCopyState = (copied: boolean) => {
+          if (copyIcon) copyIcon.style.display = copied ? 'none' : '';
+          if (copiedIcon) copiedIcon.style.display = copied ? '' : 'none';
+        };
+
+        button.addEventListener('click', async () => {
+          const command = button.getAttribute('data-copy-command');
+          if (!command) return;
+          try {
+            await navigator.clipboard.writeText(command);
+            setCopyState(true);
+            button.setAttribute('aria-label', 'Command copied');
+            window.setTimeout(() => {
+              setCopyState(false);
+              button.setAttribute('aria-label', 'Copy command');
+            }, 2000);
+          } catch {
+            setCopyState(false);
+            button.setAttribute('aria-label', 'Copy failed; select the command manually');
+            button.setAttribute('title', 'Copy failed; select the command manually');
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

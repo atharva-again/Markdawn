@@ -10,6 +10,9 @@ collab:
 web:
   - 'packages/web/**'
 
+marketing_site:
+  - 'packages/marketing-site/**'
+
 e2e:
   - 'e2e/**'
 
