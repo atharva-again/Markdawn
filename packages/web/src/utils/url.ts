@@ -8,10 +8,6 @@ import { matchPath } from 'react-router-dom';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const APEX_HOSTNAME = 'markdawn.space';
-const APP_HOSTNAME = 'app.markdawn.space';
-const LOCAL_APP_PORT = '5173';
-const LOCAL_LANDING_PORT = '8888';
-const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
 const RESERVED_APP_PATHS = new Set([
   'api',
   'collab',
@@ -33,30 +29,8 @@ export const WORKSPACE_ROUTE_PATHS = {
 type WorkspaceLocation = Pick<Location, 'hostname'> &
   Partial<Pick<Location, 'origin' | 'port' | 'protocol'>>;
 
-export function isHostedApex(location: WorkspaceLocation = window.location): boolean {
-  return location.hostname === APEX_HOSTNAME;
-}
-
 export function isAppHost(location: WorkspaceLocation = window.location): boolean {
   return location.hostname !== APEX_HOSTNAME;
-}
-
-function originForHost(hostname: string, location: WorkspaceLocation): string {
-  const protocol = location.protocol ?? (hostname.endsWith('.localhost') ? 'http:' : 'https:');
-  const port = location.port ? `:${location.port}` : '';
-  const formattedHostname = hostname.includes(':')
-    ? `[${hostname.replace(/^\[|\]$/g, '')}]`
-    : hostname;
-  return `${protocol}//${formattedHostname}${port}`;
-}
-
-export function getAppOrigin(location: WorkspaceLocation = window.location): string {
-  if (location.hostname === APEX_HOSTNAME) return `https://${APP_HOSTNAME}`;
-  if (LOCAL_HOSTNAMES.has(location.hostname) && location.port === LOCAL_LANDING_PORT) {
-    const hostname = location.hostname === '::1' ? '[::1]' : location.hostname;
-    return `http://${hostname}:${LOCAL_APP_PORT}`;
-  }
-  return location.origin ?? originForHost(location.hostname, location);
 }
 
 export function getWorkspaceRootPath(location: WorkspaceLocation = window.location): string {
