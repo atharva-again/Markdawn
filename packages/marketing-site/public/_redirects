@@ -1,0 +1,2 @@
+/app https://app.markdawn.space/ 301
+/app/* https://app.markdawn.space/:splat 301
