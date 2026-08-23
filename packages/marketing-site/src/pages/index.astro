@@ -158,9 +158,32 @@ const INSTALL_COMMANDS = [
         animation: dawn-pulse 15s ease-in-out infinite alternate;
       }
 
+      .dawn-glow::after {
+        position: absolute;
+        inset: 12.5%;
+        border-radius: 999px;
+        background: radial-gradient(
+          circle,
+          rgb(254 240 138 / 38%),
+          rgb(251 146 60 / 16%) 48%,
+          transparent 72%
+        );
+        content: '';
+        animation: dawn-pulse 15s ease-in-out infinite alternate;
+      }
+
       .dark .dawn-glow::before {
         background: linear-gradient(to bottom, #881337, #9a3412, #b45309);
         box-shadow: 0 0 120px rgb(234 88 12 / 20%);
+      }
+
+      .dark .dawn-glow::after {
+        background: radial-gradient(
+          circle,
+          rgb(251 191 36 / 16%),
+          rgb(234 88 12 / 8%) 48%,
+          transparent 72%
+        );
       }
 
       .header-actions {
@@ -445,9 +468,9 @@ const INSTALL_COMMANDS = [
       }
 
       @keyframes dawn-pulse {
-        0% { opacity: 0.8; transform: scale(1) translateY(-2%); }
-        50% { opacity: 1; transform: scale(1.05) translateY(2%); }
-        100% { opacity: 0.9; transform: scale(1.02) translateY(0); }
+        0% { opacity: 0.7; transform: scale(0.96) translateY(-2%); }
+        50% { opacity: 1; transform: scale(1.08) translateY(2%); }
+        100% { opacity: 0.82; transform: scale(1.01) translateY(0); }
       }
 
       @keyframes fade-in {
