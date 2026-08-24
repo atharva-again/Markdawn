@@ -8,6 +8,7 @@ export const SITE_PAGES = [
   { href: '/features', label: 'Features', includeInNavigation: true },
   { href: '/use-cases', label: 'Use Cases', includeInNavigation: true },
   { href: '/pricing', label: 'Pricing', includeInNavigation: true },
+  { href: '/changelog', label: 'Changelog', includeInNavigation: true },
 ] as const;
 
 export const SITE_NAVIGATION = SITE_PAGES.filter(({ includeInNavigation }) => includeInNavigation);

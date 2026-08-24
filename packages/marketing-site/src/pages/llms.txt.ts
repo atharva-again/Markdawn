@@ -48,6 +48,7 @@ ${pricingLines}
 - [Homepage](${SITE_ORIGIN}/): Product overview and entry points for the web app and CLI.
 - [Web App](${APP_ORIGIN}): Open Markdawn in the browser.
 - [Source Code](${GITHUB_URL}): Markdawn source code and project README.
+- [Changelog](${SITE_ORIGIN}/changelog.md): Product updates across the browser app, CLI, API, sharing, and documentation.
 
 ## Documentation
 
