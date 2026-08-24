@@ -1,4 +1,5 @@
 import type { FeatureImageId } from './featureMedia';
+import type { MarketingLink } from './marketingContent';
 import { type RichText, richText } from './richText';
 import { DOCS_ORIGIN } from './siteConfig';
 
@@ -25,8 +26,7 @@ export type FeatureGroup = {
   title: string;
   body: RichText;
   media: FeatureMedia;
-  docsUrl: string;
-  docsLabel: string;
+  link: MarketingLink;
 };
 
 export const FEATURE_GROUPS = [
@@ -42,8 +42,11 @@ export const FEATURE_GROUPS = [
       { kind: 'image', imageId: 'browser-page' },
       { kind: 'image', imageId: 'terminal-page' },
     ],
-    docsUrl: `${DOCS_ORIGIN}/agents/markdawn-cli/`,
-    docsLabel: 'Read about the CLI',
+    link: {
+      kind: 'external',
+      label: 'Read About The CLI →',
+      url: `${DOCS_ORIGIN}/agents/markdawn-cli/`,
+    },
   },
   {
     id: 'real-time',
@@ -63,8 +66,11 @@ export const FEATURE_GROUPS = [
       },
       { kind: 'image', imageId: 'invite-access' },
     ],
-    docsUrl: `${DOCS_ORIGIN}/getting-started/share-a-page/`,
-    docsLabel: 'Read about sharing',
+    link: {
+      kind: 'external',
+      label: 'Read About Sharing →',
+      url: `${DOCS_ORIGIN}/getting-started/share-a-page/`,
+    },
   },
   {
     id: 'connected-knowledge',
@@ -87,8 +93,11 @@ export const FEATURE_GROUPS = [
         alt: 'A Markdawn page showing linked knowledge and backlinks.',
       },
     ],
-    docsUrl: `${DOCS_ORIGIN}/getting-started/organize-pages-and-folders/`,
-    docsLabel: 'Read about pages and folders',
+    link: {
+      kind: 'external',
+      label: 'Read About Pages And Folders →',
+      url: `${DOCS_ORIGIN}/getting-started/organize-pages-and-folders/`,
+    },
   },
   {
     id: 'careful-agents',
@@ -107,8 +116,11 @@ export const FEATURE_GROUPS = [
         alt: 'A Markdawn API token set up with scoped access.',
       },
     ],
-    docsUrl: `${DOCS_ORIGIN}/agents/use-markdawn-with-ai-assistants/`,
-    docsLabel: 'Read about agent access',
+    link: {
+      kind: 'external',
+      label: 'Read About Agent Access →',
+      url: `${DOCS_ORIGIN}/agents/use-markdawn-with-ai-assistants/`,
+    },
   },
   {
     id: 'portable-knowledge',
@@ -122,8 +134,11 @@ export const FEATURE_GROUPS = [
       { kind: 'image', imageId: 'obsidian-import' },
       { kind: 'image', imageId: 'workspace-export' },
     ],
-    docsUrl: `${DOCS_ORIGIN}/self-hosting/`,
-    docsLabel: 'Read about self-hosting',
+    link: {
+      kind: 'external',
+      label: 'Read About Self-Hosting →',
+      url: `${DOCS_ORIGIN}/self-hosting/`,
+    },
   },
 ] satisfies readonly FeatureGroup[];
 

@@ -3,6 +3,8 @@ import type { FeatureGroup } from '../data/features';
 // biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
 import FeatureMedia from './FeatureMedia.astro';
 // biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import MarketingLink from './MarketingLink.astro';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
 import RichText from './RichText.astro';
 
 interface Props {
@@ -19,7 +21,7 @@ const {
   <div class="feature-copy">
     <h2 id={feature.id}>{feature.title}</h2>
     <p class="feature-body"><RichText content={feature.body} /></p>
-    <a class="marketing-docs-link" href={feature.docsUrl} target="_blank" rel="noopener noreferrer">{feature.docsLabel} →</a>
+    <MarketingLink class="marketing-docs-link" link={feature.link} />
   </div>
   <FeatureMedia media={feature.media} />
 </section>

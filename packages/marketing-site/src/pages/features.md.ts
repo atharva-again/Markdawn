@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { FAQS, FEATURE_GROUPS, PRODUCT_SUMMARY } from '../data/features';
 import { markdownResponse, renderMarkdownPage } from '../data/markdownPage';
-import { APP_ORIGIN, DOCS_ORIGIN, SITE_ORIGIN } from '../data/siteConfig';
+import { DOCS_ORIGIN } from '../data/siteConfig';
 
 export const prerender = true;
 
@@ -12,19 +12,19 @@ const markdown = renderMarkdownPage({
   intro: [PRODUCT_SUMMARY],
   closing: 'Start in the browser. Add the CLI when you want a terminal in the loop.',
   sections: [
-    ...FEATURE_GROUPS.map(({ title, body, docsLabel, docsUrl }) => ({
+    ...FEATURE_GROUPS.map(({ id, title, body, link }) => ({
+      id,
       title,
       body,
-      linkLabel: `${docsLabel} →`,
-      linkUrl: docsUrl,
+      link,
     })),
   ],
   appendix: [{ title: 'Before You Start', body: questions }],
   footerTitle: 'Next step',
   footerLinks: [
-    { label: 'Open Markdawn', url: APP_ORIGIN },
-    { label: 'Read the CLI guide', url: `${DOCS_ORIGIN}/agents/markdawn-cli/` },
-    { label: 'See who Markdawn is for', url: `${SITE_ORIGIN}/use-cases` },
+    { kind: 'app', label: 'Open Markdawn' },
+    { kind: 'external', label: 'Read The CLI Guide', url: `${DOCS_ORIGIN}/agents/markdawn-cli/` },
+    { kind: 'internal', label: 'See Who Markdawn Is For', path: '/use-cases' },
   ],
 });
 

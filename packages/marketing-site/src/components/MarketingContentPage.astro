@@ -1,0 +1,45 @@
+---
+import type { MarketingHtmlPageDefinition } from '../data/marketingContent';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import MarketingLink from './MarketingLink.astro';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import RichText from './RichText.astro';
+
+interface Props {
+  page: MarketingHtmlPageDefinition;
+}
+
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const { page } = Astro.props;
+---
+
+<main class="marketing-content-page marketing-page">
+  <article>
+    <header class="marketing-content-hero">
+      <h1>{page.title}</h1>
+      {page.intro.map((line) => <p class="marketing-content-lede marketing-lede">{line}</p>)}
+    </header>
+
+    <div>
+      {page.sections.map((section) => (
+        <section class="marketing-content-section" aria-labelledby={section.id}>
+          <h2 id={section.id}>{section.title}</h2>
+          <div>
+            <p class="marketing-content-body"><RichText content={section.body} /></p>
+            <MarketingLink class="marketing-docs-link" link={section.link} />
+          </div>
+        </section>
+      ))}
+    </div>
+
+    <section class="marketing-content-closing marketing-closing" aria-labelledby="marketing-content-footer-heading">
+      <h2 id="marketing-content-footer-heading">{page.footerTitle}</h2>
+      <p>{page.closing}</p>
+      <ul class="marketing-content-footer-links">
+        {page.footerLinks.map((link) => (
+          <li><MarketingLink class="inline-link" link={link} /></li>
+        ))}
+      </ul>
+    </section>
+  </article>
+</main>
