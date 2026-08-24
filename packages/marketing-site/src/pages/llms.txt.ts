@@ -1,8 +1,9 @@
 import type { APIRoute } from 'astro';
-import { FEATURE_GROUPS, PRODUCT_SUMMARY } from '../data/features';
+import { FEATURE_GROUPS } from '../data/features';
 import { renderMarkdownLink } from '../data/markdownPage';
 import type { MarketingSection } from '../data/marketingContent';
 import { PRICING_PAGE } from '../data/pricing';
+import { PRODUCT_SUMMARY } from '../data/product';
 import { richTextToPlainText } from '../data/richText';
 import { APP_ORIGIN, DOCS_ORIGIN, GITHUB_URL, SITE_ORIGIN } from '../data/siteConfig';
 import { USE_CASE_PAGE } from '../data/useCases';
@@ -53,7 +54,7 @@ ${pricingLines}
 - [Documentation Home](${DOCS_ORIGIN}/): Guides, API reference, comparisons, and self-hosting documentation.
 - [Markdawn CLI](${DOCS_ORIGIN}/agents/markdawn-cli/): Install the CLI and manage pages from a terminal.
 - [AI Assistant Access](${DOCS_ORIGIN}/agents/use-markdawn-with-ai-assistants/): Connect terminal-based assistants with scoped tokens and safe edits.
-- [md Support](${DOCS_ORIGIN}/getting-started/markdown-support/): Supported syntax, page links, frontmatter, and known limitations.
+- [markdown support](${DOCS_ORIGIN}/getting-started/markdown-support/): Supported syntax, page links, frontmatter, and known limitations.
 - [API Reference](${DOCS_ORIGIN}/api-reference/endpoints/): Direct HTTP interface for Markdawn resources.
 - [Self-hosting](${DOCS_ORIGIN}/self-hosting/): Deployment, maintenance, and migration guidance.
 

@@ -13,6 +13,12 @@ import FeatureSection from '../components/FeatureSection.astro';
 import SiteLayout from '../components/SiteLayout.astro';
 import '../styles/marketingPage.css';
 import * as content from '../data/features';
+import {
+  PRODUCT_APPLICATION,
+  PRODUCT_ORGANIZATION,
+  PRODUCT_SUMMARY,
+  PRODUCT_WEBSITE,
+} from '../data/product';
 import * as siteConfig from '../data/siteConfig';
 
 const PAGE_URL = `${siteConfig.SITE_ORIGIN}/features`;
@@ -23,13 +29,8 @@ const PAGE_DESCRIPTION =
 const STRUCTURED_DATA = {
   '@context': 'https://schema.org',
   '@graph': [
-    {
-      '@type': 'WebSite',
-      '@id': `${siteConfig.SITE_ORIGIN}/#website`,
-      url: siteConfig.SITE_ORIGIN,
-      name: 'Markdawn',
-      description: content.PRODUCT_SUMMARY,
-    },
+    PRODUCT_ORGANIZATION,
+    PRODUCT_WEBSITE,
     {
       '@type': 'WebPage',
       '@id': `${PAGE_URL}#webpage`,
@@ -37,7 +38,7 @@ const STRUCTURED_DATA = {
       name: PAGE_TITLE,
       description: PAGE_DESCRIPTION,
       isPartOf: { '@id': `${siteConfig.SITE_ORIGIN}/#website` },
-      about: { '@id': `${PAGE_URL}#application` },
+      about: { '@id': `${siteConfig.SITE_ORIGIN}/#application` },
       breadcrumb: { '@id': `${PAGE_URL}#breadcrumb` },
     },
     {
@@ -49,16 +50,9 @@ const STRUCTURED_DATA = {
       ],
     },
     {
-      '@type': 'WebApplication',
-      '@id': `${PAGE_URL}#application`,
-      name: 'Markdawn',
-      url: siteConfig.APP_ORIGIN,
-      description: content.PRODUCT_SUMMARY,
-      applicationCategory: 'BusinessApplication',
-      operatingSystem: 'Web',
+      ...PRODUCT_APPLICATION,
+      description: PRODUCT_SUMMARY,
       featureList: content.FEATURE_GROUPS.map(({ title }) => title),
-      softwareHelp: `${siteConfig.DOCS_ORIGIN}/`,
-      license: `${siteConfig.GITHUB_URL}/blob/master/LICENSE`,
     },
   ],
 };
@@ -208,13 +202,13 @@ const STRUCTURED_DATA = {
         <header class="feature-hero">
           <div class="feature-hero-copy">
             <h1>The collaborative knowledge base for humans and agents.</h1>
-            <p class="lede marketing-lede">{content.PRODUCT_SUMMARY}</p>
+            <p class="lede marketing-lede">{PRODUCT_SUMMARY}</p>
           </div>
           <figure class="feature-hero-visual">
             <Image
               class="hero-image-light"
               src={heroLightImage}
-              alt="A Markdawn page open in the editor with properties, tags, links, and md content."
+              alt="A Markdawn page open in the editor with properties, tags, links, and markdown content."
               width={1196}
               height={949}
               loading="eager"
@@ -223,7 +217,7 @@ const STRUCTURED_DATA = {
             <Image
               class="hero-image-dark"
               src={heroImage}
-              alt="A Markdawn page open in the editor with properties, tags, links, and md content in dark mode."
+              alt="A Markdawn page open in the editor with properties, tags, links, and markdown content in dark mode."
               width={1196}
               height={949}
               loading="lazy"

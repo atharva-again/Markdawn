@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
-import { FAQS, FEATURE_GROUPS, PRODUCT_SUMMARY } from '../data/features';
+import { FAQS, FEATURE_GROUPS } from '../data/features';
 import { markdownResponse, renderMarkdownPage } from '../data/markdownPage';
+import { PRODUCT_SUMMARY } from '../data/product';
 import { DOCS_ORIGIN } from '../data/siteConfig';
 
 export const prerender = true;

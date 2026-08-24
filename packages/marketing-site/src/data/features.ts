@@ -3,9 +3,6 @@ import type { MarketingLink } from './marketingContent';
 import { type RichText, richText } from './richText';
 import { DOCS_ORIGIN } from './siteConfig';
 
-export const PRODUCT_SUMMARY =
-  'Write, organize, and share knowledge in the browser. Let your terminal and AI agents read and update the same pages through the CLI and API.';
-
 export type FeatureMediaAsset =
   | {
       kind: 'video';
@@ -128,7 +125,7 @@ export const FEATURE_GROUPS = [
     body: richText({
       kind: 'text',
       value:
-        'Import one md file, a folder, or an Obsidian vault. Export a page or the whole workspace from the CLI. Use Markdawn as a hosted service, or run the open-source application on infrastructure you control.',
+        'Import one markdown file, a folder, or an Obsidian vault. Export a page or the whole workspace from the CLI. Use Markdawn as a hosted service, or run the open-source application on infrastructure you control.',
     }),
     media: [
       { kind: 'image', imageId: 'obsidian-import' },
@@ -154,14 +151,14 @@ export const FAQS = [
       'They use the same content layer. A person can write in the browser while a terminal or assistant reads and edits that page through the CLI or API.',
   },
   {
-    question: 'Does Markdawn use md for page content?',
+    question: 'Does Markdawn use markdown for page content?',
     answer:
-      'Yes. Page content remains md across the browser, CLI, and API. Titles and access settings are stored separately as page metadata.',
+      'Yes. Page content remains markdown across the browser, CLI, and API. Titles and access settings are stored separately as page metadata.',
   },
   {
     question: 'Can I bring existing notes?',
     answer:
-      'Yes. Import one md file, an md folder, or an Obsidian vault. Keep the original copy until representative titles, links, images, and folders have been verified.',
+      'Yes. Import one markdown file, a markdown folder, or an Obsidian vault. Keep the original copy until representative titles, links, images, and folders have been verified.',
   },
   {
     question: 'Can I self-host Markdawn?',

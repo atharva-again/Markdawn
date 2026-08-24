@@ -3,6 +3,13 @@
 import AppLink from '../components/AppLink.astro';
 // biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
 import SiteLayout from '../components/SiteLayout.astro';
+import { FEATURE_GROUPS } from '../data/features';
+import {
+  PRODUCT_APPLICATION,
+  PRODUCT_ORGANIZATION,
+  PRODUCT_SUMMARY,
+  PRODUCT_WEBSITE,
+} from '../data/product';
 import { DOCS_ORIGIN, SITE_ORIGIN } from '../data/siteConfig';
 
 // biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
@@ -20,12 +27,37 @@ const INSTALL_COMMANDS = [
     ariaLabel: 'Copy Windows install command',
   },
 ];
+const PAGE_DESCRIPTION =
+  'The collaborative knowledge base for humans and agents. Write, organize, and share knowledge in the browser, then let terminals and AI agents work with the same pages.';
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const STRUCTURED_DATA = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    PRODUCT_ORGANIZATION,
+    PRODUCT_WEBSITE,
+    {
+      '@type': 'WebPage',
+      '@id': `${SITE_ORIGIN}/#webpage`,
+      url: SITE_ORIGIN,
+      name: 'Markdawn',
+      description: PAGE_DESCRIPTION,
+      isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+      about: { '@id': `${SITE_ORIGIN}/#application` },
+    },
+    {
+      ...PRODUCT_APPLICATION,
+      description: PRODUCT_SUMMARY,
+      featureList: FEATURE_GROUPS.map(({ title }) => title),
+    },
+  ],
+};
 ---
 
 <SiteLayout
   title="Markdawn"
-  description="The collaborative knowledge base for humans and agents. Write, organize, and share knowledge in the browser, then let terminals and AI agents work with the same pages."
+  description={PAGE_DESCRIPTION}
   url={SITE_ORIGIN}
+  structuredData={STRUCTURED_DATA}
 >
     <style slot="styles">
       body {
@@ -388,10 +420,7 @@ const INSTALL_COMMANDS = [
 
         <h1>Welcome to Markdawn</h1>
 
-        <p class="hero-copy">
-          Write, organize, and share knowledge in the browser.<br />
-          Let your terminal and AI agents read and update the same pages through the CLI and API.
-        </p>
+        <p class="hero-copy">{PRODUCT_SUMMARY}</p>
 
         <div class="actions">
       <AppLink class="action-button">Web</AppLink>
