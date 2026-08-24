@@ -1,0 +1,37 @@
+---
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import { Image } from 'astro:assets';
+import { FEATURE_IMAGES, type FeatureImageId } from '../data/featureMedia';
+
+interface Props {
+  imageId: FeatureImageId;
+}
+
+const { imageId } = Astro.props;
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const image = FEATURE_IMAGES[imageId];
+---
+
+<Image class="feature-image feature-image-light" src={image.light} alt={image.alt} loading="lazy" decoding="async" />
+<Image class="feature-image feature-image-dark" src={image.dark} alt={`${image.alt} in dark mode.`} loading="lazy" decoding="async" />
+
+<style>
+  .feature-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--text);
+  }
+
+  .feature-image-dark {
+    display: none;
+  }
+
+  :global(.dark) .feature-image-light {
+    display: none;
+  }
+
+  :global(.dark) .feature-image-dark {
+    display: block;
+  }
+</style>

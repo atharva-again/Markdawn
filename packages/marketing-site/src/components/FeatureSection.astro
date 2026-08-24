@@ -1,0 +1,75 @@
+---
+import type { FeatureGroup } from '../data/features';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import FeatureMedia from './FeatureMedia.astro';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import RichText from './RichText.astro';
+
+interface Props {
+  feature: FeatureGroup;
+}
+
+const {
+  // biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+  feature,
+} = Astro.props;
+---
+
+<section class="feature-section feature-section-with-media" aria-labelledby={feature.id}>
+  <div class="feature-copy">
+    <h2 id={feature.id}>{feature.title}</h2>
+    <p class="feature-body"><RichText content={feature.body} /></p>
+    <a class="marketing-docs-link" href={feature.docsUrl} target="_blank" rel="noopener noreferrer">{feature.docsLabel} →</a>
+  </div>
+  <FeatureMedia media={feature.media} />
+</section>
+
+<style>
+  .feature-section {
+    padding: 4rem 0;
+  }
+
+  .feature-section-with-media {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: clamp(2rem, 6vw, 5rem);
+  }
+
+  .feature-copy {
+    min-width: 0;
+  }
+
+  .feature-section-with-media .feature-copy {
+    position: sticky;
+    top: 4rem;
+    align-self: start;
+  }
+
+  .feature-section h2 {
+    max-width: 34rem;
+    margin: 0;
+    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    font-weight: 600;
+    letter-spacing: -0.05em;
+    line-height: 1.05;
+  }
+
+  .feature-body {
+    max-width: 36rem;
+    margin: 1rem 0 0;
+    color: var(--muted);
+    font-size: 0.9375rem;
+    line-height: 1.8;
+  }
+
+  @media (max-width: 560px) {
+    .feature-section-with-media {
+      display: block;
+    }
+
+    .feature-section-with-media .feature-copy {
+      position: static;
+    }
+  }
+</style>
