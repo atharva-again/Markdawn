@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { FEATURE_GROUPS, PRODUCT_SUMMARY } from '../data/features';
 import { renderMarkdownLink } from '../data/markdownPage';
 import type { MarketingSection } from '../data/marketingContent';
+import { PRICING_PAGE } from '../data/pricing';
 import { richTextToPlainText } from '../data/richText';
 import { APP_ORIGIN, DOCS_ORIGIN, GITHUB_URL, SITE_ORIGIN } from '../data/siteConfig';
 import { USE_CASE_PAGE } from '../data/useCases';
@@ -17,6 +18,7 @@ const formatSectionLines = (sections: readonly MarketingSection[]): string =>
     .join('\n');
 const featureLines = formatSectionLines(FEATURE_GROUPS);
 const useCaseLines = formatSectionLines(USE_CASE_PAGE.sections);
+const pricingLines = formatSectionLines(PRICING_PAGE.sections);
 
 const llms = `# Markdawn
 
@@ -31,6 +33,14 @@ ${featureLines}
 ## Use cases
 
 ${useCaseLines}
+
+## Pricing
+
+${PRICING_PAGE.intro.join(' ')}
+
+${pricingLines}
+
+- [Pricing Page](${SITE_ORIGIN}/pricing.md): Current hosted and self-hosted pricing information.
 
 ## Product links
 
