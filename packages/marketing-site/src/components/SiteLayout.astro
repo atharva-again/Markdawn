@@ -1,0 +1,126 @@
+---
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
+import { SITE_ORIGIN } from '../data/siteConfig';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import SiteHeader from './SiteHeader.astro';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import ThemeController from './ThemeController.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  url: string;
+  markdownUrl?: string;
+  describedBy?: string;
+  structuredData?: Record<string, unknown>;
+}
+
+const {
+  // biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+  title,
+  // biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+  description,
+  // biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+  url,
+  // biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+  markdownUrl,
+  // biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+  describedBy = `${SITE_ORIGIN}/llms.txt`,
+  structuredData,
+} = Astro.props;
+const serializeStructuredData = (data: Record<string, unknown>): string => {
+  const serialized = JSON.stringify(data);
+  if (serialized === undefined) throw new Error('Structured data could not be serialized');
+  return serialized.replaceAll('<', '\\u003c');
+};
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const structuredDataJson = structuredData ? serializeStructuredData(structuredData) : undefined;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={url} />
+    <meta property="og:type" content="website" />
+    <link rel="canonical" href={url} />
+    {markdownUrl && <link rel="alternate" type="text/markdown" href={markdownUrl} />}
+    {describedBy && <link rel="describedby" type="text/plain" href={describedBy} />}
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <title>{title}</title>
+    {structuredDataJson && <script is:inline type="application/ld+json" set:html={structuredDataJson}></script>}
+    <ThemeController />
+    <slot name="styles" />
+  </head>
+  <body>
+    <SiteHeader />
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    color-scheme: light;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --background: #fff;
+    --text: #111;
+    --muted: #666;
+    --line: #e5e5e5;
+    background: var(--background);
+    color: var(--text);
+  }
+
+  :root.dark {
+    color-scheme: dark;
+    --background: #090909;
+    --text: #f5f5f5;
+    --muted: #aaa;
+    --line: #292929;
+    background: var(--background);
+    color: var(--text);
+  }
+
+  html {
+    min-width: 320px;
+  }
+
+  html,
+  body {
+    min-width: 320px;
+    min-height: 100%;
+    margin: 0;
+  }
+
+  body {
+    min-height: 100vh;
+    background: var(--background);
+    color: var(--text);
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  a {
+    color: inherit;
+    text-underline-offset: 0.2em;
+  }
+
+  a:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--muted, #a1a1aa);
+    outline-offset: 3px;
+  }
+</style>

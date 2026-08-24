@@ -1,0 +1,46 @@
+.marketing-page h1,
+.marketing-page h2,
+.marketing-page p {
+  text-wrap: pretty;
+}
+
+.marketing-page h1 {
+  max-width: 52rem;
+  margin: 0;
+  font-size: clamp(2rem, 4.5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+}
+
+.marketing-lede {
+  margin: 1.75rem auto 0;
+  color: var(--muted);
+  font-size: 1.125rem;
+  line-height: 1.7;
+}
+
+.marketing-docs-link {
+  display: inline-block;
+  margin-top: 1.25rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.marketing-docs-link:hover {
+  color: var(--text);
+}
+
+.marketing-closing {
+  color: var(--muted);
+  font-size: 0.9375rem;
+  line-height: 1.8;
+}
+
+.marketing-closing p {
+  margin: 0;
+}
+
+.marketing-closing p + p {
+  margin-top: 0.75rem;
+}

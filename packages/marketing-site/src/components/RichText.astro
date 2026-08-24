@@ -1,0 +1,24 @@
+---
+import type { RichText as RichTextContent } from '../data/richText';
+
+interface Props {
+  content: RichTextContent;
+}
+
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const { content } = Astro.props;
+---
+
+{content.map((segment) =>
+  segment.kind === 'code' ? <code class="inline-code">{segment.value}</code> : segment.value,
+)}
+
+<style>
+  .inline-code {
+    padding: 0.1em 0.3em;
+    border-radius: 0.25em;
+    background: color-mix(in srgb, currentColor 10%, transparent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.9em;
+  }
+</style>
