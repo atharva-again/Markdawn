@@ -159,7 +159,7 @@ describe('Better Auth welcome page hook', () => {
     });
   });
 
-  it('rolls Google user creation back when welcome page provisioning fails', async () => {
+  it('does not fail Google signup when welcome page provisioning fails', async () => {
     const email = `welcome-failure-${randomUUID()}@example.com`;
     const testAuth = createAuth({
       provisionWelcomePage: async () => {
@@ -169,12 +169,12 @@ describe('Better Auth welcome page hook', () => {
 
     const callbackResponse = await completeGoogleSignup(testAuth, email);
     expect(callbackResponse.status).toBe(302);
-    expect(callbackResponse.headers.get('location')).toContain('error=unable_to_create_user');
+    expect(callbackResponse.headers.get('location')).toBe(`${FRONTEND_URL}/onboarding/1`);
 
     const users = await testQuery<{ count: number }>(
       'select count(*)::int as count from users where email = $1',
       [email],
     );
-    expect(users.rows[0]?.count).toBe(0);
+    expect(users.rows[0]?.count).toBe(1);
   });
 });
