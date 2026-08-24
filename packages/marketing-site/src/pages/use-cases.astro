@@ -1,0 +1,146 @@
+---
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import AppLink from '../components/AppLink.astro';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import RichText from '../components/RichText.astro';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import SiteLayout from '../components/SiteLayout.astro';
+import '../styles/marketingPage.css';
+import { richTextToPlainText } from '../data/richText';
+import * as siteConfig from '../data/siteConfig';
+import * as useCases from '../data/useCases';
+
+const PAGE_URL = `${siteConfig.SITE_ORIGIN}/use-cases`;
+const PAGE_TITLE = 'Collaborative Knowledge Base Use Cases | Markdawn';
+const PAGE_DESCRIPTION =
+  'Explore collaborative knowledge base use cases for personal notes, teams, writers, researchers, developers, and AI-assisted work.';
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const STRUCTURED_DATA = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebPage',
+      '@id': `${PAGE_URL}#webpage`,
+      url: PAGE_URL,
+      name: PAGE_TITLE,
+      description: PAGE_DESCRIPTION,
+      isPartOf: { '@id': `${siteConfig.SITE_ORIGIN}/#website` },
+      mainEntity: {
+        '@type': 'ItemList',
+        itemListElement: useCases.USE_CASES.map((useCase, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: useCase.title,
+          description: richTextToPlainText(useCase.body),
+          url: `${PAGE_URL}#${useCase.id}`,
+        })),
+      },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: siteConfig.SITE_ORIGIN },
+        { '@type': 'ListItem', position: 2, name: 'Use Cases', item: PAGE_URL },
+      ],
+    },
+  ],
+};
+---
+
+<SiteLayout
+  title={PAGE_TITLE}
+  description={PAGE_DESCRIPTION}
+  url={PAGE_URL}
+  markdownUrl={`${PAGE_URL}.md`}
+  structuredData={STRUCTURED_DATA}
+>
+    <style slot="styles">
+      .page {
+        width: min(72rem, calc(100% - 2.5rem));
+        margin: 0 auto;
+        padding: 5rem 0 6rem;
+      }
+
+      .hero {
+        max-width: 48rem;
+        margin: 0 auto 5rem;
+        text-align: center;
+      }
+
+      .lede {
+        max-width: 44rem;
+      }
+
+      .use-case {
+        display: grid;
+        grid-template-columns: minmax(14rem, 0.7fr) minmax(0, 1.3fr);
+        gap: clamp(2rem, 8vw, 8rem);
+        padding: 4rem 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .use-case h2 {
+        max-width: 22rem;
+        margin: 0;
+        font-size: clamp(1.75rem, 5vw, 2.5rem);
+        font-weight: 600;
+        letter-spacing: -0.05em;
+        line-height: 1.05;
+      }
+
+      .use-case-body {
+        max-width: 38rem;
+        margin: 1rem 0 0;
+        color: var(--muted);
+        font-size: 0.9375rem;
+        line-height: 1.8;
+      }
+
+      .closing {
+        margin-top: 4rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--line);
+      }
+
+      @media (max-width: 700px) {
+        .page {
+          width: min(100% - 2rem, 72rem);
+          padding-top: 3.5rem;
+        }
+
+        .use-case {
+          display: block;
+        }
+
+        .use-case h2 {
+          margin-bottom: 1rem;
+        }
+      }
+    </style>
+    <main class="page marketing-page">
+      <article>
+        <header class="hero">
+          <h1>Built for people and agents.</h1>
+          <p class="lede marketing-lede">A collaborative markdown knowledge base for individuals, teams, developers, writers, researchers, and AI-assisted workflows. Write, organize, and share the same pages across the browser, terminal, and API.</p>
+        </header>
+
+        <div>
+          {useCases.USE_CASES.map((useCase) => (
+            <section class="use-case" aria-labelledby={useCase.id}>
+              <h2 id={useCase.id}>{useCase.title}</h2>
+              <div>
+                <p class="use-case-body"><RichText content={useCase.body} /></p>
+                <a class="marketing-docs-link" href={useCase.docsUrl} target="_blank" rel="noopener noreferrer">{useCase.docsLabel} →</a>
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <section class="closing marketing-closing" aria-label="Next step">
+          <p>Start with a page, bring in your existing notes, or share a workspace with your team.</p>
+          <p><AppLink>Open Markdawn</AppLink> or <a href="/features">Read the features</a>.</p>
+        </section>
+      </article>
+    </main>
+
+</SiteLayout>
