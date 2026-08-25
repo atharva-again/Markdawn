@@ -2,7 +2,7 @@ import './env';
 import { serve } from '@hono/node-server';
 import { getApiLogger } from '@markdawn/shared';
 import { createApp } from './app';
-import { requireCollaborationInternalSecret } from './env';
+import { requireCollaborationInternalSecret, requireMcpApiInternalSecret } from './env';
 import {
   drainOperationalRetention,
   OPERATIONAL_RETENTION_INTERVAL_MS,
@@ -18,14 +18,28 @@ async function main() {
   const runRetention = () => {
     if (retentionTask) return;
     retentionTask = drainOperationalRetention()
-      .then(({ idempotencyRecords, tokenAuditEvents }) => {
-        if (idempotencyRecords > 0 || tokenAuditEvents > 0) {
-          getApiLogger().info('Operational retention cleanup completed', {
-            idempotencyRecords,
-            tokenAuditEvents,
-          });
-        }
-      })
+      .then(
+        ({
+          idempotencyRecords,
+          tokenAuditEvents,
+          oauthClientAssertions,
+          oauthAccessTokenRevocations,
+        }) => {
+          if (
+            idempotencyRecords > 0 ||
+            tokenAuditEvents > 0 ||
+            oauthClientAssertions > 0 ||
+            oauthAccessTokenRevocations > 0
+          ) {
+            getApiLogger().info('Operational retention cleanup completed', {
+              idempotencyRecords,
+              tokenAuditEvents,
+              oauthClientAssertions,
+              oauthAccessTokenRevocations,
+            });
+          }
+        },
+      )
       .catch((error: unknown) => {
         // Scheduled maintenance is an explicit background boundary. Report
         // the failed run and allow the next interval to retry from the DB.
@@ -87,6 +101,7 @@ async function main() {
 // Validate the private API-to-collaboration trust boundary before the API
 // opens its listening socket or reports healthy.
 requireCollaborationInternalSecret();
+requireMcpApiInternalSecret();
 main();
 
 export type { AppType } from './app';

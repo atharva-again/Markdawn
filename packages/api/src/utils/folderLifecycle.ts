@@ -33,6 +33,8 @@ import { getEntityMetaUserIds, mergeMetaUserIds } from './shareRecipients';
 import { purgeFolderSubtrees } from './trashLifecycle';
 import { drainUploadDeletionQueueBestEffort } from './uploadCleanup';
 
+type FolderCopyCommitHook = (executor: QueryExecutor, result: FolderCopyResult) => Promise<void>;
+
 async function getActiveFolder(folderId: string, executor: QueryExecutor) {
   const result = await executeQuery<FolderDatabaseRowWithOwner>(
     executor,
@@ -47,6 +49,7 @@ export async function copyFolderForActor(
   actor: RequestActor,
   folderId: string,
   parentId: string | null,
+  options?: { beforeCommit?: FolderCopyCommitHook },
 ): Promise<FolderCopyResult> {
   if (!parentId && actor.kind === 'guest') {
     throw new HTTPException(401, { message: 'Log in to copy a folder to the workspace root' });
@@ -108,6 +111,7 @@ export async function copyFolderForActor(
         tx,
       );
     }
+    await options?.beforeCommit?.(tx, result);
     return result;
   });
 }

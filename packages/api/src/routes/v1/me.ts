@@ -25,7 +25,7 @@ export const getMeOperation = {
           name: z.string(),
           email: z.string(),
           image: z.string().nullable(),
-          authentication: z.enum(['session', 'token']),
+          authentication: z.enum(['session', 'token', 'mcp']),
           scopes: z.array(z.enum(API_TOKEN_SCOPES)).nullable(),
         }),
       ),
@@ -47,7 +47,7 @@ meV1Route.get(getMeOperation.routePath, async (c) => {
   return c.json({
     ...user,
     authentication: principal.kind,
-    scopes: principal.kind === 'token' ? [...principal.scopes] : null,
+    scopes: principal.kind === 'session' ? null : [...principal.scopes],
   });
 });
 

@@ -8,6 +8,7 @@ import {
   customType,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -123,6 +124,222 @@ export const apiTokens = pgTable(
     userIdx: index('api_tokens_user_idx').on(table.userId),
     tokenHashUnique: unique('api_tokens_token_hash_unique').on(table.tokenHash),
     nameLength: check('api_tokens_name_length_check', sql`char_length(${table.name}) <= 100`),
+  }),
+);
+
+// Better Auth OAuth/MCP tables. These use Better Auth's model names while
+// retaining this repository's existing UUID user identifiers.
+export const jwks = pgTable('jwks', {
+  id: text('id').default(sql`gen_random_uuid()::text`).primaryKey(),
+  publicKey: text('public_key').notNull(),
+  privateKey: text('private_key').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  expiresAt: timestamp('expires_at'),
+  alg: text('alg'),
+  crv: text('crv'),
+});
+
+export const oauthClients = pgTable(
+  'oauth_clients',
+  {
+    id: text('id').default(sql`gen_random_uuid()::text`).primaryKey(),
+    clientId: text('client_id').notNull().unique(),
+    clientSecret: text('client_secret'),
+    clientDiscoveryId: text('client_discovery_id'),
+    disabled: boolean('disabled').default(false),
+    skipConsent: boolean('skip_consent'),
+    enableEndSession: boolean('enable_end_session'),
+    subjectType: text('subject_type'),
+    scopes: text('scopes').array(),
+    clientCredentialsScopes: text('client_credentials_scopes').array(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow(),
+    name: text('name'),
+    uri: text('uri'),
+    icon: text('icon'),
+    contacts: text('contacts').array(),
+    tos: text('tos'),
+    policy: text('policy'),
+    softwareId: text('software_id'),
+    softwareVersion: text('software_version'),
+    softwareStatement: text('software_statement'),
+    redirectUris: text('redirect_uris').array().notNull(),
+    postLogoutRedirectUris: text('post_logout_redirect_uris').array(),
+    backchannelLogoutUri: text('backchannel_logout_uri'),
+    backchannelLogoutSessionRequired: boolean('backchannel_logout_session_required'),
+    tokenEndpointAuthMethod: text('token_endpoint_auth_method'),
+    applicationType: text('application_type'),
+    jwks: text('jwks'),
+    jwksUri: text('jwks_uri'),
+    grantTypes: text('grant_types').array(),
+    responseTypes: text('response_types').array(),
+    requirePKCE: boolean('require_pkce'),
+    dpopBoundAccessTokens: boolean('dpop_bound_access_tokens').default(false),
+    referenceId: text('reference_id'),
+    metadata: jsonb('metadata'),
+  },
+  (table) => ({
+    userIdx: index('oauth_clients_user_id_idx').on(table.userId),
+  }),
+);
+
+export const oauthResources = pgTable('oauth_resources', {
+  id: text('id').default(sql`gen_random_uuid()::text`).primaryKey(),
+  identifier: text('identifier').notNull().unique(),
+  name: text('name').notNull(),
+  accessTokenTtl: integer('access_token_ttl'),
+  refreshTokenTtl: integer('refresh_token_ttl'),
+  signingAlgorithm: text('signing_algorithm'),
+  signingKeyId: text('signing_key_id'),
+  allowedScopes: text('allowed_scopes').array(),
+  customClaims: jsonb('custom_claims'),
+  dpopBoundAccessTokensRequired: boolean('dpop_bound_access_tokens_required').default(false),
+  disabled: boolean('disabled').default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+  policyVersion: integer('policy_version').default(1),
+  metadata: jsonb('metadata'),
+});
+
+export const oauthClientResources = pgTable(
+  'oauth_client_resources',
+  {
+    id: text('id').default(sql`gen_random_uuid()::text`).primaryKey(),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => oauthClients.clientId, { onDelete: 'cascade' }),
+    resourceId: text('resource_id')
+      .notNull()
+      .references(() => oauthResources.identifier, { onDelete: 'cascade' }),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (table) => ({
+    pairUnique: unique('oauth_client_resources_client_resource_unique').on(
+      table.clientId,
+      table.resourceId,
+    ),
+    clientIdx: index('oauth_client_resources_client_id_idx').on(table.clientId),
+    resourceIdx: index('oauth_client_resources_resource_id_idx').on(table.resourceId),
+  }),
+);
+
+export const oauthRefreshTokens = pgTable(
+  'oauth_refresh_tokens',
+  {
+    id: text('id').default(sql`gen_random_uuid()::text`).primaryKey(),
+    token: text('token').notNull().unique(),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => oauthClients.clientId),
+    sessionId: text('session_id').references(() => sessions.id, { onDelete: 'set null' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    referenceId: text('reference_id'),
+    authorizationCodeId: text('authorization_code_id'),
+    resources: text('resources').array(),
+    requestedUserInfoClaims: text('requested_user_info_claims').array(),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').notNull(),
+    revoked: timestamp('revoked'),
+    rotatedAt: timestamp('rotated_at'),
+    rotationReplayResponse: text('rotation_replay_response'),
+    rotationReplayExpiresAt: timestamp('rotation_replay_expires_at'),
+    authTime: timestamp('auth_time'),
+    confirmation: jsonb('confirmation'),
+    scopes: text('scopes').array().notNull(),
+  },
+  (table) => ({
+    clientIdx: index('oauth_refresh_tokens_client_id_idx').on(table.clientId),
+    sessionIdx: index('oauth_refresh_tokens_session_id_idx').on(table.sessionId),
+    userIdx: index('oauth_refresh_tokens_user_id_idx').on(table.userId),
+    authorizationCodeIdx: index('oauth_refresh_tokens_authorization_code_id_idx').on(
+      table.authorizationCodeId,
+    ),
+  }),
+);
+
+export const oauthAccessTokens = pgTable(
+  'oauth_access_tokens',
+  {
+    id: text('id').default(sql`gen_random_uuid()::text`).primaryKey(),
+    token: text('token').unique(),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => oauthClients.clientId),
+    sessionId: text('session_id').references(() => sessions.id, { onDelete: 'set null' }),
+    userId: uuid('user_id').references(() => users.id),
+    referenceId: text('reference_id'),
+    authorizationCodeId: text('authorization_code_id'),
+    resources: text('resources').array(),
+    requestedUserInfoClaims: text('requested_user_info_claims').array(),
+    refreshId: text('refresh_id').references(() => oauthRefreshTokens.id),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').notNull(),
+    revoked: timestamp('revoked'),
+    confirmation: jsonb('confirmation'),
+    scopes: text('scopes').array().notNull(),
+  },
+  (table) => ({
+    clientIdx: index('oauth_access_tokens_client_id_idx').on(table.clientId),
+    sessionIdx: index('oauth_access_tokens_session_id_idx').on(table.sessionId),
+    userIdx: index('oauth_access_tokens_user_id_idx').on(table.userId),
+    authorizationCodeIdx: index('oauth_access_tokens_authorization_code_id_idx').on(
+      table.authorizationCodeId,
+    ),
+    refreshIdx: index('oauth_access_tokens_refresh_id_idx').on(table.refreshId),
+  }),
+);
+
+export const oauthConsents = pgTable(
+  'oauth_consents',
+  {
+    id: text('id').default(sql`gen_random_uuid()::text`).primaryKey(),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => oauthClients.clientId),
+    userId: uuid('user_id').references(() => users.id),
+    referenceId: text('reference_id'),
+    resources: text('resources').array(),
+    requestedUserInfoClaims: text('requested_user_info_claims').array(),
+    scopes: text('scopes').array().notNull(),
+    createdAt: timestamp('created_at').notNull(),
+    updatedAt: timestamp('updated_at').notNull(),
+  },
+  (table) => ({
+    clientIdx: index('oauth_consents_client_id_idx').on(table.clientId),
+    userIdx: index('oauth_consents_user_id_idx').on(table.userId),
+  }),
+);
+
+export const oauthClientAssertions = pgTable(
+  'oauth_client_assertions',
+  {
+    id: text('id').default(sql`gen_random_uuid()::text`).primaryKey(),
+    expiresAt: timestamp('expires_at').notNull(),
+  },
+  (table) => ({
+    expiresAtIdIdx: index('oauth_client_assertions_expires_at_id_idx').on(
+      table.expiresAt,
+      table.id,
+    ),
+  }),
+);
+
+export const oauthAccessTokenRevocations = pgTable(
+  'oauth_access_token_revocations',
+  {
+    tokenHash: text('token_hash').primaryKey(),
+    expiresAt: timestamp('expires_at').notNull(),
+    revokedAt: timestamp('revoked_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    expiresAtIdx: index('oauth_access_token_revocations_expires_at_idx').on(
+      table.expiresAt,
+      table.tokenHash,
+    ),
   }),
 );
 

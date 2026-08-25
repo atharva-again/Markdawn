@@ -1,3 +1,4 @@
+import type { BetterAuthPlugin } from '@better-auth/core';
 import { getApiLogger } from '@markdawn/shared';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
@@ -8,6 +9,8 @@ import { createWelcomePageForUser } from './utils/welcomePage';
 
 type CreateAuthOptions = {
   provisionWelcomePage?: typeof createWelcomePageForUser;
+  plugins?: BetterAuthPlugin[];
+  schema?: Record<string, unknown>;
 };
 
 export function createAuth(options: CreateAuthOptions = {}) {
@@ -16,6 +19,7 @@ export function createAuth(options: CreateAuthOptions = {}) {
   return betterAuth({
     baseURL: publicFrontendUrl,
     trustedOrigins: [publicFrontendUrl],
+    plugins: options.plugins ?? [],
     database: drizzleAdapter(db, {
       provider: 'pg',
       transaction: true,
@@ -24,6 +28,7 @@ export function createAuth(options: CreateAuthOptions = {}) {
         session: sessions,
         account: accounts,
         verification: verifications,
+        ...options.schema,
       },
     }),
     advanced: {

@@ -3,6 +3,7 @@ import {
   type ApiTokenAuditResult,
   type ApiTokenScope,
   getApiLogger,
+  hasMcpWriteWithoutRead,
   isApiTokenScope,
   parseApiTokenId,
 } from '@markdawn/shared';
@@ -11,11 +12,17 @@ import {
   sessionIdempotencyPrincipal,
   tokenIdempotencyPrincipal,
 } from '@markdawn/shared/node/api-token-credential';
+import {
+  MCP_INTERNAL_AUTH_HEADER,
+  verifyMcpInternalCredential,
+} from '@markdawn/shared/node/mcp-internal-auth';
 import { sql } from 'drizzle-orm';
 import { createMiddleware } from 'hono/factory';
 import { auth } from '../auth';
 import type { QueryExecutor } from '../db/query';
 import { executeQuery, query } from '../db/query';
+import { requireMcpApiInternalSecret } from '../env';
+import { mcpIdempotencyPrincipal } from './v1AuthIdentity';
 
 export type V1Principal =
   | { kind: 'session'; userId: string; credential: string }
@@ -25,12 +32,19 @@ export type V1Principal =
       tokenId: string;
       credential: string;
       scopes: ReadonlySet<ApiTokenScope>;
+    }
+  | {
+      kind: 'mcp';
+      userId: string;
+      connectionId: string;
+      credential: string;
+      scopes: ReadonlySet<ApiTokenScope>;
     };
 
 export function v1IdempotencyPrincipal(principal: V1Principal): string {
-  return principal.kind === 'token'
-    ? tokenIdempotencyPrincipal(principal.tokenId)
-    : sessionIdempotencyPrincipal(principal.credential);
+  if (principal.kind === 'token') return tokenIdempotencyPrincipal(principal.tokenId);
+  if (principal.kind === 'mcp') return mcpIdempotencyPrincipal(principal.connectionId);
+  return sessionIdempotencyPrincipal(principal.credential);
 }
 
 declare module 'hono' {
@@ -77,14 +91,75 @@ async function authenticateApiToken(token: string): Promise<V1Principal | null> 
   return { kind: 'token', userId: row.user_id, tokenId: row.id, credential: token, scopes };
 }
 
+async function authenticateMcpInternalRequest(request: Request): Promise<V1Principal | null> {
+  const credential = request.headers.get(MCP_INTERNAL_AUTH_HEADER);
+  if (!credential) return null;
+  let secret: string;
+  try {
+    secret = requireMcpApiInternalSecret();
+  } catch {
+    return null;
+  }
+  const context = verifyMcpInternalCredential(credential, secret);
+  if (!context || hasMcpWriteWithoutRead(context.scopes)) return null;
+  if (context.accessTokenExpiresAt <= Math.floor(Date.now() / 1000)) return null;
+  const revoked = await query<{ token_hash: string }>(
+    sql`select token_hash
+        from oauth_access_token_revocations
+        where token_hash = ${context.accessTokenHash}
+          and expires_at > now()
+        limit 1`,
+  );
+  if (revoked.rows[0]) return null;
+  if (!context.offlineAccess && context.sessionId !== null) {
+    const session = await query<{ id: string }>(
+      sql`select id
+          from sessions
+          where id = ${context.sessionId}
+            and expires_at > now()
+          limit 1`,
+    );
+    if (!session.rows[0]) return null;
+  }
+  if (context.offlineAccess) {
+    if (context.clientId === null) return null;
+    const refreshToken = await query<{ id: string }>(
+      sql`select id
+          from oauth_refresh_tokens
+          where user_id = ${context.userId}
+            and client_id = ${context.clientId}
+            and (session_id is null or session_id = ${context.sessionId})
+            and 'offline_access' = any(scopes)
+            and revoked is null
+            and expires_at > now()
+          limit 1`,
+    );
+    if (!refreshToken.rows[0]) return null;
+  }
+  return {
+    kind: 'mcp',
+    userId: context.userId,
+    connectionId: context.connectionId,
+    credential: `mcp:${context.connectionId}`,
+    scopes: new Set<ApiTokenScope>(context.scopes),
+  };
+}
+
 export const requireV1Auth = createMiddleware(async (c, next) => {
   const logger = getApiLogger();
   const bearer = c.req
     .header('authorization')
     ?.match(/^Bearer\s+(.+)$/i)?.[1]
     ?.trim();
-  if (bearer) {
-    const principal = await authenticateApiToken(bearer);
+  const internalCredential = c.req.header(MCP_INTERNAL_AUTH_HEADER);
+  if (internalCredential || bearer) {
+    const principal = internalCredential
+      ? bearer
+        ? null
+        : await authenticateMcpInternalRequest(c.req.raw)
+      : parseApiTokenId(bearer ?? '')
+        ? await authenticateApiToken(bearer ?? '')
+        : null;
     if (!principal) {
       logger.debug(`[v1:auth] invalid token: ${c.req.method} ${c.req.path}`);
       return c.json({ error: { code: 'unauthorized', message: 'Unauthorized' } }, 401);
@@ -108,7 +183,9 @@ export function requireV1Scopes(scopes: readonly ApiTokenScope[]) {
   return createMiddleware(async (c, next) => {
     const principal = c.get('v1Principal');
     const missingScope =
-      principal.kind === 'token' ? scopes.find((scope) => !principal.scopes.has(scope)) : undefined;
+      principal.kind === 'token' || principal.kind === 'mcp'
+        ? scopes.find((scope) => !principal.scopes.has(scope))
+        : undefined;
     if (missingScope) {
       return c.json(
         { error: { code: 'insufficient_scope', message: `Token requires ${missingScope}` } },

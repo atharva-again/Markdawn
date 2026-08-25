@@ -1,12 +1,12 @@
+import { getV1VaultImportKind, parseMarkdownFrontmatter } from '@markdawn/shared';
 export const getExtension = (filename: string): string => {
   const lastDot = filename.lastIndexOf('.');
   return lastDot >= 0 ? filename.slice(lastDot + 1).toLowerCase() : '';
 };
 
-const ALLOWED_IMAGE_TYPES = new Set(['jpeg', 'jpg', 'png', 'gif', 'webp', 'svg']);
-
 export const isImageFile = (filename: string): boolean => {
-  return ALLOWED_IMAGE_TYPES.has(getExtension(filename));
+  const kind = getV1VaultImportKind(filename);
+  return kind === 'image' || kind === 'unsupported-image';
 };
 
 export const isMarkdownFile = (filename: string): boolean => {
@@ -14,5 +14,3 @@ export const isMarkdownFile = (filename: string): boolean => {
 };
 
 export const parseFrontmatter = parseMarkdownFrontmatter;
-
-import { parseMarkdownFrontmatter } from '@markdawn/shared';

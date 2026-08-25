@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { ApiTokenAuditOperation } from '@markdawn/shared';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
@@ -30,6 +31,7 @@ import {
 } from '../../utils/pageLifecycle';
 import { emptyTrashForUser } from '../../utils/trashLifecycle';
 import { exportAllPages } from '../../utils/workspaceExport';
+import { completeIdempotency, parseIdempotencyKey, runIdempotentHttpCommand } from './idempotency';
 import {
   markdownImportRequestSchema,
   obsidianImportRequestSchema,
@@ -78,12 +80,30 @@ lifecycleRoute.post(
     const principal = c.get('v1Principal');
     const pageId = requireLifecycleId(c.req.param('id'), 'page');
     const body = await parseJsonRequest(c, parentRequestSchema);
-    const copied = await copyPageForActor(
-      { kind: 'user', id: principal.userId },
-      pageId,
-      body.parentId,
+    const idempotencyKey = parseIdempotencyKey(c.req.header('idempotency-key'));
+    const requestHash = createHash('sha256')
+      .update(JSON.stringify({ pageId, parentId: body.parentId }))
+      .digest('base64url');
+    const result = await runIdempotentHttpCommand(
+      principal,
+      idempotencyKey,
+      requestHash,
+      async (reservation) => {
+        const copied = await copyPageForActor(
+          { kind: 'user', id: principal.userId },
+          pageId,
+          body.parentId,
+          reservation
+            ? {
+                beforeCommit: (tx, value) =>
+                  completeIdempotency(tx, principal, reservation, toLifecycleEntityResponse(value)),
+              }
+            : undefined,
+        );
+        return toLifecycleEntityResponse(copied);
+      },
     );
-    return c.json(toLifecycleEntityResponse(copied), 201);
+    return c.json(result.response, result.replay ? 200 : 201);
   },
 );
 
@@ -146,18 +166,48 @@ lifecycleRoute.post(
     const principal = c.get('v1Principal');
     const folderId = requireLifecycleId(c.req.param('id'), 'folder');
     const body = await parseJsonRequest(c, parentRequestSchema);
-    const result = await copyFolderForActor(
-      { kind: 'user', id: principal.userId },
-      folderId,
-      body.parentId,
+    const idempotencyKey = parseIdempotencyKey(c.req.header('idempotency-key'));
+    const requestHash = createHash('sha256')
+      .update(JSON.stringify({ folderId, parentId: body.parentId }))
+      .digest('base64url');
+    const result = await runIdempotentHttpCommand(
+      principal,
+      idempotencyKey,
+      requestHash,
+      async (reservation) => {
+        const copied = await copyFolderForActor(
+          { kind: 'user', id: principal.userId },
+          folderId,
+          body.parentId,
+          reservation
+            ? {
+                beforeCommit: async (tx, value) => {
+                  if (!value.folder) {
+                    throw new HTTPException(409, {
+                      message: 'Source folder is no longer accessible',
+                      cause: { code: 'SOURCE_FOLDER_UNAVAILABLE' },
+                    });
+                  }
+                  await completeIdempotency(
+                    tx,
+                    principal,
+                    reservation,
+                    toLifecycleFolderCopyResponse(value.folder, value.skippedRestrictedItems),
+                  );
+                },
+              }
+            : undefined,
+        );
+        if (!copied.folder) {
+          throw new HTTPException(409, {
+            message: 'Source folder is no longer accessible',
+            cause: { code: 'SOURCE_FOLDER_UNAVAILABLE' },
+          });
+        }
+        return toLifecycleFolderCopyResponse(copied.folder, copied.skippedRestrictedItems);
+      },
     );
-    if (!result.folder) {
-      throw new HTTPException(409, {
-        message: 'Source folder is no longer accessible',
-        cause: { code: 'SOURCE_FOLDER_UNAVAILABLE' },
-      });
-    }
-    return c.json(toLifecycleFolderCopyResponse(result.folder, result.skippedRestrictedItems), 201);
+    return c.json(result.response, result.replay ? 200 : 201);
   },
 );
 

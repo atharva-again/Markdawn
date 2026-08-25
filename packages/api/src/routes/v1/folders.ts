@@ -1,4 +1,11 @@
-import { getUnicodeCodePointLength, MAX_FOLDER_NAME_LENGTH } from '@markdawn/shared';
+import {
+  getUnicodeCodePointLength,
+  MAX_FOLDER_NAME_LENGTH,
+  v1CreateFolderRequestSchema,
+  v1FolderResolutionItemSchema,
+  v1FolderResponseSchema,
+  v1UpdateFolderRequestSchema,
+} from '@markdawn/shared';
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -37,53 +44,9 @@ type FolderRow = {
 } & ResourceCursorRow;
 
 const uuidSchema = z.uuid();
-export const createFolderRequestSchema = z
-  .object({
-    parentId: uuidSchema.nullable().optional(),
-    name: z.string().optional(),
-  })
-  .strict()
-  .meta({ example: { name: 'Project notes' } });
-export const updateFolderRequestSchema = z
-  .union(
-    [
-      z
-        .object({
-          name: z.string(),
-          parentId: uuidSchema.nullable().optional(),
-        })
-        .strict(),
-      z
-        .object({
-          name: z.string().optional(),
-          parentId: uuidSchema.nullable(),
-        })
-        .strict(),
-    ],
-    {
-      error: (issue) => {
-        const { input } = issue;
-        if (input !== null && typeof input === 'object' && !Array.isArray(input)) {
-          return Object.keys(input).length === 0 ? 'No supported fields were provided' : undefined;
-        }
-        return undefined;
-      },
-    },
-  )
-  .meta({ example: { name: 'Archived notes' } });
-
-export const folderResponseSchema = z
-  .object({
-    id: z.uuid(),
-    parentId: z.uuid().nullable(),
-    name: z.string(),
-    icon: z.string().nullable(),
-    ownerId: z.uuid().nullable(),
-    permission: z.enum(['view', 'edit', 'admin']).nullable(),
-    createdAt: z.string().nullable(),
-    updatedAt: z.string().nullable(),
-  })
-  .strict();
+export const createFolderRequestSchema = v1CreateFolderRequestSchema;
+export const updateFolderRequestSchema = v1UpdateFolderRequestSchema;
+export const folderResponseSchema = v1FolderResponseSchema;
 
 export type FolderResponse = z.infer<typeof folderResponseSchema>;
 
@@ -120,7 +83,7 @@ export function toFolderResponse(input: FolderResponseInput): FolderResponse {
   };
 }
 
-const folderPathResponseSchema = folderResponseSchema.extend({ folderPath: z.string() }).strict();
+const folderPathResponseSchema = v1FolderResolutionItemSchema;
 const folderId = uuidPathParameter('folderId');
 const foldersTag = ['Folders'] as const;
 
