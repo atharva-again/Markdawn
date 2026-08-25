@@ -16,11 +16,7 @@ import PageEntry from './routes/PageEntry';
 import Settings from './routes/Settings';
 import SharedWithMe from './routes/SharedWithMe';
 import Trash from './routes/Trash';
-import {
-  getLegacyWorkspacePath,
-  getWorkspaceRoutePath,
-  WORKSPACE_ROUTE_PATHS,
-} from './utils/url';
+import { getLegacyWorkspacePath, getWorkspaceRoutePath, WORKSPACE_ROUTE_PATHS } from './utils/url';
 
 function OnboardingIndexRedirect() {
   const location = useLocation();
