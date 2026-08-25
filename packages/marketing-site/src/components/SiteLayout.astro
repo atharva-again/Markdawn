@@ -16,6 +16,7 @@ interface Props {
   markdownUrl?: string;
   describedBy?: string;
   structuredData?: Record<string, unknown>;
+  noIndex?: boolean;
 }
 
 const {
@@ -30,6 +31,8 @@ const {
   // biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
   describedBy = `${SITE_ORIGIN}/llms.txt`,
   structuredData,
+  // biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+  noIndex = false,
 } = Astro.props;
 const serializeStructuredData = (data: Record<string, unknown>): string => {
   const serialized = JSON.stringify(data);
@@ -51,6 +54,7 @@ const structuredDataJson = structuredData ? serializeStructuredData(structuredDa
     <meta property="og:description" content={description} />
     <meta property="og:url" content={url} />
     <meta property="og:type" content="website" />
+    {noIndex && <meta name="robots" content="noindex, nofollow" />}
     <link rel="canonical" href={url} />
     {markdownUrl && <link rel="alternate" type="text/markdown" href={markdownUrl} />}
     {describedBy && <link rel="describedby" type="text/plain" href={describedBy} />}
