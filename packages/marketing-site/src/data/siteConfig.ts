@@ -2,6 +2,7 @@ export const SITE_ORIGIN = 'https://markdawn.space';
 export const APP_ORIGIN = 'https://app.markdawn.space';
 export const DOCS_ORIGIN = 'https://docs.markdawn.space';
 export const GITHUB_URL = 'https://github.com/atharva-again/Markdawn';
+export const SOCIAL_IMAGE_URL = `${SITE_ORIGIN}/og-image.png`;
 
 export const SITE_PAGES = [
   { href: '/', label: 'Home', includeInNavigation: true },
