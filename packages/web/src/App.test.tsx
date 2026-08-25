@@ -43,14 +43,6 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /continue with google/i })).toBeInTheDocument();
   });
 
-  it('renders the landing page in landing mode', () => {
-    vi.stubEnv('MODE', 'landing');
-
-    render(<App />, { route: '/' });
-
-    expect(screen.getByText('Welcome to Markdawn')).toBeInTheDocument();
-  });
-
   it('renders login page at /login', () => {
     render(<App />, { route: '/login' });
 

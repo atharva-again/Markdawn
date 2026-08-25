@@ -1,0 +1,22 @@
+---
+import { APP_ORIGIN } from '../data/siteConfig';
+
+interface Props {
+  class?: string;
+  title?: string;
+  'aria-label'?: string;
+}
+
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const { class: className, title, 'aria-label': ariaLabel } = Astro.props;
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const href = import.meta.env.DEV
+  ? (() => {
+      const appUrl = new URL('/', Astro.url);
+      appUrl.port = '5173';
+      return appUrl.toString();
+    })()
+  : APP_ORIGIN;
+---
+
+<a href={href} class={className} title={title} aria-label={ariaLabel}><slot /></a>

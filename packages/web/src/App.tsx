@@ -10,19 +10,13 @@ import { ExplorerLoadingState } from './components/workspace/ExplorerLoadingStat
 import { AuthSessionProvider } from './hooks/useAuth';
 import Dashboard from './routes/Dashboard';
 import FolderEntry from './routes/FolderEntry';
-import Home from './routes/Home';
 import Login from './routes/Login';
 import Onboarding from './routes/Onboarding';
 import PageEntry from './routes/PageEntry';
 import Settings from './routes/Settings';
 import SharedWithMe from './routes/SharedWithMe';
 import Trash from './routes/Trash';
-import {
-  getLegacyWorkspacePath,
-  getWorkspaceRoutePath,
-  isHostedApex,
-  WORKSPACE_ROUTE_PATHS,
-} from './utils/url';
+import { getLegacyWorkspacePath, getWorkspaceRoutePath, WORKSPACE_ROUTE_PATHS } from './utils/url';
 
 function OnboardingIndexRedirect() {
   const location = useLocation();
@@ -107,31 +101,16 @@ function ApplicationRoutes() {
   );
 }
 
-function ApexRoutes() {
-  return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
-}
-
 function App() {
-  const hostedApex = isHostedApex() || import.meta.env.MODE === 'landing';
-
   return (
     <ErrorBoundary>
       <div className="bg-white dark:bg-zinc-950 min-h-screen text-zinc-900 dark:text-zinc-50">
         <BrowserRouter>
-          {hostedApex ? (
-            <ApexRoutes />
-          ) : (
-            <AuthSessionProvider>
-              <AuthIdentityBoundary>
-                <ApplicationRoutes />
-              </AuthIdentityBoundary>
-            </AuthSessionProvider>
-          )}
+          <AuthSessionProvider>
+            <AuthIdentityBoundary>
+              <ApplicationRoutes />
+            </AuthIdentityBoundary>
+          </AuthSessionProvider>
         </BrowserRouter>
       </div>
     </ErrorBoundary>

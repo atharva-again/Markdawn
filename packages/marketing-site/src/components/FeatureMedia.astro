@@ -1,0 +1,46 @@
+---
+import type { FeatureMedia as FeatureMediaData } from '../data/features';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import FeatureImagePair from './FeatureImagePair.astro';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import ThemeVideo from './ThemeVideo.astro';
+
+interface Props {
+  media: FeatureMediaData;
+}
+
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const { media } = Astro.props;
+---
+
+<div class="feature-media-stack">
+  {media.map((asset) =>
+    asset.kind === 'video' ? (
+      <ThemeVideo
+        lightUrl={asset.lightUrl}
+        darkUrl={asset.darkUrl}
+        type={asset.type}
+        alt={asset.alt}
+      />
+    ) : (
+      <FeatureImagePair imageId={asset.imageId} />
+    ),
+  )}
+</div>
+
+<style>
+  .feature-media-stack {
+    display: flex;
+    grid-column: 2;
+    grid-row: 1;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  @media (max-width: 560px) {
+    .feature-media-stack {
+      grid-column: auto;
+      grid-row: auto;
+    }
+  }
+</style>

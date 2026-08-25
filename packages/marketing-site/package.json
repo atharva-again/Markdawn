@@ -1,0 +1,20 @@
+{
+  "name": "@markdawn/marketing-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build && node scripts/copy-installers.mjs && node scripts/generate-social-image.mjs",
+    "preview": "astro preview",
+    "typecheck": "astro check"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "astro": "^7.2.2",
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "^5.9.3"
+  }
+}

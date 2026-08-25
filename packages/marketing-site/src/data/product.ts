@@ -1,0 +1,33 @@
+import { APP_ORIGIN, DOCS_ORIGIN, GITHUB_URL, SITE_ORIGIN } from './siteConfig';
+
+export const PRODUCT_SUMMARY =
+  'Write, organize, and share knowledge in the browser. Let your terminal and AI agents read and update the same pages through the CLI and API.';
+
+export const PRODUCT_ORGANIZATION = {
+  '@type': 'Organization',
+  '@id': `${SITE_ORIGIN}/#organization`,
+  name: 'Markdawn',
+  url: SITE_ORIGIN,
+  sameAs: [GITHUB_URL],
+} as const;
+
+export const PRODUCT_WEBSITE = {
+  '@type': 'WebSite',
+  '@id': `${SITE_ORIGIN}/#website`,
+  name: 'Markdawn',
+  url: SITE_ORIGIN,
+  description: PRODUCT_SUMMARY,
+  publisher: { '@id': `${SITE_ORIGIN}/#organization` },
+} as const;
+
+export const PRODUCT_APPLICATION = {
+  '@type': 'WebApplication',
+  '@id': `${SITE_ORIGIN}/#application`,
+  name: 'Markdawn',
+  url: APP_ORIGIN,
+  description: PRODUCT_SUMMARY,
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  softwareHelp: `${DOCS_ORIGIN}/`,
+  license: `${GITHUB_URL}/blob/master/LICENSE`,
+} as const;

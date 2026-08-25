@@ -1,0 +1,158 @@
+---
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import SiteLayout from '../components/SiteLayout.astro';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import { APP_ORIGIN, SITE_ORIGIN } from '../data/siteConfig';
+
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const PAGE_TITLE = 'Page Not Found | Markdawn';
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const PAGE_DESCRIPTION = 'The page you are looking for does not exist or has moved.';
+---
+
+<SiteLayout title={PAGE_TITLE} description={PAGE_DESCRIPTION} url={`${SITE_ORIGIN}/404`} noIndex>
+  <main class="not-found-page">
+    <article class="not-found-content">
+      <p class="not-found-eyebrow">404 / Page Not Found</p>
+      <h1>This page isn't here.</h1>
+      <p class="not-found-description">The link may be outdated, or the page may have moved somewhere else.</p>
+      <nav class="not-found-actions" aria-label="Page not found actions">
+        <a class="not-found-action primary" href="/">Back To The Homepage <span aria-hidden="true">→</span></a>
+        <a class="not-found-action secondary" href={APP_ORIGIN} target="_blank" rel="noopener noreferrer">Open The App <span aria-hidden="true">↗</span></a>
+      </nav>
+    </article>
+  </main>
+</SiteLayout>
+
+<style>
+  .not-found-page {
+    min-height: calc(100dvh - 4.5rem);
+    display: grid;
+    place-items: center;
+    padding: 2rem 1.25rem;
+  }
+
+  .not-found-content {
+    width: min(100%, 48rem);
+    text-align: center;
+  }
+
+  .not-found-eyebrow {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .not-found-content h1 {
+    margin: 1.25rem 0 0;
+    font-size: clamp(3rem, 7vw, 5.5rem);
+    font-weight: 600;
+    letter-spacing: -0.075em;
+    line-height: 0.95;
+    text-wrap: balance;
+  }
+
+  .not-found-description {
+    max-width: 28rem;
+    margin: 1.5rem auto 0;
+    color: var(--muted);
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    text-wrap: pretty;
+  }
+
+  .not-found-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1.75rem;
+  }
+
+  .not-found-action {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 0.35rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+  }
+
+  .not-found-action:hover {
+    transform: translateY(-1px);
+  }
+
+  .not-found-action.primary {
+    border-color: var(--text);
+    background: var(--text);
+    color: var(--background);
+  }
+
+  .not-found-action.primary:hover {
+    border-color: color-mix(in srgb, var(--text) 86%, var(--background));
+    background: color-mix(in srgb, var(--text) 86%, var(--background));
+  }
+
+  .not-found-action.secondary {
+    background: transparent;
+    color: var(--text);
+  }
+
+  .not-found-action.secondary:hover {
+    border-color: color-mix(in srgb, var(--line) 60%, var(--text));
+    background: color-mix(in srgb, var(--background) 82%, var(--text));
+  }
+
+  @media (max-width: 760px) {
+    .not-found-page {
+      min-height: calc(100dvh - 4rem);
+      padding-inline: 1.5rem;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .not-found-content h1 {
+      font-size: clamp(2.75rem, 14vw, 4rem);
+    }
+
+    .not-found-actions,
+    .not-found-action {
+      width: 100%;
+    }
+  }
+
+  @media (max-height: 38rem) {
+    .not-found-page {
+      padding-block: 1rem;
+    }
+
+    .not-found-content h1 {
+      margin-top: 0.875rem;
+    }
+
+    .not-found-description {
+      margin-top: 1rem;
+    }
+
+    .not-found-actions {
+      margin-top: 1.25rem;
+    }
+  }
+</style>
+
+<style is:global>
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+</style>

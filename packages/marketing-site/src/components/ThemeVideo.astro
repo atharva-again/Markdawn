@@ -1,0 +1,94 @@
+---
+interface Props {
+  lightUrl: string;
+  darkUrl: string;
+  type: 'video/mp4' | 'video/webm';
+  alt: string;
+}
+
+const {
+  // biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+  lightUrl,
+  // biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+  darkUrl,
+  // biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+  type,
+  // biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+  alt,
+} = Astro.props;
+---
+
+<video
+  class="feature-video"
+  data-light-src={lightUrl}
+  data-dark-src={darkUrl}
+  data-video-type={type}
+  loop
+  muted
+  playsinline
+  controls
+  preload="none"
+  aria-label={alt}
+>
+  <source src={lightUrl} type={type} />
+</video>
+
+<script is:inline>
+  (() => {
+    const script = document.currentScript;
+    const video = script?.previousElementSibling;
+
+    if (!(video instanceof HTMLVideoElement)) {
+      throw new Error('Theme video controller must follow a video element');
+    }
+
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+    const updateAutoplay = () => {
+      video.autoplay = !reducedMotion.matches;
+      if (reducedMotion.matches) video.pause();
+    };
+    const updateVideoSource = (isDark) => {
+      const sourceUrl = isDark ? video.dataset.darkSrc : video.dataset.lightSrc;
+      const sourceType = video.dataset.videoType;
+
+      if (!sourceUrl || !sourceType) throw new Error('Missing source metadata for theme video');
+      if (video.dataset.loadedSource === sourceUrl) return;
+
+      const source = video.querySelector('source');
+      if (!(source instanceof HTMLSourceElement)) {
+        throw new Error('Theme video source element is required');
+      }
+
+      source.src = sourceUrl;
+      source.type = sourceType;
+      video.dataset.loadedSource = sourceUrl;
+      video.load();
+    };
+
+    updateAutoplay();
+    updateVideoSource(document.documentElement.classList.contains('dark'));
+    window.addEventListener('markdawn-theme-change', (event) => {
+      if (!(event instanceof CustomEvent) || typeof event.detail !== 'boolean') {
+        throw new Error('Invalid theme change event');
+      }
+      updateVideoSource(event.detail);
+    });
+    reducedMotion.addEventListener('change', updateAutoplay);
+  })();
+</script>
+
+<style>
+  .feature-video {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    border: 1px solid var(--text);
+  }
+
+  @media (max-width: 560px) {
+    :global(.feature-section-with-media) .feature-video {
+      margin-top: 2rem;
+    }
+  }
+</style>
