@@ -1,0 +1,22 @@
+[Unit]
+Description=Markdawn MCP Server
+After=network-online.target markdawn-api.service
+Requires=markdawn-api.service
+
+[Container]
+Image=localhost/markdawn-mcp:latest
+ContainerName=markdawn-mcp
+Pod=markdawn.pod
+Environment=NODE_ENV=production
+Environment=MCP_PORT=3002
+EnvironmentFile=/var/www/markdawn/.env
+WorkingDir=/app
+Exec=node /app/packages/mcp/dist/index.js
+
+[Service]
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

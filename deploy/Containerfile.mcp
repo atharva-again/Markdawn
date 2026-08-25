@@ -1,0 +1,51 @@
+FROM node:24-slim AS base
+WORKDIR /app
+RUN corepack enable
+
+# --- Deps: install production-only deps ---
+FROM base AS deps
+WORKDIR /app
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages/shared/package.json packages/shared/package.json
+COPY packages/mcp/package.json packages/mcp/package.json
+RUN pnpm install --frozen-lockfile --filter @markdawn/mcp --filter @markdawn/shared --prod && pnpm store prune
+
+# --- Build Deps: install all deps (including devDependencies for building) ---
+FROM base AS build-deps
+WORKDIR /app
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages/shared/package.json packages/shared/package.json
+COPY packages/mcp/package.json packages/mcp/package.json
+RUN pnpm install --frozen-lockfile --filter @markdawn/mcp --filter @markdawn/shared
+
+# --- Build: compile source ---
+FROM build-deps AS build
+WORKDIR /app
+COPY tsconfig.base.json ./
+COPY packages/shared packages/shared
+COPY packages/mcp packages/mcp
+RUN pnpm -C packages/shared run build
+RUN pnpm -C packages/mcp run build
+
+# --- Runner: final image ---
+FROM node:24-slim AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/pnpm-workspace.yaml /app/package.json /app/pnpm-lock.yaml ./
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=deps /app/packages/mcp/node_modules ./packages/mcp/node_modules
+
+COPY --from=build /app/packages/shared/dist ./packages/shared/dist
+COPY --from=build /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=build /app/packages/mcp/dist ./packages/mcp/dist
+COPY --from=build /app/packages/mcp/package.json ./packages/mcp/package.json
+
+RUN apt-get update && apt-get install -y --no-install-recommends dumb-init && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+EXPOSE 3002
+
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "/app/packages/mcp/dist/index.js"]
