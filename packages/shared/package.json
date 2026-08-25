@@ -36,6 +36,11 @@
       "development": "./src/node/apiTokenCredential.ts",
       "types": "./src/node/apiTokenCredential.ts",
       "default": "./dist/node/apiTokenCredential.js"
+    },
+    "./node/mcp-internal-auth": {
+      "development": "./src/node/mcpInternalAuth.ts",
+      "types": "./src/node/mcpInternalAuth.ts",
+      "default": "./dist/node/mcpInternalAuth.js"
     }
   },
   "dependencies": {
