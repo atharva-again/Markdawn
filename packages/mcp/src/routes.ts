@@ -45,7 +45,9 @@ export function createMcpApp(options: McpAppOptions): Hono {
       });
       return createMcpServer(new V1Client({ ...clientOptions, actor }));
     },
-    { legacy: 'reject' },
+    // Keep the modern Streamable HTTP path while accepting legacy clients
+    // that still negotiate the 2025 protocol without session state.
+    { legacy: 'stateless' },
   );
   const handleMcpRequest = createMcpRequestAuthenticator(
     {

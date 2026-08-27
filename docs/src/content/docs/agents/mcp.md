@@ -53,7 +53,9 @@ HTTP MCP URLs are accepted only for `localhost`, `127.0.0.1`, and `::1`.
 Non-loopback MCP URLs must use HTTPS.
 
 The gateway serves the MCP `2026-07-28` protocol through the official MCP v2
-server package and rejects legacy protocol traffic. MCP protocol `POST`
+server package and also accepts legacy 2025-era `POST` requests through a
+stateless compatibility transport. Legacy requests do not receive persistent
+MCP sessions; clients must use `/mcp` for each request. MCP protocol `POST`
 requests are accepted only at `/mcp`; health and OAuth endpoints use their
 documented `/api/...` paths.
 
