@@ -52,20 +52,6 @@ export function asString(value: unknown, field: string): string {
   return value;
 }
 
-export function asNullableString(value: unknown, field: string): string | null {
-  if (value === null || value === undefined) return null;
-  return asString(value, field);
-}
-
-export function asArray(value: unknown, field: string): unknown[] {
-  if (!Array.isArray(value)) {
-    throw new McpBackendError(`Invalid API response field: ${field}`, 503, {
-      code: 'invalid_upstream_response',
-    });
-  }
-  return value;
-}
-
 export function requireEtag(value: string | null): string {
   if (value === null || value.length === 0) {
     throw new McpBackendError('Markdawn API response did not include an ETag', 503, {
@@ -117,10 +103,6 @@ export function folderOutput(value: unknown): McpFolder {
   };
   if (folder.folderPath !== undefined) output.path = folder.folderPath;
   return parseApiResponse(mcpFolderSchema, output);
-}
-
-export function dataArray(value: unknown): unknown[] {
-  return asArray(asRecord(value).data, 'data');
 }
 
 export function isUuid(value: string): boolean {
