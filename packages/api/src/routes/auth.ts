@@ -1,5 +1,6 @@
 import { hashMcpAccessToken } from '@markdawn/shared/node/mcp-internal-auth';
 import { verifyBearerToken } from 'better-auth/oauth2';
+import { APIError } from 'better-call';
 import { sql } from 'drizzle-orm';
 import type { Context } from 'hono';
 import { Hono } from 'hono';
@@ -23,6 +24,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function emptyRevocationResponse(): Response {
+  return new Response(null, { status: 200 });
+}
+
+function revocationUnavailableResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      error: 'temporarily_unavailable',
+      error_description: 'Token revocation is temporarily unavailable',
+    }),
+    {
+      status: 503,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    },
+  );
+}
+
 async function handleRevoke(c: Context): Promise<Response> {
   const body = new URLSearchParams(await c.req.raw.clone().text());
   const rawToken = body.get('token');
@@ -30,17 +48,30 @@ async function handleRevoke(c: Context): Promise<Response> {
   const response = await handleAuth(c.req.raw);
   if (!token || response.status !== 400) return response;
 
-  const responseBody: unknown = await response.clone().json();
+  let responseBody: unknown;
+  try {
+    responseBody = await response.clone().json();
+  } catch {
+    return response;
+  }
   if (!isRecord(responseBody) || responseBody.error !== 'unsupported_token_type') {
     return response;
   }
 
-  const claims = await verifyBearerToken(token, {
-    verifyOptions: { issuer: betterAuthIssuer(), audience: mcpResource() },
-    jwksUrl: betterAuthJwksUrl(),
-  });
+  let claims: Awaited<ReturnType<typeof verifyBearerToken>>;
+  try {
+    claims = await verifyBearerToken(token, {
+      verifyOptions: { issuer: betterAuthIssuer(), audience: mcpResource() },
+      jwksUrl: betterAuthJwksUrl(),
+    });
+  } catch (error) {
+    if (error instanceof APIError && error.statusCode === 401) {
+      return emptyRevocationResponse();
+    }
+    return revocationUnavailableResponse();
+  }
   if (typeof claims.exp !== 'number' || !Number.isSafeInteger(claims.exp)) {
-    throw new Error('Revoked JWT access token has no safe expiry');
+    return emptyRevocationResponse();
   }
   await query(
     sql`insert into oauth_access_token_revocations (token_hash, expires_at)
@@ -49,7 +80,7 @@ async function handleRevoke(c: Context): Promise<Response> {
           expires_at = excluded.expires_at,
         revoked_at = now()`,
   );
-  return new Response(null, { status: 200 });
+  return emptyRevocationResponse();
 }
 
 const mcpOAuthScopePolicy = createMcpOAuthScopePolicy(handleAuth);

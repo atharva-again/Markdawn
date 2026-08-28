@@ -1,3 +1,4 @@
+import { APIError } from 'better-call';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const authHandler = vi.hoisted(() => vi.fn<(request: Request) => Promise<Response>>());
@@ -117,5 +118,75 @@ describe('OAuth authorization routing', () => {
       expect.objectContaining({ verifyOptions: expect.any(Object) }),
     );
     expect(queryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats an unverifiable JWT revocation as a successful no-op', async () => {
+    authHandler.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'unsupported_token_type' }), { status: 400 }),
+    );
+    verifyBearerTokenMock.mockRejectedValue(
+      new APIError('UNAUTHORIZED', { message: 'token expired' }),
+    );
+
+    const response = await authRoutes.request('/auth/oauth2/revoke', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'token=expired.jwt.token&token_type_hint=access_token',
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe('');
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('treats a verified JWT without a safe expiry as a successful no-op', async () => {
+    authHandler.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'unsupported_token_type' }), { status: 400 }),
+    );
+    verifyBearerTokenMock.mockResolvedValue({});
+
+    const response = await authRoutes.request('/auth/oauth2/revoke', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'token=invalid.jwt.token&token_type_hint=access_token',
+    });
+
+    expect(response.status).toBe(200);
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('preserves an unexpected non-JSON Better Auth revocation response', async () => {
+    authHandler.mockResolvedValue(new Response('invalid request', { status: 400 }));
+
+    const response = await authRoutes.request('/auth/oauth2/revoke', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'token=invalid-token&token_type_hint=access_token',
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.text()).resolves.toBe('invalid request');
+    expect(verifyBearerTokenMock).not.toHaveBeenCalled();
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('returns a controlled error when JWT verification is unavailable', async () => {
+    authHandler.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'unsupported_token_type' }), { status: 400 }),
+    );
+    verifyBearerTokenMock.mockRejectedValue(new Error('JWKS unavailable'));
+
+    const response = await authRoutes.request('/auth/oauth2/revoke', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'token=oauth.jwt.token&token_type_hint=access_token',
+    });
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: 'temporarily_unavailable',
+      error_description: 'Token revocation is temporarily unavailable',
+    });
+    expect(queryMock).not.toHaveBeenCalled();
   });
 });
