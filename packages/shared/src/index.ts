@@ -22,6 +22,7 @@ export * from './utils/collaborationSecret.js';
 export * from './utils/color.js';
 export * from './utils/entityPaths.js';
 export * from './utils/entityPayload.js';
+export * from './utils/fileExtension.js';
 export * from './utils/guestIdentity.js';
 export * from './utils/importImage.js';
 export * from './utils/importPayload.js';

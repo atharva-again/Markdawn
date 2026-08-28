@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { isSupportedImportImagePath } from '../utils/importImage.js';
+import { getFileExtension } from '../utils/fileExtension.js';
+import { isSupportedImportImageExtension } from '../utils/importImage.js';
 
 export type V1VaultImportKind = 'markdown' | 'image' | 'unsupported-image' | null;
 
@@ -19,9 +20,9 @@ export function isCanonicalRelativeV1VaultPath(value: string): boolean {
 }
 
 export function getV1VaultImportKind(value: string): V1VaultImportKind {
-  const extension = value.slice(value.lastIndexOf('.') + 1).toLowerCase();
+  const extension = getFileExtension(value);
   if (extension === 'md') return 'markdown';
-  if (isSupportedImportImagePath(value)) return 'image';
+  if (isSupportedImportImageExtension(extension)) return 'image';
   return extension === 'svg' ? 'unsupported-image' : null;
 }
 

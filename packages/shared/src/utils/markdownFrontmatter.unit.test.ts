@@ -9,6 +9,17 @@ function ownValue(record: Record<string, unknown>, key: string): unknown {
 }
 
 describe('parseMarkdownFrontmatter', () => {
+  it.each([
+    '',
+    '# Page Title\n\nSome content',
+  ])('preserves Markdown without frontmatter', (content) => {
+    expect(parseMarkdownFrontmatter(content)).toEqual({
+      frontmatter: {},
+      body: content,
+      tags: [],
+    });
+  });
+
   it('preserves JSON-compatible frontmatter without losing quoted commas', () => {
     const result = parseMarkdownFrontmatter(`---
 title: "Imported note"
