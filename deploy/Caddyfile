@@ -36,8 +36,9 @@ app.markdawn.space {
         redir {uri} permanent
     }
 
-    # API routes — evaluated first
-    handle /api/* {
+    # API and OAuth discovery routes — evaluated first
+    @apiRoutes path /api/* /.well-known/*
+    handle @apiRoutes {
         reverse_proxy localhost:3001 {
             header_up X-Real-IP {remote}
             header_up X-Forwarded-For {header.X-Forwarded-For}
