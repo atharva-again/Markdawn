@@ -17,6 +17,13 @@ type VerifiedMcpClaims = {
   sid?: unknown;
 };
 
+class InvalidMcpTokenContextError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidMcpTokenContextError';
+  }
+}
+
 export type McpAuthOptions = {
   authIssuer: string;
   authJwksUrl: string;
@@ -60,14 +67,36 @@ function bearerOnlyRejection(request: Request, publicUrl: URL): Response | null 
   );
 }
 
+function invalidTokenRejection(publicUrl: URL): Response {
+  const resourceMetadata = new URL(
+    '/.well-known/oauth-protected-resource/mcp',
+    publicUrl,
+  ).toString();
+  return new Response(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      error: { code: -32000, message: 'MCP access token is invalid' },
+      id: null,
+    }),
+    {
+      status: 401,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+        'WWW-Authenticate': `Bearer error="invalid_token", resource_metadata="${resourceMetadata}"`,
+      },
+    },
+  );
+}
+
 function contextFromClaims(token: string, claims: VerifiedMcpClaims): McpInternalAuthContext {
   const userId = claims.sub;
   if (typeof userId !== 'string' || userId.length === 0) {
-    throw new Error('MCP access token has no subject');
+    throw new InvalidMcpTokenContextError('MCP access token has no subject');
   }
   const scopeClaim = claims.scope;
   if (typeof claims.exp !== 'number' || !Number.isSafeInteger(claims.exp)) {
-    throw new Error('MCP access token has no safe expiry');
+    throw new InvalidMcpTokenContextError('MCP access token has no safe expiry');
   }
   const scopes: McpScope[] =
     typeof scopeClaim === 'string'
@@ -94,11 +123,13 @@ function contextFromClaims(token: string, claims: VerifiedMcpClaims): McpInterna
     scopes: [...new Set(scopes)],
   };
   if (offlineAccess) {
-    if (clientId === null) throw new Error('MCP offline token has no client identity');
+    if (clientId === null) {
+      throw new InvalidMcpTokenContextError('MCP offline token has no client identity');
+    }
     return { ...common, offlineAccess: true, clientId, sessionId };
   }
   if (sessionId === null || sessionId.length === 0) {
-    throw new Error('MCP online token has no session identity');
+    throw new InvalidMcpTokenContextError('MCP online token has no session identity');
   }
   return { ...common, offlineAccess: false, clientId, sessionId };
 }
@@ -147,6 +178,14 @@ export function createMcpRequestAuthenticator(
 
   return async (request) => {
     const rejection = bearerOnlyRejection(request, options.publicUrl);
-    return rejection ?? protectedMcpRequest(request);
+    if (rejection) return rejection;
+    try {
+      return await protectedMcpRequest(request);
+    } catch (error) {
+      if (error instanceof InvalidMcpTokenContextError) {
+        return invalidTokenRejection(options.publicUrl);
+      }
+      throw error;
+    }
   };
 }
