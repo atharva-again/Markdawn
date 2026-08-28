@@ -5,6 +5,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { timing } from 'hono/timing';
+import { auth } from './auth';
 import { v1ErrorResponse, v1NotFound } from './middleware/v1Errors';
 import { authRoutes } from './routes';
 import backlinksRoute from './routes/backlinks';
@@ -79,10 +80,7 @@ export async function createApp() {
 
   // Better Auth's MCP plugin serves protected-resource metadata at the
   // resource-server well-known root rather than under /api/auth.
-  app.on(['GET', 'HEAD'], '/.well-known/*', async (c) => {
-    const { mcpAuth } = await import('./mcp/auth');
-    return mcpAuth.handler(c.req.raw);
-  });
+  app.on(['GET', 'HEAD'], '/.well-known/*', (c) => auth.handler(c.req.raw));
 
   const v1App = new Hono();
   v1App.route('/me', meV1Route);

@@ -1,15 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const authHandler = vi.hoisted(() => vi.fn<(request: Request) => Promise<Response>>());
-const mcpAuthHandler = vi.hoisted(() => vi.fn<(request: Request) => Promise<Response>>());
 const queryMock = vi.hoisted(() => vi.fn());
 const verifyBearerTokenMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../auth', () => ({
   auth: { handler: authHandler },
-}));
-vi.mock('../mcp/auth', () => ({
-  mcpAuth: { handler: mcpAuthHandler },
 }));
 vi.mock('../db/query', () => ({ query: queryMock }));
 vi.mock('better-auth/oauth2', () => ({ verifyBearerToken: verifyBearerTokenMock }));
@@ -20,10 +16,9 @@ import { authRoutes } from './auth';
 describe('OAuth authorization routing', () => {
   beforeEach(() => {
     authHandler.mockReset();
-    mcpAuthHandler.mockReset();
     queryMock.mockReset();
     verifyBearerTokenMock.mockReset();
-    mcpAuthHandler.mockResolvedValue(
+    authHandler.mockResolvedValue(
       new Response(null, {
         status: 302,
         headers: { Location: 'https://client.example/callback?error=invalid_scope' },
@@ -31,15 +26,14 @@ describe('OAuth authorization routing', () => {
     );
   });
 
-  it('routes login endpoints through the MCP-aware authentication instance', async () => {
+  it('routes login endpoints through the canonical authentication instance', async () => {
     await authRoutes.request('/auth/sign-in/social', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider: 'github' }),
     });
 
-    expect(mcpAuthHandler).toHaveBeenCalledTimes(1);
-    expect(authHandler).not.toHaveBeenCalled();
+    expect(authHandler).toHaveBeenCalledTimes(1);
   });
 
   it('delegates invalid MCP scope combinations to Better Auth for its redirect', async () => {
@@ -51,7 +45,7 @@ describe('OAuth authorization routing', () => {
     expect(response.headers.get('location')).toBe(
       'https://client.example/callback?error=invalid_scope',
     );
-    const delegatedRequest = mcpAuthHandler.mock.calls[0]?.[0];
+    const delegatedRequest = authHandler.mock.calls[0]?.[0];
     expect(delegatedRequest).toBeInstanceOf(Request);
     expect(new URL(delegatedRequest?.url ?? '').searchParams.get('scope')).toContain(
       'markdawn:invalid-pages-scope-combination',
@@ -65,7 +59,7 @@ describe('OAuth authorization routing', () => {
       body: 'client_id=client-1&scope=pages%3Awrite',
     });
 
-    const delegatedRequest = mcpAuthHandler.mock.calls[0]?.[0];
+    const delegatedRequest = authHandler.mock.calls[0]?.[0];
     await expect(delegatedRequest?.text()).resolves.toContain(
       'markdawn%3Ainvalid-pages-scope-combination',
     );
@@ -82,7 +76,7 @@ describe('OAuth authorization routing', () => {
       error: 'invalid_scope',
       error_description: 'pages:write requires pages:read',
     });
-    expect(mcpAuthHandler).not.toHaveBeenCalled();
+    expect(authHandler).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -100,12 +94,12 @@ describe('OAuth authorization routing', () => {
       error: 'invalid_request',
       error_description: 'Request body is too large',
     });
-    expect(mcpAuthHandler).not.toHaveBeenCalled();
+    expect(authHandler).not.toHaveBeenCalled();
   });
 
   it('records verified JWT revocations without forwarding the token to v1', async () => {
     const token = 'oauth.jwt.token';
-    mcpAuthHandler.mockResolvedValue(
+    authHandler.mockResolvedValue(
       new Response(JSON.stringify({ error: 'unsupported_token_type' }), { status: 400 }),
     );
     verifyBearerTokenMock.mockResolvedValue({ exp: 2_000 });

@@ -1,17 +1,76 @@
+import { cimd } from '@better-auth/cimd';
+import { fetchClientMetadataResource } from '@better-auth/cimd/node';
 import type { BetterAuthPlugin } from '@better-auth/core';
+import { mcp } from '@better-auth/mcp';
 import { getApiLogger } from '@markdawn/shared';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { jwt } from 'better-auth/plugins';
 import { db } from './db/connection';
-import { accounts, sessions, users, verifications } from './db/schema';
+import {
+  accounts,
+  jwks,
+  oauthAccessTokens,
+  oauthClientAssertions,
+  oauthClientResources,
+  oauthClients,
+  oauthConsents,
+  oauthRefreshTokens,
+  oauthResources,
+  sessions,
+  users,
+  verifications,
+} from './db/schema';
+import { betterAuthIssuer, mcpResource } from './env';
 import { publicFrontendUrl } from './utils/publicWebUrl';
 import { createWelcomePageForUser } from './utils/welcomePage';
 
 type CreateAuthOptions = {
   provisionWelcomePage?: typeof createWelcomePageForUser;
-  plugins?: BetterAuthPlugin[];
-  schema?: Record<string, unknown>;
 };
+
+type BetterAuthMcpPlugin = ReturnType<typeof mcp>;
+type BetterAuthEndpoints = NonNullable<BetterAuthPlugin['endpoints']>;
+
+/**
+ * Better Auth 1.7.1 only disagrees about the endpoint metadata type exported
+ * by the MCP package. Keep the compatibility assertion limited to that
+ * property instead of hiding the complete plugin contract.
+ */
+function adaptMcpPlugin(plugin: BetterAuthMcpPlugin): BetterAuthPlugin {
+  const { endpoints, ...pluginWithoutEndpoints } = plugin;
+  return {
+    ...pluginWithoutEndpoints,
+    ...(endpoints === undefined ? {} : { endpoints: endpoints as BetterAuthEndpoints }),
+  };
+}
+
+function createMcpPlugins(): BetterAuthPlugin[] {
+  const resource = mcpResource();
+  return [
+    jwt({ jwt: { issuer: betterAuthIssuer(), audience: resource } }),
+    adaptMcpPlugin(
+      mcp({
+        loginPage: '/login',
+        consentPage: '/oauth/authorize',
+        resource,
+        resources: [{ identifier: resource, dpopBoundAccessTokensRequired: false }],
+        resourceSeedMode: 'merge',
+        // MCP's proxy transport forwards bearer tokens only. An empty
+        // algorithm allowlist makes DPoP proof validation fail closed and
+        // prevents new DPoP-bound tokens from being issued for this resource.
+        dpop: { signingAlgorithms: [] },
+        scopes: ['openid', 'profile', 'offline_access', 'pages:read', 'pages:write'],
+        allowDynamicClientRegistration: true,
+        allowUnauthenticatedClientRegistration: true,
+      }),
+    ),
+    cimd({
+      fetchClientMetadataResource,
+      metadataProfile: 'mcp-2026-07-28',
+    }),
+  ];
+}
 
 export function createAuth(options: CreateAuthOptions = {}) {
   const provisionWelcomePage = options.provisionWelcomePage ?? createWelcomePageForUser;
@@ -19,7 +78,7 @@ export function createAuth(options: CreateAuthOptions = {}) {
   return betterAuth({
     baseURL: publicFrontendUrl,
     trustedOrigins: [publicFrontendUrl],
-    plugins: options.plugins ?? [],
+    plugins: createMcpPlugins(),
     database: drizzleAdapter(db, {
       provider: 'pg',
       transaction: true,
@@ -28,7 +87,14 @@ export function createAuth(options: CreateAuthOptions = {}) {
         session: sessions,
         account: accounts,
         verification: verifications,
-        ...options.schema,
+        jwks,
+        oauthClient: oauthClients,
+        oauthResource: oauthResources,
+        oauthClientResource: oauthClientResources,
+        oauthRefreshToken: oauthRefreshTokens,
+        oauthAccessToken: oauthAccessTokens,
+        oauthConsent: oauthConsents,
+        oauthClientAssertion: oauthClientAssertions,
       },
     }),
     advanced: {

@@ -2,6 +2,7 @@ import './env';
 import { serve } from '@hono/node-server';
 import { getApiLogger } from '@markdawn/shared';
 import { createApp } from './app';
+import { auth } from './auth';
 import { requireCollaborationInternalSecret, requireMcpApiInternalSecret } from './env';
 import {
   drainOperationalRetention,
@@ -11,6 +12,10 @@ import { drainExpiredGuestIdentities } from './utils/guestIdentityCleanup';
 import { processUploadDeletionQueue } from './utils/uploadCleanup';
 
 async function main() {
+  // Better Auth seeds and verifies the configured MCP resource while its
+  // context initializes. Fail startup before binding the listening socket if
+  // that canonical auth instance cannot initialize.
+  await auth.$context;
   const app = await createApp();
 
   await processUploadDeletionQueue();

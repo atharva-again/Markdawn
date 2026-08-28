@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import type { Context } from 'hono';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
+import { auth } from '../auth';
 import { query } from '../db/query';
 import { betterAuthIssuer, betterAuthJwksUrl, mcpResource } from '../env';
 import {
@@ -14,9 +15,8 @@ import {
 
 const router = new Hono();
 
-async function handleMcpAuth(request: Request): Promise<Response> {
-  const { mcpAuth } = await import('../mcp/auth');
-  return mcpAuth.handler(request);
+async function handleAuth(request: Request): Promise<Response> {
+  return auth.handler(request);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -27,7 +27,7 @@ async function handleRevoke(c: Context): Promise<Response> {
   const body = new URLSearchParams(await c.req.raw.clone().text());
   const rawToken = body.get('token');
   const token = rawToken?.match(/^Bearer\s+(.+)$/i)?.[1] ?? rawToken;
-  const response = await handleMcpAuth(c.req.raw);
+  const response = await handleAuth(c.req.raw);
   if (!token || response.status !== 400) return response;
 
   const responseBody: unknown = await response.clone().json();
@@ -52,7 +52,7 @@ async function handleRevoke(c: Context): Promise<Response> {
   return new Response(null, { status: 200 });
 }
 
-const mcpOAuthScopePolicy = createMcpOAuthScopePolicy(handleMcpAuth);
+const mcpOAuthScopePolicy = createMcpOAuthScopePolicy(handleAuth);
 
 const mcpOAuthBodyLimit = bodyLimit({
   maxSize: MCP_OAUTH_MAX_REQUEST_BODY_BYTES,
@@ -66,11 +66,8 @@ router.on(['GET', 'POST'], '/auth/oauth2/authorize', (c) =>
 );
 router.post('/auth/oauth2/consent', (c) => mcpOAuthScopePolicy.consent(c.req.raw));
 router.post('/auth/oauth2/revoke', handleRevoke);
-router.on(['GET', 'POST'], '/auth/jwks', (c) => handleMcpAuth(c.req.raw));
-router.on(['GET', 'POST'], '/auth/oauth2/*', (c) => handleMcpAuth(c.req.raw));
-// Use the MCP-aware instance for both OAuth and the login/session endpoints it
-// depends on. This keeps social-login continuation and OAuth discovery on one
-// Better Auth configuration instead of splitting the flow across instances.
-router.on(['GET', 'POST'], '/auth/*', (c) => handleMcpAuth(c.req.raw));
+router.on(['GET', 'POST'], '/auth/jwks', (c) => handleAuth(c.req.raw));
+router.on(['GET', 'POST'], '/auth/oauth2/*', (c) => handleAuth(c.req.raw));
+router.on(['GET', 'POST'], '/auth/*', (c) => handleAuth(c.req.raw));
 
 export { router as authRoutes };
