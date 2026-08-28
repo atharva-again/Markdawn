@@ -28,13 +28,13 @@ export class V1TrashClient {
       type === 'folder'
         ? Promise.resolve(undefined)
         : this.io
-            .send(actor.token, '/trash/pages', {}, options?.signal)
+            .send(actor, '/trash/pages', {}, options?.signal)
             .then((response) => this.io.readJson(response));
     const folderBodyPromise: Promise<unknown | undefined> =
       type === 'page'
         ? Promise.resolve(undefined)
         : this.io
-            .send(actor.token, '/trash/folders', {}, options?.signal)
+            .send(actor, '/trash/folders', {}, options?.signal)
             .then((response) => this.io.readJson(response));
     const [pageBody, folderBody] = await Promise.all([pageBodyPromise, folderBodyPromise]);
     const pageRows =
@@ -68,7 +68,7 @@ export class V1TrashClient {
 
   async emptyTrash(actor: McpActor, options?: McpRequestOptions): Promise<McpEmptied> {
     await this.io.discardResponse(
-      await this.io.send(actor.token, '/trash/empty', { method: 'DELETE' }, options?.signal),
+      await this.io.send(actor, '/trash/empty', { method: 'DELETE' }, options?.signal),
     );
     return parseApiResponse(mcpEmptiedSchema, { emptied: true });
   }

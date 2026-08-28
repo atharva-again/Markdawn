@@ -1,3 +1,7 @@
+import {
+  hashMcpAccessToken,
+  verifyMcpInternalCredential,
+} from '@markdawn/shared/node/mcp-internal-auth';
 import { describe, expect, it, vi } from 'vitest';
 import type { McpActor } from './types';
 import { V1Client } from './v1Client';
@@ -9,10 +13,19 @@ function jsonResponse(value: unknown): Response {
   });
 }
 
+const apiInternalSecret = 'test-mcp-api-internal-secret-0123456789';
 const actor: McpActor = {
-  token: 'oauth-token',
-  userId: '00000000-0000-4000-8000-000000000001',
-  scopes: ['pages:read', 'pages:write'],
+  authContext: {
+    userId: '00000000-0000-4000-8000-000000000001',
+    connectionId: 'session:session-1:client:client-1:user:user-1',
+    clientId: 'client-1',
+    sessionId: 'session-1',
+    accessTokenHash: hashMcpAccessToken('oauth-token'),
+    accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 3_600,
+    offlineAccess: false,
+    scopes: ['pages:read', 'pages:write'],
+  },
+  apiInternalSecret,
 };
 
 describe('V1Client idempotency', () => {
@@ -26,8 +39,35 @@ describe('V1Client idempotency', () => {
     await client.listPages({});
 
     const headers = new Headers(fetcher.mock.calls[0]?.[1]?.headers);
-    expect(headers.get('X-Markdawn-MCP-Authorization')).toBe(actor.token);
+    const credential = headers.get('X-Markdawn-MCP-Authorization');
+    expect(credential).not.toBeNull();
+    expect(verifyMcpInternalCredential(credential ?? '', apiInternalSecret)).toMatchObject(
+      actor.authContext,
+    );
     expect(headers.get('Authorization')).toBeNull();
+  });
+
+  it('generates a fresh private credential for every API request', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => jsonResponse({ data: [], nextCursor: null }));
+    const client = new V1Client({ baseUrl: 'http://api.example.test/api/v1', fetcher, actor });
+    const initialTime = Date.now();
+    const now = vi.spyOn(Date, 'now').mockReturnValue(initialTime);
+
+    try {
+      await client.listPages({});
+      now.mockReturnValue(initialTime + 1_000);
+      await client.listPages({});
+    } finally {
+      now.mockRestore();
+    }
+
+    const firstHeaders = new Headers(fetcher.mock.calls[0]?.[1]?.headers);
+    const secondHeaders = new Headers(fetcher.mock.calls[1]?.[1]?.headers);
+    expect(firstHeaders.get('X-Markdawn-MCP-Authorization')).not.toBe(
+      secondHeaders.get('X-Markdawn-MCP-Authorization'),
+    );
   });
 
   it('forwards cancellation signals to API requests', async () => {
@@ -129,7 +169,7 @@ describe('V1Client idempotency', () => {
               title: 'Page',
               icon: null,
               cover: null,
-              ownerId: actor.userId,
+              ownerId: actor.authContext.userId,
               permission: 'edit',
               properties: null,
               createdAt: '2026-01-01T00:00:00.000Z',
@@ -186,6 +226,21 @@ describe('V1Client idempotency', () => {
     });
   });
 
+  it.each([
+    null,
+    [],
+  ])('keeps valid JSON with an invalid 5xx error shape outcome-uncertain', async (body) => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(body), { status: 503 }));
+    const client = new V1Client({ baseUrl: 'http://api.example.test/api/v1', fetcher, actor });
+
+    await expect(client.createPage({ title: 'Possibly created' })).rejects.toMatchObject({
+      status: 503,
+      code: 'outcome_uncertain',
+    });
+  });
+
   it('preserves uncertainty when a mutation returns malformed JSON', async () => {
     const fetcher = vi
       .fn<typeof fetch>()
@@ -195,6 +250,40 @@ describe('V1Client idempotency', () => {
     await expect(client.createPage({ title: 'Possibly created' })).rejects.toMatchObject({
       status: 503,
       code: 'outcome_uncertain',
+    });
+  });
+
+  it('keeps invalid idempotent mutation responses safe to retry', async () => {
+    const pageId = '00000000-0000-4000-8000-000000000002';
+    const fetcher = vi.fn<typeof fetch>(async (input) => {
+      const path = new URL(input.toString()).pathname;
+      if (path === `/api/v1/pages/${pageId}`) {
+        return jsonResponse({
+          id: pageId,
+          parentId: null,
+          title: 'Page',
+          icon: null,
+          cover: null,
+          ownerId: actor.authContext.userId,
+          permission: 'edit',
+          properties: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          deletedAt: null,
+        });
+      }
+      return new Response('not-json', { status: 200 });
+    });
+    const client = new V1Client({ baseUrl: 'http://api.example.test/api/v1', fetcher, actor });
+
+    await expect(
+      client.appendToPage(pageId, {
+        content: 'Possibly appended',
+        idempotencyKey: 'stable-retry-key',
+      }),
+    ).rejects.toMatchObject({
+      status: 503,
+      code: 'invalid_upstream_response',
     });
   });
 
@@ -210,7 +299,7 @@ describe('V1Client idempotency', () => {
           title: 'Page',
           icon: null,
           cover: null,
-          ownerId: actor.userId,
+          ownerId: actor.authContext.userId,
           permission: 'edit',
           properties: null,
           createdAt: '2026-01-01T00:00:00.000Z',

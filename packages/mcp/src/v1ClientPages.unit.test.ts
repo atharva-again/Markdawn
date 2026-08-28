@@ -1,12 +1,21 @@
+import { hashMcpAccessToken } from '@markdawn/shared/node/mcp-internal-auth';
 import { describe, expect, it, vi } from 'vitest';
 import type { McpActor, McpPage } from './types';
 import { V1PageClient } from './v1ClientPages';
 import type { V1ClientIO } from './v1ClientTransport';
 
 const actor: McpActor = {
-  token: 'internal-token',
-  userId: '00000000-0000-4000-8000-000000000001',
-  scopes: ['pages:read', 'pages:write'],
+  authContext: {
+    userId: '00000000-0000-4000-8000-000000000001',
+    connectionId: 'session:session-1:client:client-1:user:user-1',
+    clientId: 'client-1',
+    sessionId: 'session-1',
+    accessTokenHash: hashMcpAccessToken('oauth-token'),
+    accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 3_600,
+    offlineAccess: false,
+    scopes: ['pages:read', 'pages:write'],
+  },
+  apiInternalSecret: 'test-mcp-api-internal-secret-0123456789',
 };
 
 function page(updatedAt: string): McpPage {
@@ -17,7 +26,7 @@ function page(updatedAt: string): McpPage {
     icon: null,
     cover: null,
     properties: null,
-    ownerId: actor.userId,
+    ownerId: actor.authContext.userId,
     permission: 'edit',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt,
@@ -31,7 +40,7 @@ describe('V1PageClient', () => {
     const io = {
       send: vi
         .fn()
-        .mockImplementation(async (_token: string, path: string, init?: { method?: string }) => {
+        .mockImplementation(async (_actor: McpActor, path: string, init?: { method?: string }) => {
           if (init?.method === 'PUT' || path.endsWith('/content')) {
             return new Response(null, { headers: { etag: 'etag-2' } });
           }
@@ -51,11 +60,6 @@ describe('V1PageClient', () => {
       etag: 'etag-2',
     });
     expect(io.send).toHaveBeenCalledTimes(4);
-    expect(io.send).toHaveBeenLastCalledWith(
-      actor.token,
-      `/pages/${initialPage.id}`,
-      {},
-      undefined,
-    );
+    expect(io.send).toHaveBeenLastCalledWith(actor, `/pages/${initialPage.id}`, {}, undefined);
   });
 });

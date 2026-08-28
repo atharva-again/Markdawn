@@ -111,7 +111,7 @@ async function authenticateMcpInternalRequest(request: Request): Promise<V1Princ
         limit 1`,
   );
   if (revoked.rows[0]) return null;
-  if (!context.offlineAccess && context.sessionId !== null) {
+  if (!context.offlineAccess) {
     const session = await query<{ id: string }>(
       sql`select id
           from sessions
@@ -122,7 +122,6 @@ async function authenticateMcpInternalRequest(request: Request): Promise<V1Princ
     if (!session.rows[0]) return null;
   }
   if (context.offlineAccess) {
-    if (context.clientId === null) return null;
     const refreshToken = await query<{ id: string }>(
       sql`select id
           from oauth_refresh_tokens

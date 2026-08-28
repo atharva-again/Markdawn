@@ -1,6 +1,5 @@
 import { createMcpProtectedRequestHandler } from '@better-auth/mcp';
 import {
-  createMcpInternalCredential,
   hashMcpAccessToken,
   type McpInternalAuthContext,
   mcpConnectionIdFromClaims,
@@ -87,19 +86,21 @@ function contextFromClaims(token: string, claims: VerifiedMcpClaims): McpInterna
   const sessionId = typeof claims.sid === 'string' ? claims.sid : null;
   const offlineAccess =
     typeof scopeClaim === 'string' && scopeClaim.split(' ').includes('offline_access');
-  if (offlineAccess && clientId === null) {
-    throw new Error('MCP offline token has no client identity');
-  }
-  return {
+  const common = {
     userId,
     connectionId: mcpConnectionIdFromClaims(userId, claims),
-    clientId,
-    sessionId,
     accessTokenHash: hashMcpAccessToken(token),
     accessTokenExpiresAt: claims.exp,
-    offlineAccess,
     scopes: [...new Set(scopes)],
   };
+  if (offlineAccess) {
+    if (clientId === null) throw new Error('MCP offline token has no client identity');
+    return { ...common, offlineAccess: true, clientId, sessionId };
+  }
+  if (sessionId === null || sessionId.length === 0) {
+    throw new Error('MCP online token has no session identity');
+  }
+  return { ...common, offlineAccess: false, clientId, sessionId };
 }
 
 export function actorFromAuthInfo(authInfo: {
@@ -108,9 +109,8 @@ export function actorFromAuthInfo(authInfo: {
 }): McpActor {
   const context = parseMcpInternalAuthContext(authInfo.extra?.context);
   return {
-    token: createMcpInternalCredential(context, authInfo.apiInternalSecret),
-    userId: context.userId,
-    scopes: context.scopes,
+    authContext: context,
+    apiInternalSecret: authInfo.apiInternalSecret,
   };
 }
 

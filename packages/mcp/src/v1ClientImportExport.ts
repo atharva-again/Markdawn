@@ -44,7 +44,7 @@ export class V1ImportExportClient {
   ): Promise<BinaryExport> {
     const resolved = await this.resolvePage(actor, reference, options?.signal);
     const response = await this.io.send(
-      actor.token,
+      actor,
       `/pages/${resolved.id}/export/markdown`,
       {},
       options?.signal,
@@ -65,7 +65,7 @@ export class V1ImportExportClient {
   }
 
   async exportAll(actor: McpActor, options?: McpRequestOptions): Promise<BinaryExport> {
-    const response = await this.io.send(actor.token, '/exports/workspace', {}, options?.signal);
+    const response = await this.io.send(actor, '/exports/workspace', {}, options?.signal);
     return {
       body: await this.io.readBytes(response, options?.signal),
       contentType: 'application/zip',
@@ -83,7 +83,7 @@ export class V1ImportExportClient {
     form.append('file', new Blob([input.content], { type: 'text/markdown' }), input.filename);
     return this.io.readMutationJson(
       await this.io.send(
-        actor.token,
+        actor,
         '/imports/markdown',
         { method: 'POST', body: form },
         options?.signal,
@@ -101,7 +101,7 @@ export class V1ImportExportClient {
     const preview = importFolderPreview(files);
     const result = await this.io.readMutationJson(
       await this.io.send(
-        actor.token,
+        actor,
         '/imports/obsidian',
         {
           method: 'POST',

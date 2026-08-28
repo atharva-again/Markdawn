@@ -7,16 +7,27 @@ const MCP_INTERNAL_AUTH_VERSION = 1;
 const MCP_INTERNAL_AUTH_TTL_SECONDS = 300;
 export const MCP_API_DEVELOPMENT_SECRET = 'development-only-mcp-api-secret-0123456789abcdef';
 
-export type McpInternalAuthContext = {
+type McpInternalAuthBaseContext = {
   userId: string;
   connectionId: string;
-  clientId: string | null;
-  sessionId: string | null;
   accessTokenHash: string;
   accessTokenExpiresAt: number;
-  offlineAccess: boolean;
   scopes: readonly ApiTokenScope[];
 };
+
+export type McpInternalAuthContext = McpInternalAuthBaseContext &
+  (
+    | {
+        offlineAccess: false;
+        clientId: string | null;
+        sessionId: string;
+      }
+    | {
+        offlineAccess: true;
+        clientId: string;
+        sessionId: string | null;
+      }
+  );
 
 type SignedMcpInternalAuthContext = McpInternalAuthContext & {
   version: number;
@@ -44,8 +55,6 @@ export function parseMcpInternalAuthContext(value: unknown): McpInternalAuthCont
     value.userId.length === 0 ||
     typeof value.connectionId !== 'string' ||
     value.connectionId.length === 0 ||
-    (value.clientId !== null && typeof value.clientId !== 'string') ||
-    (value.sessionId !== null && typeof value.sessionId !== 'string') ||
     typeof value.accessTokenHash !== 'string' ||
     !/^[a-f0-9]{64}$/.test(value.accessTokenHash) ||
     typeof value.accessTokenExpiresAt !== 'number' ||
@@ -56,15 +65,41 @@ export function parseMcpInternalAuthContext(value: unknown): McpInternalAuthCont
   ) {
     throw new Error('MCP authentication context is invalid');
   }
-  return {
+  const common = {
     userId: value.userId,
     connectionId: value.connectionId,
-    clientId: typeof value.clientId === 'string' ? value.clientId : null,
-    sessionId: typeof value.sessionId === 'string' ? value.sessionId : null,
     accessTokenHash: value.accessTokenHash,
     accessTokenExpiresAt: value.accessTokenExpiresAt,
-    offlineAccess: value.offlineAccess,
     scopes,
+  };
+  if (value.offlineAccess) {
+    if (
+      typeof value.clientId !== 'string' ||
+      value.clientId.length === 0 ||
+      (value.sessionId !== null &&
+        (typeof value.sessionId !== 'string' || value.sessionId.length === 0))
+    ) {
+      throw new Error('MCP authentication context is invalid');
+    }
+    return {
+      ...common,
+      offlineAccess: true,
+      clientId: value.clientId,
+      sessionId: value.sessionId,
+    };
+  }
+  if (
+    typeof value.sessionId !== 'string' ||
+    value.sessionId.length === 0 ||
+    (value.clientId !== null && (typeof value.clientId !== 'string' || value.clientId.length === 0))
+  ) {
+    throw new Error('MCP authentication context is invalid');
+  }
+  return {
+    ...common,
+    offlineAccess: false,
+    clientId: value.clientId,
+    sessionId: value.sessionId,
   };
 }
 
@@ -89,14 +124,8 @@ export function createMcpInternalCredential(
   nowSeconds = Math.floor(Date.now() / 1000),
 ): string {
   const payload: SignedMcpInternalAuthContext = {
+    ...context,
     version: MCP_INTERNAL_AUTH_VERSION,
-    userId: context.userId,
-    connectionId: context.connectionId,
-    clientId: context.clientId,
-    sessionId: context.sessionId,
-    accessTokenHash: context.accessTokenHash,
-    accessTokenExpiresAt: context.accessTokenExpiresAt,
-    offlineAccess: context.offlineAccess,
     scopes: [...new Set(context.scopes)],
     issuedAt: nowSeconds,
     expiresAt: nowSeconds + MCP_INTERNAL_AUTH_TTL_SECONDS,

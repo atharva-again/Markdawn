@@ -53,10 +53,10 @@ export class V1Client extends V1ClientTransport implements McpRequestBackend {
   constructor(options: V1ClientOptions) {
     super(options);
     this.actor = options.actor;
-    this.canWrite = options.actor.scopes.includes(MCP_WRITE_SCOPE);
+    this.canWrite = options.actor.authContext.scopes.includes(MCP_WRITE_SCOPE);
     this.io = {
-      send: (token, path, requestOptions, signal) => this.send(token, path, requestOptions, signal),
-      readJson: (response, mutationResponse) => this.readJson(response, mutationResponse),
+      send: (actor, path, requestOptions, signal) => this.send(actor, path, requestOptions, signal),
+      readJson: (response) => this.readJson(response),
       readMutationJson: (response, parse) => this.readMutationJson(response, parse),
       readBytes: (response, signal) => this.readBytes(response, signal),
       readBinaryOrMarkdown: (response, contentType, signal) =>
@@ -80,7 +80,7 @@ export class V1Client extends V1ClientTransport implements McpRequestBackend {
   async whoami(options?: McpRequestOptions): Promise<McpWhoami> {
     const body = parseApiResponse(
       mcpIdentitySchema,
-      await this.readJson(await this.send(this.actor.token, '/me', {}, options?.signal)),
+      await this.readJson(await this.send(this.actor, '/me', {}, options?.signal)),
     );
     return parseApiResponse(mcpWhoamiSchema, {
       id: body.id,
@@ -88,7 +88,7 @@ export class V1Client extends V1ClientTransport implements McpRequestBackend {
       email: body.email,
       image: body.image,
       authentication: 'oauth',
-      scopes: [...this.actor.scopes],
+      scopes: [...this.actor.authContext.scopes],
     });
   }
 

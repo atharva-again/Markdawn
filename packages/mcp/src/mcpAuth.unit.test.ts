@@ -1,5 +1,4 @@
 import type { McpInternalAuthContext } from '@markdawn/shared/node/mcp-internal-auth';
-import { verifyMcpInternalCredential } from '@markdawn/shared/node/mcp-internal-auth';
 import { describe, expect, it } from 'vitest';
 import { actorFromAuthInfo } from './mcpAuth';
 
@@ -23,10 +22,9 @@ describe('MCP authentication context', () => {
     });
 
     expect(actor).toMatchObject({
-      userId: context.userId,
-      scopes: context.scopes,
+      authContext: context,
+      apiInternalSecret,
     });
-    expect(verifyMcpInternalCredential(actor.token, apiInternalSecret)).toMatchObject(context);
   });
 
   it('fails when the protected handler does not provide context', () => {

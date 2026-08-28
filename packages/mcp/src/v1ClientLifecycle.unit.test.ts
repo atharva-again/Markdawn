@@ -1,12 +1,21 @@
+import { hashMcpAccessToken } from '@markdawn/shared/node/mcp-internal-auth';
 import { describe, expect, it } from 'vitest';
 import type { McpActor, McpFolder, McpPage } from './types';
 import { V1LifecycleClient } from './v1ClientLifecycle';
 import type { V1ClientIO } from './v1ClientTransport';
 
 const actor: McpActor = {
-  token: 'internal-token',
-  userId: '00000000-0000-4000-8000-000000000001',
-  scopes: ['pages:read', 'pages:write'],
+  authContext: {
+    userId: '00000000-0000-4000-8000-000000000001',
+    connectionId: 'session:session-1:client:client-1:user:user-1',
+    clientId: 'client-1',
+    sessionId: 'session-1',
+    accessTokenHash: hashMcpAccessToken('oauth-token'),
+    accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 3_600,
+    offlineAccess: false,
+    scopes: ['pages:read', 'pages:write'],
+  },
+  apiInternalSecret: 'test-mcp-api-internal-secret-0123456789',
 };
 
 const page: McpPage = {
@@ -16,7 +25,7 @@ const page: McpPage = {
   icon: null,
   cover: null,
   properties: null,
-  ownerId: actor.userId,
+  ownerId: actor.authContext.userId,
   permission: 'edit',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
@@ -27,7 +36,7 @@ const folder: McpFolder = {
   parentId: null,
   name: 'Folder',
   icon: null,
-  ownerId: actor.userId,
+  ownerId: actor.authContext.userId,
   permission: 'edit',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',

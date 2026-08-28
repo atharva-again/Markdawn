@@ -42,7 +42,7 @@ export class V1PageClient {
     return parseApiResponse(
       mcpPageListSchema,
       await this.io.readJson(
-        await this.io.send(actor.token, `/pages?${query.toString()}`, {}, options?.signal),
+        await this.io.send(actor, `/pages?${query.toString()}`, {}, options?.signal),
       ),
     );
   }
@@ -73,7 +73,7 @@ export class V1PageClient {
     if (input.markdown !== undefined) body.markdown = input.markdown;
     return this.io.readMutationJson(
       await this.io.send(
-        actor.token,
+        actor,
         '/pages',
         {
           method: 'POST',
@@ -99,7 +99,7 @@ export class V1PageClient {
     else if (input.icon !== undefined) body.icon = input.icon;
     return this.io.readMutationJson(
       await this.io.send(
-        actor.token,
+        actor,
         `/pages/${page.id}`,
         {
           method: 'PATCH',
@@ -122,7 +122,7 @@ export class V1PageClient {
     const current = await this.readContent(actor, page.id, options?.signal);
     const currentEtag = requireEtag(current.etag);
     const response = await this.io.send(
-      actor.token,
+      actor,
       `/pages/${page.id}/content`,
       {
         method: 'PUT',
@@ -141,9 +141,7 @@ export class V1PageClient {
     let updatedPage: McpPage;
     try {
       updatedPage = pageOutput(
-        await this.io.readJson(
-          await this.io.send(actor.token, `/pages/${page.id}`, {}, options?.signal),
-        ),
+        await this.io.readJson(await this.io.send(actor, `/pages/${page.id}`, {}, options?.signal)),
       );
     } catch (error) {
       // The content write already committed; do not return stale metadata or
@@ -187,7 +185,7 @@ export class V1PageClient {
     };
     return this.io.readMutationJson(
       await this.io.send(
-        actor.token,
+        actor,
         `/pages/${page.id}/edits`,
         {
           method: 'POST',
@@ -228,7 +226,7 @@ export class V1PageClient {
   ): Promise<PageReference> {
     if (isUuid(reference)) {
       const page = pageOutput(
-        await this.io.readJson(await this.io.send(actor.token, `/pages/${reference}`, {}, signal)),
+        await this.io.readJson(await this.io.send(actor, `/pages/${reference}`, {}, signal)),
       );
       return { id: page.id, page };
     }
@@ -236,7 +234,7 @@ export class V1PageClient {
     const body = parseApiResponse(
       mcpPageResolutionSchema,
       await this.io.readJson(
-        await this.io.send(actor.token, `/pages/resolve?${query.toString()}`, {}, signal),
+        await this.io.send(actor, `/pages/resolve?${query.toString()}`, {}, signal),
       ),
     );
     const rows = body.data;
@@ -264,7 +262,7 @@ export class V1PageClient {
   }
 
   async readContent(actor: McpActor, id: string, signal?: AbortSignal): Promise<TextResponse> {
-    const response = await this.io.send(actor.token, `/pages/${id}/content`, {}, signal);
+    const response = await this.io.send(actor, `/pages/${id}/content`, {}, signal);
     return {
       body: await response.text(),
       etag: response.headers.get('etag'),
@@ -281,7 +279,7 @@ export class V1PageClient {
     const page = await this.resolvePage(actor, reference, signal);
     return this.io.readMutationJson(
       await this.io.send(
-        actor.token,
+        actor,
         `/pages/${page.id}/content-operations`,
         {
           method: 'POST',

@@ -31,7 +31,7 @@ export class V1FolderClient {
     return parseApiResponse(
       mcpFolderListSchema,
       await this.io.readJson(
-        await this.io.send(actor.token, `/folders?${query.toString()}`, {}, options?.signal),
+        await this.io.send(actor, `/folders?${query.toString()}`, {}, options?.signal),
       ),
     );
   }
@@ -46,7 +46,7 @@ export class V1FolderClient {
     if (input.parentId !== undefined) body.parentId = input.parentId;
     return this.io.readMutationJson(
       await this.io.send(
-        actor.token,
+        actor,
         '/folders',
         {
           method: 'POST',
@@ -68,7 +68,7 @@ export class V1FolderClient {
     const folder = await this.resolveFolder(actor, reference, options?.signal);
     return this.io.readMutationJson(
       await this.io.send(
-        actor.token,
+        actor,
         `/folders/${folder.id}`,
         {
           method: 'PATCH',
@@ -88,9 +88,7 @@ export class V1FolderClient {
   ): Promise<FolderReference> {
     if (isUuid(reference)) {
       const folder = folderOutput(
-        await this.io.readJson(
-          await this.io.send(actor.token, `/folders/${reference}`, {}, signal),
-        ),
+        await this.io.readJson(await this.io.send(actor, `/folders/${reference}`, {}, signal)),
       );
       return { id: folder.id, folder };
     }
@@ -98,7 +96,7 @@ export class V1FolderClient {
     const body = parseApiResponse(
       mcpFolderResolutionSchema,
       await this.io.readJson(
-        await this.io.send(actor.token, `/folders/resolve?${query.toString()}`, {}, signal),
+        await this.io.send(actor, `/folders/resolve?${query.toString()}`, {}, signal),
       ),
     );
     const rows = body.data;

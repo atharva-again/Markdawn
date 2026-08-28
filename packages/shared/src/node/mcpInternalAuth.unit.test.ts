@@ -3,6 +3,7 @@ import {
   createMcpInternalCredential,
   hashMcpAccessToken,
   MCP_API_DEVELOPMENT_SECRET,
+  type McpInternalAuthContext,
   requireMcpApiInternalSecret,
   verifyMcpInternalCredential,
 } from './mcpInternalAuth';
@@ -41,7 +42,7 @@ describe('MCP internal authentication', () => {
         userId: 'user-1',
         connectionId: 'connection-1',
         clientId: null,
-        sessionId: null,
+        sessionId: 'session-1',
         accessTokenHash: hashMcpAccessToken('oauth-token'),
         accessTokenExpiresAt: 1_060,
         offlineAccess: false,
@@ -56,6 +57,25 @@ describe('MCP internal authentication', () => {
     expect(verifyMcpInternalCredential(tampered, 'a'.repeat(32), 1_001)).toBeNull();
     expect(verifyMcpInternalCredential(credential, 'b'.repeat(32), 1_001)).toBeNull();
     expect(verifyMcpInternalCredential(credential, 'a'.repeat(32), 1_061)).toBeNull();
+  });
+
+  it('rejects online context without session identity', () => {
+    const credential = createMcpInternalCredential(
+      {
+        userId: 'user-1',
+        connectionId: 'connection-1',
+        clientId: null,
+        sessionId: null,
+        accessTokenHash: hashMcpAccessToken('oauth-token'),
+        accessTokenExpiresAt: 1_060,
+        offlineAccess: false,
+        scopes: ['pages:read'],
+      } as unknown as McpInternalAuthContext,
+      'a'.repeat(32),
+      1_000,
+    );
+
+    expect(verifyMcpInternalCredential(credential, 'a'.repeat(32), 1_001)).toBeNull();
   });
 
   it('rejects the development secret only for production validation', () => {

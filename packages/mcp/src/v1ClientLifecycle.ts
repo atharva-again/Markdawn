@@ -93,7 +93,7 @@ export class V1LifecycleClient {
       async (id) => {
         await this.io.discardResponse(
           await this.io.send(
-            actor.token,
+            actor,
             `/pages/${id}/move`,
             {
               method: 'PATCH',
@@ -122,7 +122,7 @@ export class V1LifecycleClient {
       async (id) => {
         const result = await this.io.readMutationJson(
           await this.io.send(
-            actor.token,
+            actor,
             `/pages/${id}/copy`,
             {
               method: 'POST',
@@ -153,12 +153,7 @@ export class V1LifecycleClient {
       (reference) => this.resolvePage(actor, reference, options?.signal),
       async (id) => {
         await this.io.discardResponse(
-          await this.io.send(
-            actor.token,
-            `/pages/${id}/trash`,
-            { method: 'DELETE' },
-            options?.signal,
-          ),
+          await this.io.send(actor, `/pages/${id}/trash`, { method: 'DELETE' }, options?.signal),
         );
         return { id };
       },
@@ -179,7 +174,7 @@ export class V1LifecycleClient {
       async (id) => {
         await this.io.discardResponse(
           await this.io.send(
-            actor.token,
+            actor,
             `/folders/${id}`,
             {
               method: 'PATCH',
@@ -208,7 +203,7 @@ export class V1LifecycleClient {
       async (id) => {
         const result = await this.io.readMutationJson(
           await this.io.send(
-            actor.token,
+            actor,
             `/folders/${id}/copy`,
             {
               method: 'POST',
@@ -248,7 +243,7 @@ export class V1LifecycleClient {
       async (id) => {
         await this.io.discardResponse(
           await this.io.send(
-            actor.token,
+            actor,
             `/folders/${id}/trash?force=${String(force)}`,
             { method: 'DELETE' },
             options?.signal,
@@ -333,7 +328,7 @@ export class V1LifecycleClient {
         const path = type === 'page' ? `/pages/${id}/${operation}` : `/folders/${id}/${operation}`;
         await this.io.discardResponse(
           await this.io.send(
-            actor.token,
+            actor,
             path,
             { method: operation === 'restore' ? 'PATCH' : 'DELETE' },
             signal,

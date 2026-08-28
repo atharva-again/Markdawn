@@ -1,6 +1,7 @@
 import {
   createMcpInternalCredential,
   hashMcpAccessToken,
+  type McpInternalAuthContext,
 } from '@markdawn/shared/node/mcp-internal-auth';
 import { Hono } from 'hono';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -27,7 +28,7 @@ function mcpCredential(scopes: ('pages:read' | 'pages:write')[]): string {
       userId: 'user-1',
       connectionId: 'connection-1',
       clientId: null,
-      sessionId: null,
+      sessionId: 'session-1',
       accessTokenHash: hashMcpAccessToken('oauth-token'),
       accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 60,
       offlineAccess: false,
@@ -54,14 +55,16 @@ describe('v1 authentication boundaries', () => {
   });
 
   it('accepts only a signed private MCP context', async () => {
-    queryMock.mockResolvedValue({ rows: [] });
+    queryMock
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 'session-1' }] });
     const accessToken = 'oauth-token';
     const credential = createMcpInternalCredential(
       {
         userId: 'user-1',
         connectionId: 'connection-1',
         clientId: null,
-        sessionId: null,
+        sessionId: 'session-1',
         accessTokenHash: hashMcpAccessToken(accessToken),
         accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 60,
         offlineAccess: false,
@@ -76,11 +79,44 @@ describe('v1 authentication boundaries', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ kind: 'mcp' });
-    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(queryMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects an online context without session identity', async () => {
+    const credential = createMcpInternalCredential(
+      {
+        userId: 'user-1',
+        connectionId: 'connection-1',
+        clientId: null,
+        sessionId: null,
+        accessTokenHash: hashMcpAccessToken('oauth-token'),
+        accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 60,
+        offlineAccess: false,
+        scopes: ['pages:read'],
+      } as unknown as McpInternalAuthContext,
+      'a'.repeat(32),
+    );
+
+    const response = await createTestApp().request('/test', {
+      headers: { 'X-Markdawn-MCP-Authorization': credential },
+    });
+
+    expect(response.status).toBe(401);
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an online context after its session is gone', async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+
+    const response = await createTestApp().request('/test', {
+      headers: { 'X-Markdawn-MCP-Authorization': mcpCredential(['pages:read']) },
+    });
+
+    expect(response.status).toBe(401);
+    expect(queryMock).toHaveBeenCalledTimes(2);
   });
 
   it('rejects offline contexts without refresh-grant identity', async () => {
-    queryMock.mockResolvedValue({ rows: [] });
     const credential = createMcpInternalCredential(
       {
         userId: 'user-1',
@@ -91,7 +127,7 @@ describe('v1 authentication boundaries', () => {
         accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 60,
         offlineAccess: true,
         scopes: ['pages:read'],
-      },
+      } as unknown as McpInternalAuthContext,
       'a'.repeat(32),
     );
 
@@ -100,7 +136,7 @@ describe('v1 authentication boundaries', () => {
     });
 
     expect(response.status).toBe(401);
-    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(queryMock).not.toHaveBeenCalled();
   });
 
   it('accepts an offline context after its browser session is gone', async () => {
@@ -131,7 +167,11 @@ describe('v1 authentication boundaries', () => {
   });
 
   it('enforces MCP operation scopes at the V1 API boundary', async () => {
-    queryMock.mockResolvedValue({ rows: [] });
+    queryMock
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 'session-1' }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 'session-1' }] });
 
     const readOnlyResponse = await createTestApp('pages:write').request('/test', {
       headers: { 'X-Markdawn-MCP-Authorization': mcpCredential(['pages:read']) },

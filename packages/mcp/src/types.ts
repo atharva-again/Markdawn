@@ -13,17 +13,16 @@ import {
   type McpPageList,
   type McpReadPage,
   type McpReplacePage,
-  type McpScope,
   type McpTrashList,
   type McpWhoami,
 } from '@markdawn/shared';
+import type { McpInternalAuthContext } from '@markdawn/shared/node/mcp-internal-auth';
 
 export * from '@markdawn/shared';
 
 export type McpActor = {
-  token: string;
-  userId: string;
-  scopes: readonly McpScope[];
+  authContext: McpInternalAuthContext;
+  apiInternalSecret: string;
 };
 
 export type McpRequestOptions = {

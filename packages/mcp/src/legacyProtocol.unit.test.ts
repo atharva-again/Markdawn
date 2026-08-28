@@ -7,9 +7,17 @@ type TestMcpHandler = {
 
 vi.mock('./mcpAuth', () => ({
   actorFromAuthInfo: () => ({
-    token: 'test-mcp-internal-credential',
-    userId: '00000000-0000-4000-8000-000000000001',
-    scopes: ['pages:read'],
+    authContext: {
+      userId: '00000000-0000-4000-8000-000000000001',
+      connectionId: 'session:session-1:client:client-1:user:user-1',
+      clientId: 'client-1',
+      sessionId: 'session-1',
+      accessTokenHash: 'a'.repeat(64),
+      accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 3_600,
+      offlineAccess: false,
+      scopes: ['pages:read'],
+    },
+    apiInternalSecret: 'test-mcp-api-internal-secret-0123456789',
   }),
   createMcpRequestAuthenticator:
     (_options: unknown, handler: TestMcpHandler) => (request: Request) =>
