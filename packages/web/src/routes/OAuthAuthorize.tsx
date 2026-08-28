@@ -73,7 +73,7 @@ export default function OAuthAuthorize() {
     () => requestedScopes.filter(isPermissionScope),
     [requestedScopes],
   );
-  const oauthQuery = params.get('oauth_query');
+  const requestsOfflineAccess = requestedScopes.includes('offline_access');
   const [client, setClient] = useState<PublicClient | null>(null);
   const [selectedScopes, setSelectedScopes] = useState<string[]>(() =>
     requestedScopes.filter(isSupportedConsentScope),
@@ -141,10 +141,11 @@ export default function OAuthAuthorize() {
       const grantedScopes = requestedScopes.filter(
         (scope) => PROTOCOL_SCOPES.has(scope) || selectedScopes.includes(scope),
       );
+      // The Better Auth client forwards the signed flat page query. Never accept
+      // an independent nested oauth_query that could differ from this UI.
       const result = await authClient.oauth2.consent({
         accept,
         ...(accept ? { scope: grantedScopes.join(' ') } : {}),
-        ...(oauthQuery ? { oauth_query: oauthQuery } : {}),
       });
       if (result.error)
         throw new Error(result.error.message ?? 'Unable to complete authorization.');
@@ -236,6 +237,16 @@ export default function OAuthAuthorize() {
                   </span>
                 </label>
               ))}
+              {requestsOfflineAccess ? (
+                <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    Stay connected when you are away
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                    This application can remain connected after your browser session ends.
+                  </p>
+                </div>
+              ) : null}
             </div>
             {submitError && (
               <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>

@@ -34,6 +34,7 @@ function SwitchAuthorizationRequest() {
 describe('OAuthAuthorize', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.consent.mockReset();
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -77,6 +78,65 @@ describe('OAuthAuthorize', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('checkbox', { name: 'Modify pages and folders' })).toBeChecked(),
+    );
+  });
+
+  it('ignores a nested request that differs from the displayed client and scopes', async () => {
+    const user = userEvent.setup();
+    mocks.consent.mockResolvedValue({ error: { message: 'Stop before redirect' } });
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/oauth/authorize?client_id=client-1&scope=pages%3Aread&oauth_query=client_id%3Dother-client%26scope%3Dpages%253Aread%2Bpages%253Awrite',
+        ]}
+      >
+        <Routes>
+          <Route path="/oauth/authorize" element={<OAuthAuthorize />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Test application' })).toBeInTheDocument();
+    expect(screen.queryByText('Modify pages and folders')).not.toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledWith('/api/auth/oauth2/public-client?client_id=client-1');
+
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
+
+    await waitFor(() =>
+      expect(mocks.consent).toHaveBeenCalledWith({
+        accept: true,
+        scope: 'pages:read',
+      }),
+    );
+  });
+
+  it('discloses and preserves offline access', async () => {
+    const user = userEvent.setup();
+    mocks.consent.mockResolvedValue({ error: { message: 'Stop before redirect' } });
+
+    render(
+      <MemoryRouter
+        initialEntries={['/oauth/authorize?client_id=client-1&scope=pages%3Aread+offline_access']}
+      >
+        <Routes>
+          <Route path="/oauth/authorize" element={<OAuthAuthorize />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Stay connected when you are away')).toBeInTheDocument();
+    expect(
+      screen.getByText('This application can remain connected after your browser session ends.'),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
+
+    await waitFor(() =>
+      expect(mocks.consent).toHaveBeenCalledWith({
+        accept: true,
+        scope: 'pages:read offline_access',
+      }),
     );
   });
 });
