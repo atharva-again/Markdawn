@@ -1,13 +1,12 @@
-import { API_IDEMPOTENCY_REPLAY_SECONDS } from '@markdawn/shared';
 import { sql } from 'drizzle-orm';
 import { HTTPException } from 'hono/http-exception';
-import { executeQuery, type QueryExecutor, query } from '../../db/query';
+import { query } from '../../db/query';
 import { type V1Principal, v1IdempotencyPrincipal } from '../../middleware/v1Auth';
 
 const RESERVATION_SECONDS = 5 * 60;
 const IDEMPOTENCY_RETRY_AFTER_SECONDS = 1;
 
-export type StoredResponse = Record<string, unknown>;
+type StoredResponse = { etag: string };
 
 export type IdempotencyReservation = {
   recordId: string;
@@ -32,16 +31,10 @@ export function parseIdempotencyKey(value: string | undefined): string | null {
 }
 
 export function isUnknownIdempotencyOutcome(error: unknown): boolean {
-  return !isKnownIdempotencyFailure(error);
-}
-
-export function isKnownIdempotencyFailure(error: unknown): boolean {
-  if (!(error instanceof HTTPException)) return false;
-  if (error.status >= 400 && error.status < 500) return true;
+  if (!(error instanceof HTTPException) || error.status !== 503) return false;
   const cause = error.cause;
-  return (
-    error.status === 503 &&
-    cause !== null &&
+  return !(
+    cause &&
     typeof cause === 'object' &&
     'code' in cause &&
     cause.code === 'collaboration_busy'
@@ -128,68 +121,26 @@ export async function releaseIdempotency(
   );
 }
 
-export async function completeIdempotency<T extends StoredResponse>(
-  executor: QueryExecutor,
-  principal: V1Principal,
-  reservation: IdempotencyReservation,
-  response: T,
-): Promise<void> {
-  const etag = typeof response.etag === 'string' ? response.etag : null;
-  const completed = await executeQuery(
-    executor,
-    sql`update api_idempotency_records
-        set response = ${JSON.stringify(response)},
-            etag = ${etag},
-            expires_at = now() + (${API_IDEMPOTENCY_REPLAY_SECONDS} * interval '1 second')
-        where id = ${reservation.recordId}
-          and principal_key = ${v1IdempotencyPrincipal(principal)}
-          and idempotency_key = ${reservation.key}
-          and request_hash = ${reservation.requestHash}
-          and response is null`,
-  );
-  if (completed.rowCount !== 1) {
-    throw new Error('Idempotency reservation is no longer available');
-  }
-}
-
-export async function runIdempotentHttpCommand<T extends StoredResponse>(
-  principal: V1Principal,
-  key: string | null,
-  requestHash: string,
-  command: (reservation: IdempotencyReservation | null) => Promise<T>,
-): Promise<{ response: T; replay: boolean }> {
-  if (!key) return { response: await command(null), replay: false };
-  const reservation = await reserveIdempotency<T>(principal, key, requestHash);
-  if (!reservation.reserved) return { response: reservation.replay, replay: true };
-  const pendingReservation: IdempotencyReservation = {
-    recordId: reservation.recordId,
-    key,
-    requestHash,
-  };
-  try {
-    return { response: await command(pendingReservation), replay: false };
-  } catch (error) {
-    if (isKnownIdempotencyFailure(error)) {
-      await releaseIdempotency(principal, pendingReservation.recordId, pendingReservation.key);
-    }
-    throw error;
-  }
-}
-
-export async function runIdempotentCommand<T extends StoredResponse>(
-  principal: V1Principal,
-  key: string | null,
-  requestHash: string,
-  command: (reservation: IdempotencyReservation | null) => Promise<T>,
-): Promise<T> {
-  return (await runIdempotentHttpCommand(principal, key, requestHash, command)).response;
-}
-
 export async function runIdempotentContentCommand<T extends StoredResponse>(
   principal: V1Principal,
   key: string | null,
   requestHash: string,
   command: (reservation: IdempotencyReservation | null) => Promise<T>,
 ): Promise<T> {
-  return runIdempotentCommand(principal, key, requestHash, command);
+  if (!key) return command(null);
+  const reservation = await reserveIdempotency<T>(principal, key, requestHash);
+  if (!reservation.reserved) return reservation.replay;
+  const pendingReservation: IdempotencyReservation = {
+    recordId: reservation.recordId,
+    key,
+    requestHash,
+  };
+  try {
+    return await command(pendingReservation);
+  } catch (error) {
+    if (!isUnknownIdempotencyOutcome(error)) {
+      await releaseIdempotency(principal, pendingReservation.recordId, pendingReservation.key);
+    }
+    throw error;
+  }
 }

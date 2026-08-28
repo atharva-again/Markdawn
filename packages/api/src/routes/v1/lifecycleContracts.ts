@@ -134,14 +134,6 @@ export function toLifecycleVaultImportResponse(value: {
 
 const pageId = uuidPathParameter('pageId');
 const folderId = uuidPathParameter('folderId');
-const idempotencyKeyHeader = {
-  name: 'Idempotency-Key',
-  in: 'header',
-  required: false,
-  description:
-    'Optional key for safely retrying the copy. Reusing the same key with the same request returns the original response.',
-  schema: { type: 'string', minLength: 1, maxLength: 200 },
-} as const;
 const lifecycleTag = ['Lifecycle'] as const;
 const importsExportsTag = ['Imports and Exports'] as const;
 
@@ -153,15 +145,11 @@ export const lifecycleOperations = [
     description:
       'Creates a copy of an accessible page in the requested folder. Set `parentId` to `null` to copy it to the Markdawn root. The copy receives a new ID.',
     tags: lifecycleTag,
-    parameters: [pageId, idempotencyKeyHeader],
+    parameters: [pageId],
     request: { required: true, ...jsonContent(parentRequestSchema) },
     responses: {
       '201': {
         description: 'The ID of the copied page.',
-        content: jsonContent(lifecycleEntityResponseSchema),
-      },
-      '200': {
-        description: 'The original copy response when the request is an idempotent replay.',
         content: jsonContent(lifecycleEntityResponseSchema),
       },
     },
@@ -260,15 +248,11 @@ export const lifecycleOperations = [
     description:
       'Copies an accessible folder and its accessible subtree to the requested folder. Set `parentId` to `null` to copy it to the Markdawn root. The response reports whether restricted items were skipped.',
     tags: lifecycleTag,
-    parameters: [folderId, idempotencyKeyHeader],
+    parameters: [folderId],
     request: { required: true, ...jsonContent(parentRequestSchema) },
     responses: {
       '201': {
         description: 'The copied folder ID and whether restricted items were skipped.',
-        content: jsonContent(lifecycleFolderCopyResponseSchema),
-      },
-      '200': {
-        description: 'The original copy response when the request is an idempotent replay.',
         content: jsonContent(lifecycleFolderCopyResponseSchema),
       },
     },

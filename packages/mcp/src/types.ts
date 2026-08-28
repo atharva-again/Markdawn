@@ -138,7 +138,6 @@ export type McpTrashLifecycleBackend = {
   copyPages(
     references: readonly string[],
     parentId: string | null,
-    idempotencyKey: string,
     options?: McpRequestOptions,
   ): Promise<McpLifecycleBatch>;
   trashPages(
@@ -153,7 +152,6 @@ export type McpTrashLifecycleBackend = {
   copyFolders(
     references: readonly string[],
     parentId: string | null,
-    idempotencyKey: string,
     options?: McpRequestOptions,
   ): Promise<McpLifecycleBatch>;
   trashFolders(

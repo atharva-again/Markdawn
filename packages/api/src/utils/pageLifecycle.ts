@@ -30,13 +30,10 @@ import {
 import { notifyShareRecompute } from './share-notify';
 import { getEntityMetaUserIds, mergeMetaUserIds } from './shareRecipients';
 
-type PageCopyCommitHook = (executor: QueryExecutor, copiedPage: { id: string }) => Promise<void>;
-
 export async function copyPageForActor(
   actor: RequestActor,
   pageId: string,
   parentId: string | null,
-  options?: { beforeCommit?: PageCopyCommitHook },
 ) {
   if (!parentId && actor.kind === 'guest') {
     throw new HTTPException(401, { message: 'Log in to copy a page to the workspace root' });
@@ -61,7 +58,6 @@ export async function copyPageForActor(
       { entityType: 'page', entityId: copiedPage.id, metaUserIds, metaOnly: true },
       tx,
     );
-    await options?.beforeCommit?.(tx, copiedPage);
     return copiedPage;
   });
 }

@@ -303,36 +303,6 @@ describe('v1 lifecycle API', () => {
     ]);
   });
 
-  it('replays an idempotent folder copy without creating a duplicate', async () => {
-    const app = await createTestApp();
-    const user = await createTestUser();
-    const session = await createTestSession(user.id);
-    const folder = await createTestFolder(user.id, { name: 'Copy once' });
-    const headers = {
-      ...session,
-      'Content-Type': 'application/json',
-      'Idempotency-Key': 'copy-folder-once',
-    };
-    const request = () =>
-      app.request(`/api/v1/folders/${folder.id}/copy`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ parentId: null }),
-      });
-
-    const first = await request();
-    expect(first.status).toBe(201);
-    const firstBody = (await first.json()) as { id: string };
-    const replay = await request();
-    expect(replay.status).toBe(200);
-    expect(await replay.json()).toEqual(firstBody);
-    const copies = await testQuery<{ count: string }>(
-      'select count(*)::text as count from folders where id = any($1::uuid[])',
-      [[folder.id, firstBody.id]],
-    );
-    expect(copies.rows[0]?.count).toBe('2');
-  });
-
   it('rejects empty Obsidian vault imports', async () => {
     const app = await createTestApp();
     const user = await createTestUser();

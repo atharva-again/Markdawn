@@ -46,16 +46,14 @@ export function registerTrashLifecycleTools(
   registerTool(
     server,
     'copy_pages',
-    'Use this when the user asks to copy one or more pages to a folder or the top level. Provide a stable idempotencyKey so a retry cannot create duplicates.',
+    'Use this when the user asks to copy one or more pages to a folder or the top level. If the request outcome is uncertain, inspect the destination before retrying.',
     {
       references: z.array(z.string().min(1)).min(1).max(MCP_MAX_BATCH_REFERENCES),
       parentId: z.string().uuid().nullable(),
-      idempotencyKey: z.string().min(1).max(200),
     },
     writeAnnotations,
     mcpLifecycleBatchSchema,
-    (input, options) =>
-      backend.copyPages(input.references, input.parentId, input.idempotencyKey, options),
+    (input, options) => backend.copyPages(input.references, input.parentId, options),
   );
   registerTool(
     server,
@@ -81,16 +79,14 @@ export function registerTrashLifecycleTools(
   registerTool(
     server,
     'copy_folders',
-    'Use this when the user asks to copy one or more folder subtrees. Each item is processed as an independent REST operation; inspect every result when copying related folders. Provide a stable idempotencyKey so a retry cannot create duplicates.',
+    'Use this when the user asks to copy one or more folder subtrees. Each item is processed as an independent REST operation; inspect every result and inspect the destination before retrying an uncertain request.',
     {
       references: z.array(z.string().min(1)).min(1).max(MCP_MAX_BATCH_REFERENCES),
       parentId: z.string().uuid().nullable(),
-      idempotencyKey: z.string().min(1).max(200),
     },
     writeAnnotations,
     mcpLifecycleBatchSchema,
-    (input, options) =>
-      backend.copyFolders(input.references, input.parentId, input.idempotencyKey, options),
+    (input, options) => backend.copyFolders(input.references, input.parentId, options),
   );
   registerTool(
     server,

@@ -6,11 +6,7 @@ import type { V1Principal } from '../../middleware/v1Auth';
 const queryMock = vi.hoisted(() => vi.fn());
 vi.mock('../../db/query', () => ({ query: queryMock }));
 
-import {
-  reserveIdempotency,
-  runIdempotentContentCommand,
-  runIdempotentHttpCommand,
-} from './idempotency';
+import { reserveIdempotency, runIdempotentContentCommand } from './idempotency';
 
 const principal: V1Principal = {
   kind: 'session',
@@ -56,16 +52,6 @@ describe('reserveIdempotency', () => {
       runIdempotentContentCommand(principal, 'key', 'request-hash', command),
     ).resolves.toEqual({ etag: 'stored-etag' });
     expect(command).not.toHaveBeenCalled();
-  });
-
-  it('marks a completed response as a replay for HTTP callers', async () => {
-    queryMock.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({
-      rows: [{ request_hash: 'request-hash', response: { etag: 'stored-etag' } }],
-    });
-
-    await expect(
-      runIdempotentHttpCommand(principal, 'key', 'request-hash', vi.fn()),
-    ).resolves.toEqual({ response: { etag: 'stored-etag' }, replay: true });
   });
 
   it('rejects reuse of a key with a different request hash', async () => {

@@ -108,14 +108,15 @@ describe('V1LifecycleClient', () => {
     expect(maximumActive).toBeGreaterThan(1);
   });
 
-  it('uses stable per-item idempotency keys for copy batches', async () => {
-    const requests: string[] = [];
+  it('does not mark copy requests as safe to retry', async () => {
+    const requests: Array<{ path: string; idempotencyKey: string | null }> = [];
     const io: V1ClientIO = {
       send: async (_token, path, requestOptions) => {
         if (path.endsWith('/copy')) {
-          const key = new Headers(requestOptions?.headers).get('Idempotency-Key');
-          if (!key) throw new Error('Copy request is missing an idempotency key');
-          requests.push(key);
+          requests.push({
+            path,
+            idempotencyKey: new Headers(requestOptions?.headers).get('Idempotency-Key'),
+          });
         }
         return new Response(null, { status: 201 });
       },
@@ -135,16 +136,18 @@ describe('V1LifecycleClient', () => {
         resolveTrashReference: () => ({ id: folder.id }),
       },
     );
-    const references = [
-      '00000000-0000-4000-8000-000000000021',
-      '00000000-0000-4000-8000-000000000022',
-    ];
+    await client.copyPages(actor, ['00000000-0000-4000-8000-000000000021'], null);
+    await client.copyFolders(actor, ['00000000-0000-4000-8000-000000000022'], null);
 
-    await client.copyPages(actor, references, null, 'stable-copy-batch');
-    await client.copyPages(actor, references, null, 'stable-copy-batch');
-
-    expect(requests).toHaveLength(4);
-    expect(new Set(requests.slice(0, 2)).size).toBe(2);
-    expect(requests.slice(0, 2)).toEqual(requests.slice(2));
+    expect(requests).toEqual([
+      {
+        path: '/pages/00000000-0000-4000-8000-000000000021/copy',
+        idempotencyKey: null,
+      },
+      {
+        path: '/folders/00000000-0000-4000-8000-000000000022/copy',
+        idempotencyKey: null,
+      },
+    ]);
   });
 });

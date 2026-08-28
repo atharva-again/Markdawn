@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import {
   type McpActor,
   McpBackendError,
@@ -52,17 +51,6 @@ type LifecycleActionResult = {
 
 const PAGE_LIFECYCLE_CONCURRENCY = 8;
 const FOLDER_LIFECYCLE_CONCURRENCY = 8;
-
-function copyItemIdempotencyKey(
-  kind: 'page' | 'folder',
-  batchKey: string,
-  index: number,
-  sourceId: string,
-): string {
-  return `mcp-copy-${createHash('sha256')
-    .update(JSON.stringify({ kind, batchKey, index, sourceId }))
-    .digest('hex')}`;
-}
 
 async function mapWithConcurrency<T, R>(
   values: readonly T[],
@@ -126,23 +114,19 @@ export class V1LifecycleClient {
     actor: McpActor,
     references: readonly string[],
     parentId: string | null,
-    idempotencyKey: string,
     options?: McpRequestOptions,
   ): Promise<McpLifecycleBatch> {
     return this.lifecycleBatch(
       references,
       (reference) => this.resolvePage(actor, reference, options?.signal),
-      async (id, index) => {
+      async (id) => {
         const result = await this.io.readMutationJson(
           await this.io.send(
             actor.token,
             `/pages/${id}/copy`,
             {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Idempotency-Key': copyItemIdempotencyKey('page', idempotencyKey, index, id),
-              },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ parentId }),
             },
             options?.signal,
@@ -216,23 +200,19 @@ export class V1LifecycleClient {
     actor: McpActor,
     references: readonly string[],
     parentId: string | null,
-    idempotencyKey: string,
     options?: McpRequestOptions,
   ): Promise<McpLifecycleBatch> {
     return this.lifecycleBatch(
       references,
       (reference) => this.resolveFolder(actor, reference, options?.signal),
-      async (id, index) => {
+      async (id) => {
         const result = await this.io.readMutationJson(
           await this.io.send(
             actor.token,
             `/folders/${id}/copy`,
             {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Idempotency-Key': copyItemIdempotencyKey('folder', idempotencyKey, index, id),
-              },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ parentId }),
             },
             options?.signal,
@@ -302,18 +282,18 @@ export class V1LifecycleClient {
   private async lifecycleBatch(
     references: readonly string[],
     resolve: (reference: string) => Promise<{ id: string }>,
-    action: (id: string, index: number) => Promise<LifecycleActionResult>,
+    action: (id: string) => Promise<LifecycleActionResult>,
     signal?: AbortSignal,
     concurrency = PAGE_LIFECYCLE_CONCURRENCY,
   ): Promise<McpLifecycleBatch> {
     const items = await mapWithConcurrency(
       references,
-      async (reference, index): Promise<JsonRecord> => {
+      async (reference): Promise<JsonRecord> => {
         signal?.throwIfAborted();
         try {
           const resolved = await resolve(reference);
           signal?.throwIfAborted();
-          const result = await action(resolved.id, index);
+          const result = await action(resolved.id);
           return {
             reference,
             id: result.id ?? resolved.id,

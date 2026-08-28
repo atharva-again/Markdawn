@@ -180,10 +180,9 @@ export class V1Client extends V1ClientTransport implements McpRequestBackend {
   async copyPages(
     references: readonly string[],
     parentId: string | null,
-    idempotencyKey: string,
     options?: McpRequestOptions,
   ): Promise<McpLifecycleBatch> {
-    return this.lifecycle.copyPages(this.actor, references, parentId, idempotencyKey, options);
+    return this.lifecycle.copyPages(this.actor, references, parentId, options);
   }
 
   async trashPages(
@@ -219,10 +218,9 @@ export class V1Client extends V1ClientTransport implements McpRequestBackend {
   async copyFolders(
     references: readonly string[],
     parentId: string | null,
-    idempotencyKey: string,
     options?: McpRequestOptions,
   ): Promise<McpLifecycleBatch> {
-    return this.lifecycle.copyFolders(this.actor, references, parentId, idempotencyKey, options);
+    return this.lifecycle.copyFolders(this.actor, references, parentId, options);
   }
 
   async trashFolders(
