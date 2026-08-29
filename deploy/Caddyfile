@@ -57,6 +57,9 @@ app.markdawn.space {
 }
 
 mcp.markdawn.space {
+    @mcpLanding path /
+    redir @mcpLanding https://docs.markdawn.space/agents/mcp/ 302
+
     reverse_proxy localhost:3002 {
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {header.X-Forwarded-For}
