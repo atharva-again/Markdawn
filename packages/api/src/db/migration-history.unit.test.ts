@@ -84,6 +84,14 @@ describe('Drizzle v1 migration history', () => {
     expect(migration).not.toContain('CREATE TRIGGER');
   });
 
+  it('keeps Better Auth text defaults and assertion retention scans type-safe', () => {
+    const migration = readMigrationSql('20260825123649_mcp_oauth');
+    expect(migration).toContain('"id" text PRIMARY KEY DEFAULT gen_random_uuid()');
+    expect(migration).toContain('oauth_client_assertions_expires_at_id_idx');
+    expect(migration).toContain('CREATE TABLE "oauth_access_token_revocations"');
+    expect(migration).toContain('oauth_access_token_revocations_expires_at_idx');
+  });
+
   it('checks migration compatibility before modifying deployment artifacts', () => {
     const deployScript = readFileSync(deployScriptPath, 'utf8');
     const compatibilityCheck = deployScript.indexOf('MIGRATION_BASELINE');

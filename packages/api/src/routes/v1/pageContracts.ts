@@ -5,6 +5,11 @@ import {
   type ExactEditCommandResponse,
   exactEditCommandResponseSchema,
   exactEditsRequestSchema,
+  v1CreatePageRequestSchema,
+  v1PageListResponseSchema,
+  v1PageResolutionResponseSchema,
+  v1PageResponseSchema,
+  v1UpdatePageRequestSchema,
 } from '@markdawn/shared';
 import { z } from 'zod';
 import {
@@ -14,59 +19,16 @@ import {
   type V1OperationContract,
 } from './apiContract';
 
-const uuid = z
-  .string()
-  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Invalid parentId');
-
-export const createPageRequestSchema = z
-  .object({
-    title: z.string({ error: 'title must be a string' }).optional(),
-    parentId: uuid.nullable().optional(),
-    icon: z.string({ error: 'icon must be a string' }).nullable().optional(),
-    markdown: z.string({ error: 'markdown must be a string' }).optional(),
-  })
-  .meta({
-    example: {
-      title: 'Project notes',
-      markdown: '# Project notes\n\nStart writing here.',
-    },
-  });
-
-export const updatePageRequestSchema = z
-  .object({
-    title: z.string({ error: 'title must be a string' }).optional(),
-    icon: z.string({ error: 'icon must be a string or null' }).nullable().optional(),
-  })
-  .refine((request) => request.title !== undefined || request.icon !== undefined, {
-    message: 'No supported fields were provided',
-  })
-  .meta({ example: { title: 'Updated project notes' } });
+export const createPageRequestSchema = v1CreatePageRequestSchema;
+export const updatePageRequestSchema = v1UpdatePageRequestSchema;
 
 export { exactEditsRequestSchema };
 export const exactEditsResponseSchema = exactEditCommandResponseSchema;
 export { contentBoundaryOperationSchema };
 
-export const pageResponseSchema = z.object({
-  id: z.uuid(),
-  parentId: z.uuid().nullable(),
-  title: z.string(),
-  icon: z.string().nullable(),
-  cover: z.object({ type: z.string(), value: z.string().nullable() }).nullable(),
-  properties: z.record(z.string(), z.unknown()).nullable(),
-  ownerId: z.uuid().nullable(),
-  permission: z.enum(['view', 'edit', 'admin']).nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
-
-export const pageListResponseSchema = z.object({
-  data: z.array(pageResponseSchema),
-  nextCursor: z.string().nullable(),
-});
-
-export const pageResolutionResponseSchema = z.object({
-  data: z.array(pageResponseSchema.extend({ folderPath: z.string() })),
-});
+export const pageResponseSchema = v1PageResponseSchema;
+export const pageListResponseSchema = v1PageListResponseSchema;
+export const pageResolutionResponseSchema = v1PageResolutionResponseSchema;
 
 export type CreatePageRequest = z.infer<typeof createPageRequestSchema>;
 export type UpdatePageRequest = z.infer<typeof updatePageRequestSchema>;

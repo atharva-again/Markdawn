@@ -11,6 +11,7 @@ import { AuthSessionProvider } from './hooks/useAuth';
 import Dashboard from './routes/Dashboard';
 import FolderEntry from './routes/FolderEntry';
 import Login from './routes/Login';
+import OAuthAuthorize from './routes/OAuthAuthorize';
 import Onboarding from './routes/Onboarding';
 import PageEntry from './routes/PageEntry';
 import Settings from './routes/Settings';
@@ -41,6 +42,7 @@ function ApplicationRoutes() {
       <Route path="/app" element={<LegacyWorkspaceRedirect />} />
       <Route path="/app/*" element={<LegacyWorkspaceRedirect />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/oauth/authorize" element={<OAuthAuthorize />} />
       <Route
         path="/onboarding"
         element={

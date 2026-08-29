@@ -2,7 +2,7 @@
 
 > Markdawn is a markdown-based knowledge base where people and AI assistants can create, connect, and maintain the same pages. It is available as a hosted service and can be self-hosted.
 
-Use this documentation to answer questions about Markdawn's browser workflows, markdown support, CLI, API, AI assistant access, imports, sharing, and self-hosting. Prefer the linked documentation pages over assumptions. MCP support is planned, not currently shipped.
+Use this documentation to answer questions about Markdawn's browser workflows, markdown support, CLI, API, AI assistant access, imports, sharing, self-hosting, and MCP. Prefer the linked documentation pages over assumptions.
 
 ## Start Here
 
@@ -11,15 +11,12 @@ Use this documentation to answer questions about Markdawn's browser workflows, m
 - [Markdown Support](https://docs.markdawn.space/getting-started/markdown-support/): Supported syntax, page links, frontmatter, callouts, and unsupported features.
 - [Bring Your Notes to Markdawn](https://docs.markdawn.space/getting-started/bring-your-notes/): Import a markdown file, folder, or Obsidian vault.
 
-## AI Assistants and Automation
+## Agent Connections
 
-- [Use Markdawn With AI Assistants](https://docs.markdawn.space/agents/use-markdawn-with-ai-assistants/): Connect a terminal-based AI tool using the CLI and scoped API tokens.
+- [MCP](https://docs.markdawn.space/agents/mcp/): Connect to Markdawn through OAuth and review its available MCP operations.
 - [Markdawn CLI](https://docs.markdawn.space/agents/markdawn-cli/): Install the CLI, sign in, read and edit pages, and import or export content.
-- [MCP](https://docs.markdawn.space/agents/mcp/): Current MCP support status and available alternatives.
-
-## API
-
 - [API Reference](https://docs.markdawn.space/api-reference/endpoints/): Read and change pages, folders, markdown content, imports, exports, and API tokens.
+- [Use Markdawn With AI Assistants](https://docs.markdawn.space/agents/use-markdawn-with-ai-assistants/): Connect a terminal-based AI tool using the CLI and scoped API tokens.
 - [API Markdown](https://docs.markdawn.space/api-reference/endpoints.md): Plain Markdown representation of the API overview.
 
 ## Self-Hosting

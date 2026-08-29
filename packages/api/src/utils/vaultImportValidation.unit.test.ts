@@ -12,6 +12,11 @@ describe('vault import validation', () => {
     ).toBe(false);
     expect(
       vaultImportRequestSchema.safeParse({
+        files: [{ path: 'images/diagram.svg', data: 'PHN2Zy8+', mimeType: 'image/svg+xml' }],
+      }).success,
+    ).toBe(false);
+    expect(
+      vaultImportRequestSchema.safeParse({
         files: [
           { path: 'Note.md', content: '# First' },
           { path: 'Note.md', content: '# Second' },

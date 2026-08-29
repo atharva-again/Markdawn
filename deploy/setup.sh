@@ -46,6 +46,10 @@ cd "$REPO_DIR"
 . "$REPO_DIR/deploy/collaboration-secret.sh"
 # shellcheck source=migrate-hosted-environment.sh
 . "$REPO_DIR/deploy/migrate-hosted-environment.sh"
+# shellcheck source=mcp-api-secret.sh
+. "$REPO_DIR/deploy/mcp-api-secret.sh"
+# shellcheck source=mcp-public-url.sh
+. "$REPO_DIR/deploy/mcp-public-url.sh"
 
 echo -e "${YELLOW}[STEP 4/8] Installing Node.js and pnpm...${NC}"
 curl -fsSL https://fnm.vercel.app/install | bash
@@ -67,6 +71,7 @@ else
 fi
 ensureCollaborationSecret .env
 migrateHostedEnvironment .env
+ensureMcpApiInternalSecret .env
 if [ "$created_env" = "true" ]; then
     echo -e "${YELLOW}.env created from .env.production. Edit it now:${NC}"
     nano .env
@@ -74,6 +79,7 @@ fi
 
 echo -e "${YELLOW}[STEP 6/8] Building application...${NC}"
 pnpm install
+ensureMcpPublicUrl .env
 pnpm --filter @markdawn/shared build
 pnpm --filter @markdawn/web build
 
@@ -89,9 +95,11 @@ podman volume create markdawn-data 2>/dev/null || true
 cp "$REPO_DIR/deploy/quadlet/markdawn.pod" ~/.config/containers/systemd/
 cp "$REPO_DIR/deploy/quadlet/markdawn-postgres.container" ~/.config/containers/systemd/
 cp "$REPO_DIR/deploy/quadlet/markdawn-api.container" ~/.config/containers/systemd/
+cp "$REPO_DIR/deploy/quadlet/markdawn-mcp.container" ~/.config/containers/systemd/
 cp "$REPO_DIR/deploy/quadlet/markdawn-collab.container" ~/.config/containers/systemd/
 
 podman build -t localhost/markdawn-api:latest -f "$REPO_DIR/deploy/Containerfile.api" "$REPO_DIR"
+podman build -t localhost/markdawn-mcp:latest -f "$REPO_DIR/deploy/Containerfile.mcp" "$REPO_DIR"
 podman build -t localhost/markdawn-collab:latest -f "$REPO_DIR/deploy/Containerfile.collab" "$REPO_DIR"
 
 echo -e "${YELLOW}[STEP 8/8] Configuring Caddy reverse proxy...${NC}"
@@ -105,6 +113,7 @@ if command -v semanage &>/dev/null && command -v restorecon &>/dev/null; then
 fi
 
 sudo systemctl enable --now caddy
+sudo systemctl reload caddy
 
 systemctl --user daemon-reload
 systemctl --user start markdawn-pod.service
@@ -126,10 +135,24 @@ done
 echo -e "${YELLOW}[SCHEMA] Running db:migrate to initialize database...${NC}"
 pnpm --filter @markdawn/api db:migrate
 
-systemctl --user start markdawn-api.service markdawn-collab.service
+systemctl --user start markdawn-api.service markdawn-mcp.service markdawn-collab.service
+
+echo -e "${YELLOW}[CHECK] Verifying MCP service and API connectivity...${NC}"
+for i in {1..15}; do
+    if curl -sf --max-time 5 "http://127.0.0.1:3002/api/ready" >/dev/null 2>&1; then
+        echo -e "${GREEN}[OK] MCP service is ready.${NC}"
+        break
+    fi
+    if [ "$i" -eq 15 ]; then
+        echo -e "${RED}[ERROR] MCP service readiness check failed after setup.${NC}"
+        exit 1
+    fi
+    sleep 2
+done
 
 echo -e "${GREEN}[DONE] Setup complete!${NC}"
 echo ""
-echo "Check status: systemctl --user status markdawn-postgres.service markdawn-api.service markdawn-collab.service"
+echo "Check status: systemctl --user status markdawn-postgres.service markdawn-api.service markdawn-mcp.service markdawn-collab.service"
 echo "View logs:    journalctl --user -u markdawn-api.service -f"
+echo "MCP logs:     journalctl --user -u markdawn-mcp.service -f"
 echo "API health:   curl https://app.markdawn.space/api/health"

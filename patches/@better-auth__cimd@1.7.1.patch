@@ -1,0 +1,20 @@
+diff --git a/dist/node.mjs b/dist/node.mjs
+--- a/dist/node.mjs
++++ b/dist/node.mjs
+@@ -46,8 +46,14 @@
+ 			method: webRequest.method,
+ 			servername: isIP(url.hostname.replace(/^\[|\]$/g, "")) === 0 ? url.hostname : void 0,
+ 			signal,
+-			lookup: (_hostname, _options, callback) => {
+-				callback(null, pinnedAddress.address, pinnedAddress.family);
++			// Node 20+ may call lookup with all: true when automatic address
++			// family selection is enabled. That form requires an address list.
++			lookup: (_hostname, options, callback) => {
++				if (options.all) {
++					callback(null, [pinnedAddress]);
++				} else {
++					callback(null, pinnedAddress.address, pinnedAddress.family);
++				}
+ 			}
+ 		}, (response) => {
+ 			const status = response.statusCode ?? 500;

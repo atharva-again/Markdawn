@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { buildOpenApiPaths } from './apiContract';
-import { folderOperations } from './folders';
+import { folderOperations } from './folderContracts';
 import { lifecycleOperations } from './lifecycleContracts';
-import { getMeOperation } from './me';
+import { getMeOperation } from './meContract';
 import { pageOperations, pageResponseSchema } from './pageContracts';
 import { tokenOperations } from './tokenContracts';
 

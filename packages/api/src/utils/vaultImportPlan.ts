@@ -1,4 +1,3 @@
-import { isImageFile } from './obsidian-parsers';
 import { getVaultImportKind, type VaultImportFile } from './vaultImportValidation';
 
 export type { VaultImportFile } from './vaultImportValidation';
@@ -25,13 +24,13 @@ export function createVaultImportPlan(files: readonly VaultImportFile[]): VaultI
       plan.markdownFiles.push(file);
       continue;
     }
-    if (isImageFile(file.path)) {
-      if (kind !== 'image') {
-        plan.unsupportedImageFiles.push(file);
-        continue;
-      }
+    if (kind === 'image') {
       plan.files.push(file);
       plan.imageFiles.push(file);
+      continue;
+    }
+    if (kind === 'unsupported-image') {
+      plan.unsupportedImageFiles.push(file);
     }
   }
 

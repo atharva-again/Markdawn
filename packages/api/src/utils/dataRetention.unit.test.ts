@@ -12,14 +12,20 @@ describe('drainOperationalRetention', () => {
     queryMock
       .mockResolvedValueOnce({ rowCount: 1_000 })
       .mockResolvedValueOnce({ rowCount: 1_000 })
+      .mockResolvedValueOnce({ rowCount: 500 })
+      .mockResolvedValueOnce({ rowCount: 0 })
       .mockResolvedValueOnce({ rowCount: 12 })
-      .mockResolvedValueOnce({ rowCount: 7 });
+      .mockResolvedValueOnce({ rowCount: 7 })
+      .mockResolvedValueOnce({ rowCount: 5 })
+      .mockResolvedValueOnce({ rowCount: 0 });
 
     await expect(drainOperationalRetention()).resolves.toEqual({
       idempotencyRecords: 1_012,
       tokenAuditEvents: 1_007,
+      oauthClientAssertions: 505,
+      oauthAccessTokenRevocations: 0,
     });
-    expect(queryMock).toHaveBeenCalledTimes(4);
+    expect(queryMock).toHaveBeenCalledTimes(8);
   });
 
   it('provides bounded cleanup capacity above sustained API ingestion', async () => {
@@ -29,7 +35,9 @@ describe('drainOperationalRetention', () => {
     await expect(drainOperationalRetention()).resolves.toEqual({
       idempotencyRecords: 100_000,
       tokenAuditEvents: 100_000,
+      oauthClientAssertions: 100_000,
+      oauthAccessTokenRevocations: 100_000,
     });
-    expect(queryMock).toHaveBeenCalledTimes(200);
+    expect(queryMock).toHaveBeenCalledTimes(400);
   });
 });

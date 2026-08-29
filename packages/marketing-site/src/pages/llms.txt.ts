@@ -53,10 +53,11 @@ ${pricingLines}
 ## Documentation
 
 - [Documentation Home](${DOCS_ORIGIN}/): Guides, API reference, comparisons, and self-hosting documentation.
+- [MCP](${DOCS_ORIGIN}/agents/mcp/): Connect to Markdawn through OAuth and MCP.
 - [Markdawn CLI](${DOCS_ORIGIN}/agents/markdawn-cli/): Install the CLI and manage pages from a terminal.
+- [API Reference](${DOCS_ORIGIN}/api-reference/endpoints/): Direct HTTP interface for Markdawn resources.
 - [AI Assistant Access](${DOCS_ORIGIN}/agents/use-markdawn-with-ai-assistants/): Connect terminal-based assistants with scoped tokens and safe edits.
 - [markdown support](${DOCS_ORIGIN}/getting-started/markdown-support/): Supported syntax, page links, frontmatter, and known limitations.
-- [API Reference](${DOCS_ORIGIN}/api-reference/endpoints/): Direct HTTP interface for Markdawn resources.
 - [Self-hosting](${DOCS_ORIGIN}/self-hosting/): Deployment, maintenance, and migration guidance.
 
 ## Optional

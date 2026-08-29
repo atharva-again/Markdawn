@@ -17,9 +17,9 @@ Choose Slite for managed simplicity, a polished hosted workflow, permission-awar
 | Permissions | Page and folder access roles | Owner, Admin, Billing admin, Member, Reader, Writer, and Guest access |
 | Public access | Shared pages and deployed documentation | Public docs and channels with search engine indexing options |
 | Portability | Markdown files, folders, and Obsidian vault imports | Markdown, HTML, PDF exports; Markdown, HTML, Word, Notion, Google Drive, and Confluence imports |
-| Tool access | CLI and API today; MCP planned | Public API, service accounts, webhooks, and remote MCP |
+| Tool access | CLI, API, and MCP | Public API, service accounts, webhooks, and remote MCP |
 | CLI | Markdawn CLI | No dedicated official Slite CLI documented |
-| AI | Controlled AI assistant access through CLI and API; MCP planned | AI search, answers, Slite Agent, connected-source retrieval, and MCP |
+| AI | Controlled AI assistant access through CLI, API, and MCP | AI search, answers, Slite Agent, connected-source retrieval, and MCP |
 | Hosting | Hosted or self-hosted | Hosted SaaS on EU-based infrastructure |
 | Offline work | Depends on deployment and browser requirements | Desktop, mobile, and browser apps; not a local-first Markdown vault |
 | Pricing | Check the current Markdawn plan | Basic $10/member/month; Pro $20/member/month |
@@ -60,7 +60,7 @@ Slite provides an official remote MCP server at `https://api.slite.com/mcp`. It 
 
 The MCP server uses OAuth for interactive clients and can also accept service-account keys for headless agents, CI pipelines, backups, and controlled automation. It inherits the permissions of the authenticated user or service account. Current Slite changelog information says MCP access is included on all plans, including Basic.
 
-Markdawn's direct MCP support is planned, not currently shipped. Slite therefore has a clear current advantage for teams that want an AI assistant to search and change the knowledge base through a standard remote MCP connection.
+Markdawn also provides MCP support for its page and folder model. Slite remains stronger for teams that want an assistant to work across a broader knowledge-management surface with channels, comments, tables, and connected sources.
 
 ## Where Markdawn Is Better
 
@@ -107,7 +107,7 @@ Service accounts are designed for integrations that should not depend on a perso
 
 Slite does not document a separate official CLI. The API is the scripting surface, and MCP is the agent surface.
 
-Markdawn provides its own CLI and API today. Direct MCP support is planned. Choose Slite when a managed API, service account, webhook, or MCP connection is the right tool. Choose Markdawn when the CLI should be part of the documented product workflow.
+Markdawn provides its own CLI, API, and MCP support today. Choose Slite when a managed API, service account, webhook, or broader MCP connection is the right tool. Choose Markdawn when the CLI and a smaller page-oriented assistant workflow should be part of the documented product workflow.
 
 ### AI Agents And Connected Sources
 
