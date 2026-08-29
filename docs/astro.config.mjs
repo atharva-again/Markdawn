@@ -76,12 +76,12 @@ export default defineConfig({
           label: 'Agents',
           items: [
             { label: 'Agents', link: '/agents/' },
+            { label: 'MCP', link: '/agents/mcp/' },
+            { label: 'Markdawn CLI', link: '/agents/markdawn-cli/' },
             {
               label: 'Use Markdawn With AI Assistants',
               link: '/agents/use-markdawn-with-ai-assistants/',
             },
-            { label: 'Markdawn CLI', link: '/agents/markdawn-cli/' },
-            { label: 'MCP', link: '/agents/mcp/' },
           ],
         },
         {

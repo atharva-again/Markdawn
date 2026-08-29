@@ -37,6 +37,23 @@ const commitLink = (hash: string): MarketingLink => ({
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    id: 'mcp-support',
+    date: '2026-08-25',
+    title: 'Connect Markdawn through MCP',
+    details: [
+      'Markdawn now supports MCP through an OAuth connection to the same knowledge base available in the browser, CLI, and API.',
+      'Scoped access keeps operations within the permissions granted during authorization, with read and write access handled separately.',
+      'MCP is available at `https://mcp.markdawn.space/mcp`; the MCP guide covers connection details, protocol behavior, and self-hosting configuration.',
+    ],
+    links: [
+      {
+        kind: 'external',
+        label: 'Read About Markdawn MCP →',
+        url: `${DOCS_ORIGIN}/agents/mcp/`,
+      },
+    ],
+  },
+  {
     id: 'workspace-gets-its-own-home',
     date: '2026-08-22',
     title: 'The workspace gets its own home',

@@ -17,9 +17,9 @@ Choose Outline for a polished internal wiki with mature review, search, collecti
 | Permissions | Page and folder access roles | Admin, Editor, Viewer, Guest, collection permissions, and document sharing |
 | Public access | Shared pages and deployed documentation | Public documents and collections with child documents |
 | Portability | Markdown files, folders, and Obsidian vault imports | Markdown, HTML, PDF, JSON, Notion, Confluence, Word, and Outline exports/imports |
-| Automation | CLI, API, and AI assistant workflows; MCP planned | Scoped API keys, webhooks, integrations, and built-in MCP |
+| Automation | CLI, API, AI assistant workflows, and MCP | Scoped API keys, webhooks, integrations, and built-in MCP |
 | CLI | Markdawn CLI | No dedicated official Outline CLI documented |
-| AI | Controlled AI assistant access through CLI and API; MCP planned | AI answers in cloud/licensed editions and MCP for connected AI assistants |
+| AI | Controlled AI assistant access through CLI, API, and MCP | AI answers in cloud/licensed editions and MCP for connected AI assistants |
 | Hosting | Hosted or self-hosted | Outline Cloud or self-hosted/on-premises editions |
 | Offline work | Depends on deployment and browser requirements | Desktop apps and browser access; not a local-first file vault |
 | Pricing | Check the current Markdawn plan | Cloud tiers listed at $10, $79, and $249 per month, with annual pricing available |
@@ -54,7 +54,7 @@ Markdawn provides page links, folders, backlinks, API access, and documented AI 
 
 Every current Outline workspace includes a built-in MCP server. Compatible AI assistants can search, read, create, and edit Outline documents, and the current MCP changelog also lists comment workflows. MCP can use OAuth or a scoped API key, can be disabled at the workspace level, and uses the workspace domain with `/mcp` for self-hosted installations.
 
-Markdawn's direct MCP support is planned, not currently shipped. This is a meaningful current advantage for Outline when an AI assistant should operate the knowledge base without a custom bridge.
+Markdawn also provides MCP support for connecting AI assistants to its page and folder model. Outline remains stronger when an assistant needs its broader document, collection, comment, and review workflows.
 
 ### Public Documentation And Publishing
 
@@ -102,7 +102,7 @@ Outline's official developer surface includes:
 
 Outline does not document a separate official `outline` CLI. Developers can call the API with `curl`, SDKs, scripts, or automation platforms, and AI clients can connect through MCP. The official MCP setup itself can be configured from tools such as Claude Code, but that is not an Outline-specific CLI.
 
-Markdawn provides its own CLI and API today. Direct MCP support is planned, not currently shipped. Choose Outline when API, webhooks, and MCP are the primary automation requirements. Choose Markdawn when the CLI is a first-class part of the content workflow.
+Markdawn provides its own CLI, API, and MCP support today. Choose Outline when API, webhooks, and a broader wiki-oriented MCP surface are the primary automation requirements. Choose Markdawn when the CLI and a smaller page-oriented MCP workflow are a better fit.
 
 ### Webhooks And Event-Driven Workflows
 

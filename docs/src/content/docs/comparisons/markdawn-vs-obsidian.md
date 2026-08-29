@@ -16,8 +16,8 @@ Choose Obsidian when the vault is the product and local files, offline work, plu
 | Collaboration | View, Edit, and Admin access with real-time coediting | Shared vaults through Obsidian Sync; Publish site collaboration |
 | Permissions | Page and folder sharing with View, Edit, and Admin access | Local filesystem access, Sync shared-vault membership, and Publish site controls |
 | Portability | Markdown files, folders, and Obsidian vault imports | Local Markdown files and attachments |
-| Automation | CLI, API, and AI assistant workflows; MCP planned | Official CLI, plugin API, URI scheme, and community integrations |
-| AI access | Controlled access through the CLI and API; MCP planned | CLI agent workflows and community AI, REST, and MCP plugins |
+| Automation | CLI, API, AI assistant workflows, and MCP | Official CLI, plugin API, URI scheme, and community integrations |
+| AI access | Controlled access through the CLI, API, and MCP | CLI agent workflows and community AI, REST, and MCP plugins |
 | Offline work | Depends on deployment and browser requirements | Local vaults are available offline by default |
 | Hosting | Hosted or self-hosted | Local app; Sync and Publish are hosted services |
 | Pricing | Check the current Markdawn plan | Free app; Sync, Publish, and optional commercial licenses are paid |
@@ -97,7 +97,7 @@ Obsidian's current official developer surface includes:
 
 Obsidian does not document a public hosted REST API for its vaults. Community plugins can provide local REST APIs, MCP servers, and other bridges, but those are plugin-based integrations that need their own security and maintenance review. Obsidian's official documentation does not present a first-party hosted MCP endpoint.
 
-Markdawn provides a documented API and CLI for pages, folders, imports, exports, and access-controlled content. Direct MCP support is planned, not currently shipped. Choose Obsidian when local vault automation and plugin extensibility matter most. Choose Markdawn when a shared service API is the primary integration surface.
+Markdawn provides a documented API, CLI, and MCP support for pages, folders, imports, exports, and access-controlled content. Choose Obsidian when local vault automation and plugin extensibility matter most. Choose Markdawn when a shared service API and controlled remote assistant access are the primary integration surfaces.
 
 ## Collaboration And Review
 
@@ -131,7 +131,7 @@ Obsidian's official CLI explicitly supports agentic tools that need to read, sea
 
 This gives Obsidian a broad and flexible AI surface, but the security boundary is the local vault and the installed plugins. Review plugin permissions, model providers, credentials, and whether content leaves the device.
 
-Markdawn documents controlled AI assistant access through its CLI and API, with page permissions applied by the application. Direct MCP support is planned. The better choice depends on whether the AI assistant should operate a local personal vault or a shared, access-controlled content service.
+Markdawn documents controlled AI assistant access through its CLI, API, and MCP support, with page permissions applied by the application. The better choice depends on whether the AI assistant should operate a local personal vault or a shared, access-controlled content service.
 
 ## Pricing And Ownership
 

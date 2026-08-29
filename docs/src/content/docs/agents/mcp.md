@@ -1,44 +1,65 @@
 ---
-title: Markdawn MCP Support
-description: Connect MCP clients to Markdawn through the hosted OAuth gateway.
+title: Use Markdawn With MCP
+description: Connect an AI assistant to Markdawn through remote MCP and OAuth.
 ---
 
-Markdawn exposes a remote MCP gateway at:
+Markdawn supports remote MCP connections for AI assistants that support the
+protocol. A connected assistant can work with the same pages and folders you
+use in the browser, CLI, and API.
+
+## Connect To Markdawn
+
+Use this MCP endpoint in your assistant:
 
 ```text
 https://mcp.markdawn.space/mcp
 ```
 
-The gateway uses Better Auth's OAuth provider. OAuth bearer tokens terminate at
-the MCP service; the service sends only a short-lived HMAC-signed user and
-connection context to the API's `/api/v1` boundary. The API checks the signed
-token hash, expiry, session, refresh-grant state, and workspace authorization.
-
-The gateway is Bearer-only. DPoP-bound tokens and DPoP proofs are rejected
-because the downstream API call uses the signed private context.
-
-Access-token revocation is enforced at the private API boundary. An already
-established MCP transport may remain open until its next API operation; that
-operation returns the clear `invalid_token` authentication error, and the
-client should discard the token and restart OAuth rather than retrying it.
+On the first connection, Markdawn asks you to sign in and approve the access
+the assistant requested. Review the permissions before approving the
+connection.
 
 ## Permissions
 
-- `pages:read` — read pages and folders
-- `pages:write` — create, modify, move, import, and delete pages and folders;
-  request it together with `pages:read`
+- **Read access** lets an assistant read pages, folders, and workspace identity.
+- **Write access** lets an assistant create, edit, move, import, and remove
+  pages and folders. Write access includes read access.
 
-Protocol scopes such as `openid`, `profile`, and `offline_access` are handled
-internally and are not shown as workspace permissions.
+Some assistants may also ask to stay connected. This lets the connection
+refresh its access after a browser session expires. It does not grant access to
+pages, and Markdawn shows it separately on the consent screen.
 
-## Client registration and authorization
+## Access Changes And Revocation
 
-Client ID Metadata Documents are supported through CIMD, with Dynamic Client
-Registration as a compatibility fallback. MCP clients normally use OAuth
-authorization code with S256 PKCE. The user is redirected to Markdawn's login
-page and then to the MCP consent page.
+When access is revoked, an already connected assistant may not notice until its
+next operation. When access is no longer valid, discard the old connection and
+start OAuth again instead of retrying the operation.
 
-## Local development
+## Available Operations
+
+MCP provides workspace operations for:
+
+- Finding and reading pages and folders.
+- Creating and updating pages and folders.
+- Moving, copying, restoring, and removing pages and folders.
+- Listing and managing Trash.
+- Importing Markdown and Obsidian content.
+- Exporting a page or the workspace.
+
+Mutations preserve Markdawn's idempotency and conflict rules. If an operation
+reports `outcome_uncertain`, inspect the affected page or folder before trying
+it again. Lifecycle batches report each item separately, so check every result
+instead of assuming that the whole batch succeeded.
+
+## Protocol Compatibility
+
+Send MCP requests to `/mcp`. Older MCP clients can use the same endpoint
+without a persistent session. Health and OAuth requests use their documented
+paths instead.
+
+## Self-Hosting And Local Development
+
+For local development, run the MCP service with these settings:
 
 ```dotenv
 MCP_PUBLIC_URL=http://localhost:3002
@@ -52,24 +73,4 @@ BETTER_AUTH_JWKS_URL=http://127.0.0.1:3001/api/auth/jwks
 HTTP MCP URLs are accepted only for `localhost`, `127.0.0.1`, and `::1`.
 Non-loopback MCP URLs must use HTTPS.
 
-The gateway serves the MCP `2026-07-28` protocol through the official MCP v2
-server package and also accepts legacy 2025-era `POST` requests through a
-stateless compatibility transport. Legacy requests do not receive persistent
-MCP sessions; clients must use `/mcp` for each request. MCP protocol `POST`
-requests are accepted only at `/mcp`; health and OAuth endpoints use their
-documented `/api/...` paths.
-
-## Available tools
-
-MCP exposes workspace capabilities covering identity, pages, folders, Trash,
-import, and export. CLI-local features such as login, shell completion, skill
-installation, and local filesystem paths remain CLI-only.
-
-Mutations preserve the API's idempotency and conflict semantics. Clients are
-responsible for reconciling an `outcome_uncertain` result before retrying a
-destructive or otherwise non-idempotent operation.
-
-Folder lifecycle batches use best-effort semantics rather than an atomic
-multi-folder transaction. Each item is sent as an independent API operation;
-clients must inspect every batch item for a failure before assuming the whole
-batch succeeded, especially when the references are related folders.
+For a self-hosted deployment, see the [deployment guide](/self-hosting/deploy-markdawn-on-a-vps/).

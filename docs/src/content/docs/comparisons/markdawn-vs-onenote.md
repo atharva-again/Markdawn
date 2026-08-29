@@ -17,9 +17,9 @@ Choose OneNote when notebook-style capture, handwriting, rich media, and Microso
 | Collaboration | View, Edit, and Admin access with real-time coediting | Shared notebooks with view or edit permissions and real-time collaboration |
 | Permissions | Page and folder access roles | OneDrive or SharePoint notebook sharing and permissions |
 | Portability | Markdown files, folders, and Obsidian vault imports | OneNote notebook downloads, PDF exports, and Microsoft Graph HTML content |
-| Automation | CLI, API, and AI assistant workflows; MCP planned | Microsoft Graph API, SDKs, Power Automate connector, and Microsoft 365 integrations |
-| CLI and MCP | Markdawn CLI; no shipped MCP yet | No dedicated official OneNote CLI or OneNote MCP; Graph is the supported API |
-| AI | Controlled AI assistant access through the CLI and API | Copilot in OneNote and Microsoft 365 Copilot features, depending on license |
+| Automation | CLI, API, AI assistant workflows, and MCP | Microsoft Graph API, SDKs, Power Automate connector, and Microsoft 365 integrations |
+| CLI and MCP | Markdawn CLI and MCP | No dedicated official OneNote CLI or OneNote MCP; Graph is the supported API |
+| AI | Controlled AI assistant access through the CLI, API, and MCP | Copilot in OneNote and Microsoft 365 Copilot features, depending on license |
 | Offline work | Depends on deployment and browser requirements | Desktop and mobile apps cache notebooks and sync with OneDrive or SharePoint |
 | Hosting | Hosted or self-hosted | Microsoft-managed service with OneDrive or SharePoint storage |
 | Pricing | Check the current Markdawn plan | OneNote app access is free; Microsoft 365 and Copilot plans vary |
@@ -102,7 +102,7 @@ OneNote does not document a dedicated official `onenote` CLI. Developers can use
 
 Microsoft's current Graph MCP Server for Enterprise is a separate Microsoft Graph service and does not document OneNote notes scopes as a OneNote MCP interface. Microsoft has not published a first-party OneNote MCP server. Community MCP servers can wrap the Graph API, but they require independent security, authentication, and maintenance review.
 
-Markdawn provides a documented API and CLI for pages, folders, imports, exports, and access-controlled content. Direct MCP support is planned, not currently shipped. Choose OneNote when Microsoft Graph and Power Automate are the integration center. Choose Markdawn when a smaller Markdown API and CLI are easier to control.
+Markdawn provides a documented API, CLI, and MCP support for pages, folders, imports, exports, and access-controlled content. Choose OneNote when Microsoft Graph and Power Automate are the integration center. Choose Markdawn when a smaller Markdown API, CLI, and controlled remote assistant connection are easier to manage.
 
 ## Collaboration And Permissions
 
