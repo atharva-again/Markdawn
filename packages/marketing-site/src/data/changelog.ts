@@ -38,7 +38,7 @@ const commitLink = (hash: string): MarketingLink => ({
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
     id: 'mcp-support',
-    date: '2026-08-25',
+    date: '2026-08-30',
     title: 'Connect Markdawn through MCP',
     details: [
       'Markdawn now supports MCP through an OAuth connection to the same knowledge base available in the browser, CLI, and API.',
@@ -51,6 +51,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
         label: 'Read About Markdawn MCP →',
         url: `${DOCS_ORIGIN}/agents/mcp/`,
       },
+      pullRequestLink(152),
     ],
   },
   {
