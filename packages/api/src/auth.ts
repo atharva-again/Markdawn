@@ -33,9 +33,9 @@ type BetterAuthMcpPlugin = ReturnType<typeof mcp>;
 type BetterAuthEndpoints = NonNullable<BetterAuthPlugin['endpoints']>;
 
 /**
- * Better Auth 1.7.1 only disagrees about the endpoint metadata type exported
- * by the MCP package. Keep the compatibility assertion limited to that
- * property instead of hiding the complete plugin contract.
+ * The MCP package exports endpoint metadata with a type that does not fully
+ * align with Better Auth's plugin contract. Keep the compatibility assertion
+ * limited to that property instead of hiding the complete plugin contract.
  */
 function adaptMcpPlugin(plugin: BetterAuthMcpPlugin): BetterAuthPlugin {
   const { endpoints, ...pluginWithoutEndpoints } = plugin;
@@ -111,7 +111,7 @@ export function createAuth(options: CreateAuthOptions = {}) {
                 await provisionWelcomePage(transaction, user.id);
               });
             } catch (error) {
-              // The welcome page is optional. Better Auth 1.7 runs create.after
+              // The welcome page is optional. Better Auth runs create.after
               // hooks after its transaction commits, so report provisioning
               // failures without turning a successful signup into an error.
               getApiLogger().error('Welcome page provisioning failed after signup', {
