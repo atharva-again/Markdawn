@@ -3,13 +3,12 @@ import { hasMcpWriteWithoutRead, MCP_READ_SCOPE, MCP_WRITE_SCOPE } from '@markda
 const INVALID_MCP_SCOPE_SENTINEL = 'markdawn:invalid-pages-scope-combination';
 
 /**
- * Better Auth 1.7.1 does not expose a requested-scope validation callback,
- * while its provider-owned invalid_scope redirect also validates the client
- * redirect URI. Keep this compatibility adapter narrow: it only detects the
- * product policy violation, translates the request encoding, and delegates
- * redirect construction and client validation back to Better Auth. Remove it
- * when the pinned Better Auth version exposes a requested-scope validation
- * hook.
+ * Better Auth does not expose a requested-scope validation callback, while its
+ * provider-owned invalid_scope redirect also validates the client redirect
+ * URI. Keep this compatibility adapter narrow: it only detects the product
+ * policy violation, translates the request encoding, and delegates redirect
+ * construction and client validation back to Better Auth. Remove it when the
+ * pinned Better Auth version exposes a requested-scope validation hook.
  */
 
 type AuthHandler = (request: Request) => Promise<Response>;
