@@ -3,7 +3,7 @@ import type { Logger } from '@logtape/logtape';
 import type { Pool } from 'pg';
 import { type Mock, vi } from 'vitest';
 import { type CollabSession, createCollabSession } from './collabSession';
-import { createConnectionLifecycle } from './hocuspocusV3Adapter';
+import { createConnectionLifecycle } from './connectionLifecycle';
 
 export function createLogger() {
   const fn = () => vi.fn();

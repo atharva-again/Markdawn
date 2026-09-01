@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { rememberOutboundAwarenessEntries } from './awarenessPolicy';
 import { encodeAwarenessMessage } from './collabTestUtils';
-import type { DeferredAwarenessContext } from './hocuspocusV3Adapter';
+import type { DeferredAwarenessContext } from './connectionLifecycle';
 
 describe('awareness relay memory', () => {
   it('records canonical awareness entries and keeps a bounded history', () => {

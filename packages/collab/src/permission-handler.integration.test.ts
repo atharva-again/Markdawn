@@ -2,7 +2,7 @@ import { type Document, Document as HocuspocusDocument, type Server } from '@hoc
 import type { Logger } from '@logtape/logtape';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type CollabSession, createCollabSession } from './collabSession';
-import { createConnectionLifecycle } from './hocuspocusV3Adapter';
+import { createConnectionLifecycle } from './connectionLifecycle';
 import { revalidateActivePageConnections } from './permission-handler';
 import { createCollabServer, reconcileActiveCollaborationState } from './server';
 import { createTestPage, createTestSession, createTestUser, getTestPool } from './test-utils';

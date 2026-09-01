@@ -11,12 +11,8 @@ import {
   waitForPermissionChecks,
   waitForWriteApplications,
 } from './collabSession';
+import { getConnectionLifecycle, type WriteAdmission } from './connectionLifecycle';
 import type { DocumentFlushResult } from './documentFlusher';
-import {
-  getConnectionLifecycle,
-  type WriteAdmission,
-  writeAdmissionsByUpdate,
-} from './hocuspocusV3Adapter';
 import type { PageTitleRuntime } from './pageTitleRuntime';
 
 const MAX_DISCONNECT_PERSIST_ATTEMPTS = 3;
@@ -36,6 +32,7 @@ export function createDocumentChangeHooks(options: {
     context: CollabSession,
     admission: WriteAdmission | undefined,
   ): void;
+  consumeAdmissionForUpdate(update: Uint8Array): WriteAdmission | undefined;
   resetDocumentState(documentName: string): void;
   flushDocument(
     documentName: string,
@@ -48,8 +45,7 @@ export function createDocumentChangeHooks(options: {
     onChange: async ({ documentName, context, document, update }: onChangePayload) => {
       if (options.isMetaRoom(documentName) || options.isDocumentBlocked(documentName)) return;
       const writer = isCollabSession(context) ? context : undefined;
-      const exactAdmission = writeAdmissionsByUpdate.get(update);
-      if (exactAdmission) writeAdmissionsByUpdate.delete(update);
+      const exactAdmission = options.consumeAdmissionForUpdate(update);
       const admission =
         exactAdmission ??
         (writer ? getConnectionLifecycle(writer).pendingWriteAdmissions.shift() : undefined);
@@ -80,10 +76,10 @@ export function createDocumentChangeHooks(options: {
         options.logger.debug(`[meta] skip persist for meta room: ${documentName}`);
         return;
       }
-      const context = isCollabSession(data.context) ? data.context : undefined;
-      if (!context) throw new Error('Unauthorized');
-      const fallback =
-        options.getActiveDocument(documentName) === data.document ? undefined : context;
+      const context = isCollabSession(data.lastContext) ? data.lastContext : undefined;
+      const isActiveDocument = options.getActiveDocument(documentName) === data.document;
+      if (!isActiveDocument && !context) throw new Error('Unauthorized');
+      const fallback = isActiveDocument ? undefined : context;
       try {
         await options.flushDocument(documentName, data.document, fallback, 'persist');
       } catch (error) {

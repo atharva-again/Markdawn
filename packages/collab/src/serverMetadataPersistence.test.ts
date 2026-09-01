@@ -43,13 +43,11 @@ describe('collab server metadata persistence', () => {
       document.getText('title').insert(0, 'Updated title');
       const payload: onStoreDocumentPayload = {
         clientsCount: 1,
-        context: await createAccountHookContext(pool, owner.id),
+        lastContext: await createAccountHookContext(pool, owner.id),
+        lastTransactionOrigin: null,
         document,
         documentName: page.id,
         instance: server.hocuspocus,
-        requestHeaders: {},
-        requestParameters: new URLSearchParams(),
-        socketId: crypto.randomUUID(),
       };
 
       await server.hocuspocus.hooks('onStoreDocument', payload);
@@ -73,7 +71,7 @@ describe('collab server metadata persistence', () => {
       document,
       documentName: page.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
+      requestHeaders: new Headers(),
       requestParameters: new URLSearchParams(),
       socketId: crypto.randomUUID(),
       connectionConfig: createConnectionConfig(),
@@ -86,13 +84,11 @@ describe('collab server metadata persistence', () => {
 
     await server.hocuspocus.hooks('onStoreDocument', {
       clientsCount: 1,
-      context,
+      lastContext: context,
+      lastTransactionOrigin: null,
       document,
       documentName: page.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     });
 
     const stored = await pool.query<{ title: string; ydoc: Buffer | null }>(
@@ -148,7 +144,7 @@ describe('collab server metadata persistence', () => {
       document,
       documentName: page.id,
       instance: postCommitServer.hocuspocus,
-      requestHeaders: {},
+      requestHeaders: new Headers(),
       requestParameters: new URLSearchParams(),
       socketId: crypto.randomUUID(),
       transactionOrigin: null,
@@ -158,13 +154,11 @@ describe('collab server metadata persistence', () => {
     try {
       await postCommitServer.hocuspocus.hooks('onStoreDocument', {
         clientsCount: 1,
-        context,
+        lastContext: context,
+        lastTransactionOrigin: null,
         document,
         documentName: page.id,
         instance: postCommitServer.hocuspocus,
-        requestHeaders: {},
-        requestParameters: new URLSearchParams(),
-        socketId: crypto.randomUUID(),
       });
       await postCommitServer.hocuspocus.hooks('onDisconnect', {
         clientsCount: 0,
@@ -172,7 +166,7 @@ describe('collab server metadata persistence', () => {
         document,
         documentName: page.id,
         instance: postCommitServer.hocuspocus,
-        requestHeaders: {},
+        requestHeaders: new Headers(),
         requestParameters: new URLSearchParams(),
         socketId: crypto.randomUUID(),
       });

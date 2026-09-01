@@ -3,11 +3,7 @@ import { getAnimalEmoji, getAnonymousName, getStableColor } from '@markdawn/shar
 import { CollabProtocolDeniedError } from './collabErrors';
 import { readVarUint } from './collaborationProtocol';
 import { type CollabSession, getSessionUser, isAnonymousSession } from './collabSession';
-import {
-  type DeferredAwarenessContext,
-  getConnectionLifecycle,
-  relayedAwarenessMessages,
-} from './hocuspocusV3Adapter';
+import { type DeferredAwarenessContext, getConnectionLifecycle } from './connectionLifecycle';
 
 const AWARENESS_RELAY_FINGERPRINT_LIMIT = 256;
 
@@ -139,10 +135,10 @@ export function validateAwarenessIdentity(
   document: Document,
   connection: Connection,
   context: AwarenessIdentityContext,
-): void {
+): 'apply' | 'ignore' {
   const entries = parseAwarenessEntries(update);
   if (entries.length === 0) throw new CollabProtocolDeniedError('One awareness identity required');
-  const ownedClientIds = document.getClients(connection.webSocket);
+  const ownedClientIds = document.getClients(connection);
   const awareness = context.lifecycle.awareness;
   const isCanonicalRelay = entries.every((entry) => {
     const ownsClientId =
@@ -166,8 +162,7 @@ export function validateAwarenessIdentity(
   });
 
   if (isCanonicalRelay || isKnownServerRelay) {
-    relayedAwarenessMessages.add(update);
-    return;
+    return 'ignore';
   }
   if (entries.length !== 1) throw new CollabProtocolDeniedError('One awareness identity required');
   const entry = entries[0];
@@ -179,7 +174,7 @@ export function validateAwarenessIdentity(
     const otherContext = otherConnection.context as AwarenessIdentityContext | undefined;
     return (
       otherContext?.lifecycle.awareness.clientId === entry.clientId ||
-      document.getClients(otherConnection.webSocket).has(entry.clientId)
+      document.getClients(otherConnection).has(entry.clientId)
     );
   });
   const isSamePrincipal = (otherConnection: Connection): boolean => {
@@ -198,7 +193,7 @@ export function validateAwarenessIdentity(
     if (!directlyOwnsClientId || foreignOwner) {
       throw new CollabProtocolDeniedError('Foreign awareness identity is not allowed');
     }
-    return;
+    return 'apply';
   }
   if (
     foreignOwner ||
@@ -214,4 +209,5 @@ export function validateAwarenessIdentity(
     }
   }
   awareness.clientId = entry.clientId;
+  return 'apply';
 }

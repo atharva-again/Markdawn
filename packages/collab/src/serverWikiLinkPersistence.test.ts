@@ -54,13 +54,11 @@ describe('collab server wiki-link persistence', () => {
 
     const payload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, sourceOwner.id),
+      lastContext: await createAccountHookContext(pool, sourceOwner.id),
+      lastTransactionOrigin: null,
       document,
       documentName: source.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
 
     await server.hocuspocus.hooks('onStoreDocument', payload);
@@ -91,13 +89,11 @@ describe('collab server wiki-link persistence', () => {
     appendWikiLink(document, { path: 'renamed-target', label: 'External Target' });
     const payload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, sourceOwner.id),
+      lastContext: await createAccountHookContext(pool, sourceOwner.id),
+      lastTransactionOrigin: null,
       document,
       documentName: source.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
 
     await server.hocuspocus.hooks('onStoreDocument', payload);
@@ -130,13 +126,11 @@ describe('collab server wiki-link persistence', () => {
     });
     await server.hocuspocus.hooks('onStoreDocument', {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, editor.id, 'edit'),
+      lastContext: await createAccountHookContext(pool, editor.id, 'edit'),
+      lastTransactionOrigin: null,
       document,
       documentName: source.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     });
 
     const result = await pool.query<{
@@ -172,13 +166,11 @@ describe('collab server wiki-link persistence', () => {
     appendWikiLink(document, { path: 'hidden slug target', label: 'Authored Alias' });
     await server.hocuspocus.hooks('onStoreDocument', {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, editor.id, 'edit'),
+      lastContext: await createAccountHookContext(pool, editor.id, 'edit'),
+      lastTransactionOrigin: null,
       document,
       documentName: source.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     });
 
     const result = await pool.query<{
@@ -229,7 +221,7 @@ describe('collab server wiki-link persistence', () => {
           document,
           documentName: source.id,
           instance: server.hocuspocus,
-          requestHeaders: {},
+          requestHeaders: new Headers(),
           requestParameters: new URLSearchParams(),
           socketId: crypto.randomUUID(),
           transactionOrigin: null,
@@ -239,13 +231,11 @@ describe('collab server wiki-link persistence', () => {
 
       await server.hocuspocus.hooks('onStoreDocument', {
         clientsCount: 2,
-        context: ownerContext,
+        lastContext: ownerContext,
+        lastTransactionOrigin: null,
         document,
         documentName: source.id,
         instance: server.hocuspocus,
-        requestHeaders: {},
-        requestParameters: new URLSearchParams(),
-        socketId: crypto.randomUUID(),
       });
     } finally {
       server.hocuspocus.documents.delete(source.id);
@@ -287,7 +277,7 @@ describe('collab server wiki-link persistence', () => {
           document,
           documentName: source.id,
           instance: server.hocuspocus,
-          requestHeaders: {},
+          requestHeaders: new Headers(),
           requestParameters: new URLSearchParams(),
           socketId: crypto.randomUUID(),
           transactionOrigin: null,
@@ -296,13 +286,11 @@ describe('collab server wiki-link persistence', () => {
       }
       await server.hocuspocus.hooks('onStoreDocument', {
         clientsCount: 2,
-        context: ownerContext,
+        lastContext: ownerContext,
+        lastTransactionOrigin: null,
         document,
         documentName: source.id,
         instance: server.hocuspocus,
-        requestHeaders: {},
-        requestParameters: new URLSearchParams(),
-        socketId: crypto.randomUUID(),
       });
     } finally {
       server.hocuspocus.documents.delete(source.id);
@@ -332,13 +320,11 @@ describe('collab server wiki-link persistence', () => {
     });
     await server.hocuspocus.hooks('onStoreDocument', {
       clientsCount: 1,
-      context: createAnonymousHookContext(crypto.randomUUID(), 'edit'),
+      lastContext: createAnonymousHookContext(crypto.randomUUID(), 'edit'),
+      lastTransactionOrigin: null,
       document,
       documentName: source.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     });
 
     const result = await pool.query<{ target_id: string | null; target_label: string }>(
@@ -370,13 +356,11 @@ describe('collab server wiki-link persistence', () => {
     });
     await server.hocuspocus.hooks('onStoreDocument', {
       clientsCount: 1,
-      context: createAnonymousHookContext(crypto.randomUUID(), 'edit'),
+      lastContext: createAnonymousHookContext(crypto.randomUUID(), 'edit'),
+      lastTransactionOrigin: null,
       document,
       documentName: source.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     });
 
     const result = await pool.query<{ target_id: string | null }>(
@@ -405,13 +389,11 @@ describe('collab server wiki-link persistence', () => {
     appendWikiLink(document, { path: '/Visible Target.md#Section', label: 'Authored Alias' });
     await server.hocuspocus.hooks('onStoreDocument', {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, editor.id, 'edit'),
+      lastContext: await createAccountHookContext(pool, editor.id, 'edit'),
+      lastTransactionOrigin: null,
       document,
       documentName: source.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     });
 
     const result = await pool.query<{ target_id: string | null; target_label: string }>(
@@ -451,13 +433,11 @@ describe('collab server wiki-link persistence', () => {
     });
     const payload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, editor.id, 'edit'),
+      lastContext: await createAccountHookContext(pool, editor.id, 'edit'),
+      lastTransactionOrigin: null,
       document,
       documentName: source.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
     await server.hocuspocus.hooks('onStoreDocument', payload);
 
@@ -506,13 +486,11 @@ describe('collab server wiki-link persistence', () => {
     });
     await server.hocuspocus.hooks('onStoreDocument', {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, owner.id),
+      lastContext: await createAccountHookContext(pool, owner.id),
+      lastTransactionOrigin: null,
       document,
       documentName: source.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     });
 
     const result = await pool.query<{ target_id: string | null; target_label: string }>(
@@ -532,13 +510,11 @@ describe('collab server wiki-link persistence', () => {
 
     const payload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, owner.id),
+      lastContext: await createAccountHookContext(pool, owner.id),
+      lastTransactionOrigin: null,
       document,
       documentName: source.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
 
     await server.hocuspocus.hooks('onStoreDocument', payload);
@@ -570,13 +546,11 @@ describe('collab server wiki-link persistence', () => {
     appendWikiLink(document, { path: 'Duplicate title', label: 'Duplicate title' });
     await server.hocuspocus.hooks('onStoreDocument', {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, owner.id),
+      lastContext: await createAccountHookContext(pool, owner.id),
+      lastTransactionOrigin: null,
       document,
       documentName: source.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     });
 
     const result = await pool.query<{ target_id: string | null; target_label: string }>(
@@ -606,13 +580,11 @@ describe('collab server wiki-link persistence', () => {
     appendWikiLink(document, { path: 'visible target', label: 'Visible target' });
     const payload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, owner.id),
+      lastContext: await createAccountHookContext(pool, owner.id),
+      lastTransactionOrigin: null,
       document,
       documentName: source.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
 
     try {

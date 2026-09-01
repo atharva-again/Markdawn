@@ -17,6 +17,23 @@ import {
 } from './serverTestHarness';
 import { createTestPage, createTestUser, getTestPool } from './test-utils';
 
+type MockConnectionOverrides = Partial<{
+  messageAddress: string;
+  send: ReturnType<typeof vi.fn>;
+  sendStateless: ReturnType<typeof vi.fn>;
+  close: ReturnType<typeof vi.fn>;
+}>;
+
+function createMockConnection(overrides: MockConnectionOverrides = {}) {
+  return {
+    messageAddress: 'test',
+    send: vi.fn(),
+    sendStateless: vi.fn(),
+    close: vi.fn(),
+    ...overrides,
+  };
+}
+
 describe('collab server database event publication', () => {
   const pool = getTestPool();
   const logger = mockLogger();
@@ -86,7 +103,7 @@ describe('collab server database event publication', () => {
         databaseUrl,
         permissionRevalidationMs: 0,
       });
-      const connection = { sendStateless: vi.fn(), close: vi.fn() };
+      const connection = createMockConnection();
       const metaDocument = new Document(`page-meta:${recipient.id}`);
       vi.spyOn(metaDocument, 'getConnections').mockReturnValue([
         connection,
@@ -221,7 +238,7 @@ describe('collab server database event publication', () => {
         new Date(deletedAt.getTime() + 1_000),
         folderId,
       ]);
-      const connection = { sendStateless: vi.fn(), close: vi.fn() };
+      const connection = createMockConnection();
       const activeDocument = new Document(page.id);
       vi.spyOn(activeDocument, 'getConnections').mockReturnValue([
         connection,
@@ -374,7 +391,7 @@ describe('collab server database event publication', () => {
         folderId,
       ]);
 
-      const connection = { sendStateless: vi.fn(), close: vi.fn() };
+      const connection = createMockConnection();
       const metaDocument = new Document(`page-meta:${owner.id}`);
       vi.spyOn(metaDocument, 'getConnections').mockReturnValue([
         connection,
@@ -407,7 +424,7 @@ describe('collab server database event publication', () => {
         folderId,
       ]);
 
-      const connection = { send: vi.fn(), sendStateless: vi.fn(), close: vi.fn() };
+      const connection = createMockConnection();
       const metaDocument = new Document(`page-meta:${owner.id}`);
       vi.spyOn(metaDocument, 'getConnections').mockReturnValue([
         connection,
@@ -491,7 +508,7 @@ describe('collab server database event publication', () => {
         [page.id],
       );
 
-      const pageConnection = { sendStateless: vi.fn(), close: vi.fn() };
+      const pageConnection = createMockConnection();
       const pageDocument = new Document(page.id);
       const metaDocument = new Document(`page-meta:${owner.id}`);
       metaDocument.getMap('pageIndex').set(page.id, { title: page.title });
@@ -565,8 +582,8 @@ describe('collab server database event publication', () => {
         [deletionBatchId, folderId],
       );
 
-      const pageConnection = { sendStateless: vi.fn(), close: vi.fn() };
-      const metaConnection = { send: vi.fn(), sendStateless: vi.fn(), close: vi.fn() };
+      const pageConnection = createMockConnection();
+      const metaConnection = createMockConnection();
       const pageDocument = new Document(page.id);
       const metaDocument = new Document(`page-meta:${owner.id}`);
       metaDocument.getMap('pageIndex').set(page.id, { title: page.title });
@@ -648,8 +665,8 @@ describe('collab server database event publication', () => {
         [deletionBatchId, folderId],
       );
 
-      const pageConnection = { sendStateless: vi.fn(), close: vi.fn() };
-      const metaConnection = { send: vi.fn(), sendStateless: vi.fn(), close: vi.fn() };
+      const pageConnection = createMockConnection();
+      const metaConnection = createMockConnection();
       const pageDocument = new Document(page.id);
       const metaDocument = new Document(`page-meta:${owner.id}`);
       vi.spyOn(pageDocument, 'getConnections').mockReturnValue([
@@ -712,7 +729,7 @@ describe('collab server database event publication', () => {
       const firstUserId = crypto.randomUUID();
       const secondUserId = crypto.randomUUID();
       const unrelatedUserId = crypto.randomUUID();
-      const pageConnection = { sendStateless: vi.fn(), close: vi.fn() };
+      const pageConnection = createMockConnection();
       const pageDocument = new Document(pageId);
       vi.spyOn(pageDocument, 'getConnections').mockReturnValue([
         pageConnection,
@@ -753,8 +770,8 @@ describe('collab server database event publication', () => {
       const folderId = crypto.randomUUID();
       const pageId = crypto.randomUUID();
       const userId = crypto.randomUUID();
-      const pageConnection = { sendStateless: vi.fn(), close: vi.fn() };
-      const metaConnection = { send: vi.fn(), sendStateless: vi.fn(), close: vi.fn() };
+      const pageConnection = createMockConnection();
+      const metaConnection = createMockConnection();
       const pageDocument = new Document(pageId);
       const metaDocument = new Document(`page-meta:${userId}`);
       metaDocument.getMap('pageIndex').set(pageId, { title: 'Purged descendant' });
@@ -787,10 +804,7 @@ describe('collab server database event publication', () => {
       await pool.query('update pages set is_deleted = true, deleted_at = now() where id = $1', [
         page.id,
       ]);
-      const connection = {
-        sendStateless: vi.fn(),
-        close: vi.fn(),
-      };
+      const connection = createMockConnection();
       const activeDocument = new Document(page.id);
       vi.spyOn(activeDocument, 'getConnections').mockReturnValue([
         connection,

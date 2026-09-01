@@ -2,7 +2,7 @@ import type { Document, Hocuspocus } from '@hocuspocus/server';
 import type { PoolClient } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
 import { createCollabSession } from './collabSession';
-import { createConnectionLifecycle } from './hocuspocusV3Adapter';
+import { createConnectionLifecycle } from './connectionLifecycle';
 import { broadcastWikiLinkPresentationInvalidation } from './wikiLinkInvalidation';
 
 describe('wiki-link invalidation fanout', () => {

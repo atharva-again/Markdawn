@@ -32,10 +32,9 @@ Session tokens checked in this order:
 
 ### Hocuspocus Lifecycle Hooks
 
-- `@hocuspocus/server` is pinned to 3.4.4 and extended by the checked-in pnpm
+- `@hocuspocus/server` is pinned to 4.6.0 and extended by the checked-in pnpm
   patch under `patches/`.
-- The patch exposes server-scoped awareness, send, close, and
-  message-application lifecycle hooks required by the collaboration
-  authorization fence.
+- The package patch provides the small set of v4 compatibility hooks required
+  by the collaboration adapter.
 - Keep these changes in the package patch; do not mutate Hocuspocus prototypes
   or package-global hook state at runtime.

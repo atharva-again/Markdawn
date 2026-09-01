@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createAccessVerifier, withSerializedPermissionCheck } from './accessVerifier';
 import { CollabAccessError, CollabVerificationError } from './collabErrors';
 import { type CollabSession, createCollabSession } from './collabSession';
-import { createConnectionLifecycle } from './hocuspocusV3Adapter';
+import { createConnectionLifecycle } from './connectionLifecycle';
 
 const logger = {
   debug: vi.fn(),

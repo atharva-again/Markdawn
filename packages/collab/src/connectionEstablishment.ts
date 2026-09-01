@@ -4,12 +4,12 @@ import { withSerializedPermissionCheck } from './accessVerifier';
 import type { AuthenticatedCredential } from './authenticatedCredential';
 import { CollabAccessError } from './collabErrors';
 import { getAuthenticatedCredential, getSessionUser, isCollabSession } from './collabSession';
-import type { CredentialState } from './credentialQueries';
 import {
   rejectConnectionTraffic,
   releaseConnectionTraffic,
   sendDeferredInitialAwareness,
-} from './hocuspocusV3Adapter';
+} from './connectionLifecycle';
+import type { CredentialState } from './credentialQueries';
 import {
   applyPermissionState,
   type GrantedPermissionState,

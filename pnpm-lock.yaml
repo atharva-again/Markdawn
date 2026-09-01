@@ -8,9 +8,9 @@ overrides:
   yjs: 13.6.29
 
 patchedDependencies:
+  '@hocuspocus/server@4.6.0': 737190e9b8715b2b76e69ed81068ec6906cfab91316ccf0da22ae48aa68cb472
   '@better-auth/cimd@1.7.2': abd47d6bdbc942481bac048c0483d6a090173bf14dbf2e0544bbb53ec9e6379e
   '@better-auth/oauth-provider@1.7.2': 540537d613727e7a5fd54d1497a96c1201b92d47baf4a225bb944370e9d608a0
-  '@hocuspocus/server@3.4.4': e9e87dbef2ec9369df64559d0738cf6c4e928c0c943b8d23ec89ad6276740890
 
 importers:
 
@@ -151,15 +151,9 @@ importers:
 
   packages/collab:
     dependencies:
-      '@hocuspocus/extension-database':
-        specifier: 3.4.4
-        version: 3.4.4(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)
-      '@hocuspocus/extension-logger':
-        specifier: 3.4.4
-        version: 3.4.4(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)
       '@hocuspocus/server':
-        specifier: 3.4.4
-        version: 3.4.4(patch_hash=e9e87dbef2ec9369df64559d0738cf6c4e928c0c943b8d23ec89ad6276740890)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)
+        specifier: 4.6.0
+        version: 4.6.0(patch_hash=737190e9b8715b2b76e69ed81068ec6906cfab91316ccf0da22ae48aa68cb472)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)
       '@logtape/logtape':
         specifier: ^2.0.5
         version: 2.0.5
@@ -180,8 +174,8 @@ importers:
         version: 13.6.29
     devDependencies:
       '@hocuspocus/provider':
-        specifier: 3.4.4
-        version: 3.4.4(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)
+        specifier: 4.6.0
+        version: 4.6.0(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)
       '@types/node':
         specifier: ^25.3.0
         version: 25.3.0
@@ -336,8 +330,8 @@ importers:
         specifier: ^5.2.8
         version: 5.2.8
       '@hocuspocus/provider':
-        specifier: 3.4.4
-        version: 3.4.4(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)
+        specifier: 4.6.0
+        version: 4.6.0(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)
       '@logtape/logtape':
         specifier: ^2.0.5
         version: 2.0.5
@@ -1633,25 +1627,18 @@ packages:
   '@fontsource/inter@5.2.8':
     resolution: {integrity: sha512-P6r5WnJoKiNVV+zvW2xM13gNdFhAEpQ9dQJHt3naLvfg+LkF2ldgSLiF4T41lf1SQCM9QmkqPTn4TH568IRagg==}
 
-  '@hocuspocus/common@3.4.4':
-    resolution: {integrity: sha512-RykIJ0tsHHMP4Xk+4UCbc7SO5LgGxGUSTdbh6anJEsaALAyqinf1Nn5HYuMjLPolAmsar1v++m9zufR09NLpXA==}
+  '@hocuspocus/common@4.6.0':
+    resolution: {integrity: sha512-OotSE6HHmQzA9KH5xElZTaps4KY96CPnOJ15Pph6EpFzbZV86vkwghZP/u7zxibPr5NVK+h9hXQ+OVeN9Pl/LQ==}
 
-  '@hocuspocus/extension-database@3.4.4':
-    resolution: {integrity: sha512-z7iq2Dw+GOp4aQq7ys3PD0BA++7tQdXBsSHZ+8mkAbxfTDzjzQ576TphxPiXXC1WQ7yjeFXq03xp/KLIhg3Pyg==}
-    peerDependencies:
-      yjs: 13.6.29
-
-  '@hocuspocus/extension-logger@3.4.4':
-    resolution: {integrity: sha512-GEnjmvQlrDlr5hoTQ8NHStZkzpL42wkwZ5XOBMkEX/TgqcnEtKCK1SOK0xj+px9tEHaflDLtCq6f5oy4gOCkPQ==}
-
-  '@hocuspocus/provider@3.4.4':
-    resolution: {integrity: sha512-KbsMAfdYcIJD8eMU/5QnpXcSOvIWAcCNI33FSRSaKCIpYBFtAwkYIwWnZJmPZ8a1BMAtqQc+uvy9+UQf7GHnGQ==}
+  '@hocuspocus/provider@4.6.0':
+    resolution: {integrity: sha512-twKgZb1PbDSapfdghvLWR1zQEvSiQLCH7DjKL4QmSoG2P1a0D7p5MUrm/RzXKscPpzVjHyGzHPlIWAXEEcvfxQ==}
     peerDependencies:
       y-protocols: ^1.0.6
       yjs: 13.6.29
 
-  '@hocuspocus/server@3.4.4':
-    resolution: {integrity: sha512-UV+oaONAejOzeYgUygNcgsc8RdZvSokVvAxluZJIisLACpRO/VsseQ5lWKDRwLd7Fn6+rHWDH3hGuQ1fdX1Ycg==}
+  '@hocuspocus/server@4.6.0':
+    resolution: {integrity: sha512-Ex4tka1vsm9NycHU1vPwxj3weQj+L2+736U8uentRyykAefUcYkHEh7Gfxiy9PHBholWcw1H+oYgZ3LP0ShTWQ==}
+    engines: {node: '>=22'}
     peerDependencies:
       y-protocols: ^1.0.6
       yjs: 13.6.29
@@ -2763,9 +2750,6 @@ packages:
       '@astrojs/markdown-remark':
         optional: true
 
-  async-lock@1.4.1:
-    resolution: {integrity: sha512-Az2ZTpuytrtqENulXwO3GGv1Bztugx6TT37NIo7imr/Qo0gsYiGtSdBa2B6fsXhTpVZDNfu1Qn3pk531e3q+nQ==}
-
   async-mutex@0.5.0:
     resolution: {integrity: sha512-1A94B18jkJ3DYq284ohPxoXbfTA5HsQ7/Mf4DEhcyLx3Bz27Rh59iScbB6EPiP+B+joue6YCxcMXSbFC1tZKwA==}
 
@@ -3008,6 +2992,14 @@ packages:
 
   crossws@0.3.5:
     resolution: {integrity: sha512-ojKiDvcmByhwa8YYqbQI/hg7MEU0NC03+pSdEq4ZUnZR9xXpwk7E43SMNGkn+JxJGPFtNvQ48+vV2p+P1ml5PA==}
+
+  crossws@0.4.12:
+    resolution: {integrity: sha512-aypfsr6t0uNvkqaZc6zvBfXzC6pLI0/sIulpkV6RwCVtZqG5ebBzv4weImKK0VNCj91Wl9F5j7p5WU4MNrybng==}
+    peerDependencies:
+      srvx: '>=0.11.5'
+    peerDependenciesMeta:
+      srvx:
+        optional: true
 
   css-select@5.2.2:
     resolution: {integrity: sha512-TizTzUddG/xYLA3NXodFM0fSbNizXjOKhqiQQwvhlspadZokn1KDy0NZFS0wuEubIYAV5/c1/lAr0TaaFXEXzw==}
@@ -6532,53 +6524,29 @@ snapshots:
 
   '@fontsource/inter@5.2.8': {}
 
-  '@hocuspocus/common@3.4.4':
+  '@hocuspocus/common@4.6.0':
     dependencies:
       lib0: 0.2.117
 
-  '@hocuspocus/extension-database@3.4.4(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)':
+  '@hocuspocus/provider@4.6.0(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)':
     dependencies:
-      '@hocuspocus/server': 3.4.4(patch_hash=e9e87dbef2ec9369df64559d0738cf6c4e928c0c943b8d23ec89ad6276740890)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)
-      yjs: 13.6.29
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
-      - y-protocols
-
-  '@hocuspocus/extension-logger@3.4.4(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)':
-    dependencies:
-      '@hocuspocus/server': 3.4.4(patch_hash=e9e87dbef2ec9369df64559d0738cf6c4e928c0c943b8d23ec89ad6276740890)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
-      - y-protocols
-      - yjs
-
-  '@hocuspocus/provider@3.4.4(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)':
-    dependencies:
-      '@hocuspocus/common': 3.4.4
+      '@hocuspocus/common': 4.6.0
       '@lifeomic/attempt': 3.1.0
       lib0: 0.2.117
-      ws: 8.19.0
       y-protocols: 1.0.7(yjs@13.6.29)
       yjs: 13.6.29
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
-  '@hocuspocus/server@3.4.4(patch_hash=e9e87dbef2ec9369df64559d0738cf6c4e928c0c943b8d23ec89ad6276740890)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)':
+  '@hocuspocus/server@4.6.0(patch_hash=737190e9b8715b2b76e69ed81068ec6906cfab91316ccf0da22ae48aa68cb472)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)':
     dependencies:
-      '@hocuspocus/common': 3.4.4
-      async-lock: 1.4.1
+      '@hocuspocus/common': 4.6.0
       async-mutex: 0.5.0
+      crossws: 0.4.12
       kleur: 4.1.5
       lib0: 0.2.117
-      ws: 8.19.0
       y-protocols: 1.0.7(yjs@13.6.29)
       yjs: 13.6.29
     transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
+      - srvx
 
   '@hono/node-server@1.19.9(hono@4.12.0)':
     dependencies:
@@ -7852,8 +7820,6 @@ snapshots:
       - uploadthing
       - yaml
 
-  async-lock@1.4.1: {}
-
   async-mutex@0.5.0:
     dependencies:
       tslib: 2.8.1
@@ -8030,6 +7996,8 @@ snapshots:
   crossws@0.3.5:
     dependencies:
       uncrypto: 0.1.3
+
+  crossws@0.4.12: {}
 
   css-select@5.2.2:
     dependencies:

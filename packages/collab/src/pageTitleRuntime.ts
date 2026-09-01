@@ -7,6 +7,7 @@ import {
 } from '@markdawn/shared';
 import type { Pool } from 'pg';
 import type * as Y from 'yjs';
+import { SKIP_STORE_LOCAL_ORIGIN } from './hocuspocusTransactionOrigins';
 
 type PageTitleRuntimeOptions = {
   pool: Pool;
@@ -71,7 +72,7 @@ export function createPageTitleRuntime({
     document.transact(() => {
       titleText.delete(0, titleText.length);
       titleText.insert(0, acceptedTitle);
-    });
+    }, SKIP_STORE_LOCAL_ORIGIN);
     logger.warn(
       `[title] rejected page=${documentName}: title is ${titleLength} characters (limit ${MAX_PAGE_TITLE_LENGTH})`,
     );
@@ -120,7 +121,7 @@ export function createPageTitleRuntime({
             document.transact(() => {
               title.delete(0, title.length);
               title.insert(0, row.title);
-            });
+            }, SKIP_STORE_LOCAL_ORIGIN);
             accepted.set(pageId, row.title);
             pendingBaselines.delete(pageId);
           }

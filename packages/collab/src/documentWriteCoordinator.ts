@@ -18,8 +18,8 @@ import {
   isCollabSession,
 } from './collabSession';
 import type { ConnectionResolutionPrincipal } from './connectionIndex';
+import type { WriteAdmission } from './connectionLifecycle';
 import { createDocumentContentLock } from './documentContentLock';
-import type { WriteAdmission } from './hocuspocusV3Adapter';
 import {
   applyPagePermissionTransition,
   applyPermissionState,
