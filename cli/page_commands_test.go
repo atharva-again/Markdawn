@@ -65,6 +65,60 @@ func TestPageListFetchesPagesAndFoldersConcurrently(t *testing.T) {
 	}
 }
 
+func TestPageSearchSendsTrimmedQueryAndRendersResults(t *testing.T) {
+	runtime, output := testRuntime(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodGet || request.URL.Path != "/api/v1/pages/search" {
+			t.Fatalf("unexpected request %s %s", request.Method, request.URL.Path)
+		}
+		if request.URL.Query().Get("q") != "project notes" {
+			t.Fatalf("unexpected search query %q", request.URL.Query().Get("q"))
+		}
+		fmt.Fprint(response, `{"data":[{"id":"page-id","title":"Project Notes","folderPath":"/Research"}]}`)
+	}), true)
+
+	if err := (&PageSearchCmd{Query: "  project notes  "}).Run(runtime); err != nil {
+		t.Fatal(err)
+	}
+	var results []pageListItem
+	if err := json.Unmarshal(output.Bytes(), &results); err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].ID != "page-id" || results[0].FolderPath != "/Research" {
+		t.Fatalf("unexpected search results %#v", results)
+	}
+}
+
+func TestPageSearchRejectsBlankQueryBeforeMakingARequest(t *testing.T) {
+	requests := 0
+	runtime, _ := testRuntime(t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		requests++
+	}), true)
+
+	err := (&PageSearchCmd{Query: "  "}).Run(runtime)
+	if exitCode(err) != exitUsage {
+		t.Fatalf("expected usage error, got %v", err)
+	}
+	if requests != 0 {
+		t.Fatalf("made %d API requests", requests)
+	}
+}
+
+func TestPageSearchReportsNoMatches(t *testing.T) {
+	runtime, output := testRuntime(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/api/v1/pages/search" {
+			t.Fatalf("unexpected request %s", request.URL.Path)
+		}
+		fmt.Fprint(response, `{"data":[]}`)
+	}), false)
+
+	if err := (&PageSearchCmd{Query: "missing"}).Run(runtime); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "No matching pages found.\n" {
+		t.Fatalf("unexpected output %q", output.String())
+	}
+}
+
 func TestPageCreateSendsInitialMarkdown(t *testing.T) {
 	markdownFile, err := os.CreateTemp(t.TempDir(), "page-*.md")
 	if err != nil {
