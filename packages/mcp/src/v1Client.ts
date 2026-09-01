@@ -9,6 +9,7 @@ import type {
   McpMarkdownImport,
   McpPage,
   McpPageList,
+  McpPageSearch,
   McpReadPage,
   McpReplacePage,
   McpTrashList,
@@ -97,6 +98,10 @@ export class V1Client extends V1ClientTransport implements McpRequestBackend {
     options?: McpRequestOptions,
   ): Promise<McpPageList> {
     return this.pages.listPages(this.actor, input, options);
+  }
+
+  async searchPages(query: string, options?: McpRequestOptions): Promise<McpPageSearch> {
+    return this.pages.searchPages(this.actor, query, options);
   }
 
   async readPage(reference: string, options?: McpRequestOptions): Promise<McpReadPage> {
