@@ -19,10 +19,6 @@ vi.mock('@hocuspocus/server', () => ({
   },
 }));
 
-vi.mock('@hocuspocus/extension-database', () => ({
-  Database: class {},
-}));
-
 vi.mock('pg', () => ({
   Pool: class {
     query() {
@@ -54,6 +50,7 @@ vi.mock('@markdawn/shared/yjs-helpers', () => ({
 describe('collab package entry point', () => {
   it('resolves the module graph without errors', async () => {
     vi.stubEnv('COLLAB_INTERNAL_SECRET', 'test-collaboration-internal-secret');
+    vi.stubEnv('DATABASE_URL', 'postgresql://markdawn:password@localhost:5432/markdawn');
     const mod = await import('./index');
     expect(mod).toBeDefined();
   });

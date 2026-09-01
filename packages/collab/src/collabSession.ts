@@ -1,6 +1,6 @@
 import type { SharePermission } from '@markdawn/shared';
 import type { AuthenticatedCredential } from './authenticatedCredential';
-import type { ConnectionLifecycle } from './hocuspocusV3Adapter';
+import type { ConnectionLifecycle } from './connectionLifecycle';
 
 const collabSessionBrand: unique symbol = Symbol('markdawn.collabSession');
 

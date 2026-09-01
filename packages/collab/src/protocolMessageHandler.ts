@@ -18,8 +18,8 @@ import {
   isCollabSession,
   waitForWriteApplications,
 } from './collabSession';
+import { rejectConnectionTraffic, waitForConnectionTraffic } from './connectionLifecycle';
 import type { CredentialState } from './credentialQueries';
-import { rejectConnectionTraffic, waitForConnectionTraffic } from './hocuspocusV3Adapter';
 import {
   applyPermissionState,
   type GrantedPermissionState,
@@ -46,6 +46,7 @@ type MessageHandlerOptions = {
     client: PoolClient,
   ): Promise<GrantedPermissionState>;
   writeAdmissions: ReturnType<typeof createWriteAdmissionRuntime>;
+  ignoreMessage(message: Uint8Array): void;
 };
 
 class WriteFenceTransaction {
@@ -289,12 +290,18 @@ export function createProtocolMessageHandler(options: MessageHandlerOptions) {
 
     const isSyncMessage = protocolMessageType === 0 || protocolMessageType === 4;
     const isAwarenessMessage = protocolMessageType === 1 || protocolMessageType === 3;
+    let awarenessDisposition: 'apply' | 'ignore' = 'apply';
     if (protocolMessageType === 1) {
       try {
         if (update.byteLength > options.maxAwarenessPayloadBytes) {
           throw new CollabProtocolDeniedError('Awareness payload is too large');
         }
-        validateAwarenessIdentity(update, document as Document, connection as Connection, session);
+        awarenessDisposition = validateAwarenessIdentity(
+          update,
+          document as Document,
+          connection as Connection,
+          session,
+        );
       } catch (error) {
         rejectConnectionTraffic(session);
         connection.close({
@@ -310,10 +317,12 @@ export function createProtocolMessageHandler(options: MessageHandlerOptions) {
       if (isSyncMessage || isAwarenessMessage) {
         await verifyMetaMessage(session, connection as Connection, options);
       }
+      if (awarenessDisposition === 'ignore') options.ignoreMessage(update);
       return;
     }
     if (!isSyncMessage && !isAwarenessMessage && !writeUpdate) return;
     await verifyPageMessage(payload, session, writeUpdate ?? undefined, options);
+    if (awarenessDisposition === 'ignore') options.ignoreMessage(update);
   };
 
   return async (payload: beforeHandleMessagePayload): Promise<void> => {

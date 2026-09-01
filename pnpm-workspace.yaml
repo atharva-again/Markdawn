@@ -12,4 +12,4 @@ allowBuilds:
   '@biomejs/biome': false
 
 patchedDependencies:
-  '@hocuspocus/server@3.4.4': patches/@hocuspocus__server@3.4.4.patch
+  '@hocuspocus/server@4.6.0': patches/@hocuspocus__server@4.6.0.patch

@@ -382,12 +382,12 @@ describe('collab server awareness policy', () => {
           const currentDocument = server.hocuspocus.documents.get(page.id) as Document | undefined;
           return (
             currentDocument?.awareness.getStates().has(sharedDocument.clientID) === true &&
-            (currentDocument.awareness.meta.get(sharedDocument.clientID)?.clock ?? 0) >
+            (currentDocument.awareness.meta.get(sharedDocument.clientID)?.clock ?? 0) ===
               clockBeforeDisconnect
           );
         },
         5_000,
-        'remaining duplicate to reannounce awareness',
+        'remaining duplicate to retain awareness',
       );
       expect(duplicateClosed).not.toHaveBeenCalled();
 

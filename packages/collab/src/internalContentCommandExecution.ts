@@ -25,6 +25,7 @@ import type { PermissionQueryExecutor } from './accessVerifier';
 import type { AuthenticatedCredential } from './authenticatedCredential';
 import { CollabAccessError } from './collabErrors';
 import { createCollabSession } from './collabSession';
+import { createConnectionLifecycle } from './connectionLifecycle';
 import {
   type ContentCommandEffects,
   type DocumentPersistenceMutation,
@@ -32,7 +33,7 @@ import {
 } from './contentMutationPersistence';
 import { contentMetadataHash } from './contentRevision';
 import type { DocumentFlushResult } from './documentFlusher';
-import { createConnectionLifecycle } from './hocuspocusV3Adapter';
+import { SKIP_STORE_LOCAL_ORIGIN } from './hocuspocusTransactionOrigins';
 import { ContentCommandError, ContentConflictError } from './internalContentCommandErrors';
 import type { GrantedPermissionState } from './permissionState';
 import { getWikiLinkAccess, type WikiLinkAccess } from './wikiLinkAccess';
@@ -141,12 +142,10 @@ function replaceAndBindMarkdownBody(
   body: string,
   pageLookup: ReadonlyMap<string, string>,
 ): void {
-  // Hocuspocus interprets truthy Yjs origins as socket connections. Content
-  // commands flush explicitly, so use a non-connection origin to broadcast
-  // the change without scheduling an unauthorized implicit store callback.
-  replaceMarkdownBody(document, title, body, null);
+  // Content commands persist explicitly; do not enqueue Hocuspocus storage.
+  replaceMarkdownBody(document, title, body, SKIP_STORE_LOCAL_ORIGIN);
   const boundState = bindWikiLinkTargets(Y.encodeStateAsUpdate(document), pageLookup);
-  Y.applyUpdate(document, boundState, null);
+  Y.applyUpdate(document, boundState, SKIP_STORE_LOCAL_ORIGIN);
 }
 
 function joinMarkdown(before: string, after: string): string {

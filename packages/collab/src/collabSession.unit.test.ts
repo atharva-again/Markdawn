@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createCollabSession, isCollabSession } from './collabSession';
-import { createConnectionLifecycle } from './hocuspocusV3Adapter';
+import { createConnectionLifecycle } from './connectionLifecycle';
 
 function accountSession() {
   return createCollabSession({

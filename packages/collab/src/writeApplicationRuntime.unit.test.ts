@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DeferredAwarenessContext } from './hocuspocusV3Adapter';
+import type { DeferredAwarenessContext } from './connectionLifecycle';
 import { createWriteApplicationRuntime } from './writeApplicationRuntime';
 
 describe('write application runtime', () => {

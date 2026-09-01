@@ -2,7 +2,6 @@ import { HocuspocusProvider } from '@hocuspocus/provider';
 import {
   Connection,
   type ConnectionConfiguration,
-  type connectedPayload,
   Document,
   type onAuthenticatePayload,
   type onDisconnectPayload,
@@ -16,7 +15,7 @@ import * as Y from 'yjs';
 import type { CollabSession } from './collabSession';
 import { createCollabSession } from './collabSession';
 import { concatBytes, encodeVarUint } from './collabTestUtils';
-import { createConnectionLifecycle } from './hocuspocusV3Adapter';
+import { createConnectionLifecycle } from './connectionLifecycle';
 import { createTestSession, type getTestPool } from './test-utils';
 
 export async function createAccountHookContext(
@@ -236,12 +235,13 @@ export function createAuthenticatePayload(
     context: {},
     documentName: crypto.randomUUID(),
     instance: server.hocuspocus,
-    requestHeaders: {},
+    requestHeaders: new Headers(),
     requestParameters: new URLSearchParams(),
-    request: {} as onAuthenticatePayload['request'],
+    request: new Request('http://localhost'),
     socketId: crypto.randomUUID(),
     token: '',
     connectionConfig: createConnectionConfig(),
+    providerVersion: null,
     ...overrides,
   };
 }
@@ -282,7 +282,7 @@ export async function createPausedConnectionHarness(
     document,
     documentName: pageId,
     instance: server.hocuspocus,
-    requestHeaders: {},
+    requestHeaders: new Headers(),
     requestParameters: new URLSearchParams(),
     socketId,
   };
@@ -299,20 +299,22 @@ export async function createPausedConnectionHarness(
   } as unknown as WebSocket;
   const connection = new Connection(
     fakeSocket,
-    { headers: {} } as onAuthenticatePayload['request'],
+    new Request('http://localhost'),
     document,
     socketId,
     context,
     connectionConfig.readOnly,
+    undefined,
+    undefined,
     server.hocuspocus.configuration.lifecycleHooks,
   );
   const pendingChanges: Promise<unknown>[] = [];
-  document.onUpdate((changedDocument, origin, update) => {
+  document.onUpdate((hocuspocusDocument, origin, update) => {
     pendingChanges.push(
       server.hocuspocus.hooks('onChange', {
         ...payloadBase,
-        clientsCount: changedDocument.getConnectionsCount(),
-        document: changedDocument,
+        clientsCount: hocuspocusDocument.getConnectionsCount(),
+        document: hocuspocusDocument,
         transactionOrigin: origin,
         update,
       }),
@@ -339,7 +341,6 @@ export async function createPausedConnectionHarness(
     resolveHook?.();
     await applicationRelease;
   });
-
   let resolveTeardown: (() => void) | undefined;
   let rejectTeardown: ((error: unknown) => void) | undefined;
   const teardown = new Promise<void>((resolve, reject) => {
@@ -383,7 +384,8 @@ export async function createPausedConnectionHarness(
     ...payloadBase,
     connection,
     connectionConfig,
-    request: { headers: {} } as connectedPayload['request'],
+    request: new Request('http://localhost'),
+    providerVersion: null,
   });
 
   return {

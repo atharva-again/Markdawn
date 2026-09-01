@@ -1,4 +1,4 @@
-import { type DeferredAwarenessContext, getConnectionLifecycle } from './hocuspocusV3Adapter';
+import { type DeferredAwarenessContext, getConnectionLifecycle } from './connectionLifecycle';
 
 export function createWriteApplicationRuntime() {
   return {
@@ -15,6 +15,7 @@ export function createWriteApplicationRuntime() {
           completion,
           resolveCompletion,
           closeScheduled: false,
+          pendingCloseEvent: null,
         };
         return;
       }

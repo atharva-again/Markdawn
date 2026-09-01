@@ -30,7 +30,7 @@ import { createDocumentLoader } from './documentLoader';
 import { createDocumentMutationGate } from './documentMutationGate';
 import { createDocumentWriteCoordinator } from './documentWriteCoordinator';
 import { createGrantNotifier } from './grantNotifications';
-import { createHocuspocusV3LifecycleHooks } from './hocuspocusV3Adapter';
+import { createHocuspocusAdapter } from './hocuspocusAdapter';
 import { createInternalContentCommands } from './internalContentCommands';
 import {
   createPageRenamePublication,
@@ -56,6 +56,7 @@ export { publishPageRename } from './metadataPublications';
 export { broadcastWikiLinkPresentationInvalidation } from './wikiLinkInvalidation';
 
 const APPLICATION_FENCE_TIMEOUT_MS = 10_000;
+const CONNECTION_TIMEOUT_MS = 30_000;
 const MAX_CONCURRENT_CONTENT_COMMANDS = 8;
 const MAX_CONTENT_COMMANDS_PER_DOCUMENT = 1;
 export type CollaborationRuntime = { titles: PageTitleRuntime };
@@ -157,6 +158,7 @@ export function createCollabServer(config: CollabServerConfig) {
   const writeAdmissionRuntime = createWriteAdmissionRuntime({
     timeoutMs: applicationFenceTimeoutMs,
     titles: titleRuntime,
+    isRestMutationActive: documentMutationGate.isRestMutationActive,
     blockDocument: blockDocumentForReload,
   });
 
@@ -190,6 +192,7 @@ export function createCollabServer(config: CollabServerConfig) {
     setDocumentSizeEstimate,
     blockOversizedDocument,
     recordDocumentChange,
+    consumeAdmissionForUpdate: writeAdmissionRuntime.consumeAdmissionForUpdate,
     resetDocumentState,
     flushDocument,
   });
@@ -210,8 +213,16 @@ export function createCollabServer(config: CollabServerConfig) {
       blockDocumentForReload(pageId, 4500, COLLAB_DOCUMENT_RELOAD_REASONS.RELOAD_REQUIRED),
   });
 
+  const hocuspocusAdapter = createHocuspocusAdapter({
+    rememberOutboundAwarenessEntries,
+    applyMessage: writeAdmissionRuntime.applyMessage,
+  });
+
   const server = new Server({
     port,
+    // Hocuspocus v4 increased its default to 60 seconds. Keep Markdawn's
+    // established v3 connection-liveness behavior explicit across upgrades.
+    timeout: CONNECTION_TIMEOUT_MS,
     onRequest: async ({ request, response }) => {
       const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
       if (await handleInternalContentCommand(request, response)) {
@@ -230,10 +241,7 @@ export function createCollabServer(config: CollabServerConfig) {
       }
       await stopHocuspocusDefaultRequestHandling();
     },
-    lifecycleHooks: createHocuspocusV3LifecycleHooks({
-      rememberOutboundAwarenessEntries,
-      isRestMutationActive: documentMutationGate.isRestMutationActive,
-    }),
+    lifecycleHooks: hocuspocusAdapter.lifecycleHooks,
     debounce: debounceMs,
     maxDebounce: maxDebounceMs,
     onAuthenticate: createSessionAuthenticator({
@@ -264,6 +272,7 @@ export function createCollabServer(config: CollabServerConfig) {
         assertAnonymousPageAccess(documentName, client),
       assertPageAccess: (documentName, userId, credential, client) =>
         assertPageAccess(documentName, userId, credential, client),
+      ignoreMessage: hocuspocusAdapter.ignoreMessage,
       writeAdmissions: writeAdmissionRuntime,
     }),
     onLoadDocument: createDocumentLoader({
@@ -286,11 +295,11 @@ export function createCollabServer(config: CollabServerConfig) {
     }),
     ...documentChangeHooks,
     extensions: [],
+    websocketOptions: { maxPayload: maxPayloadBytes },
   });
   const collabServer = Object.assign(server, {
     collaboration: { titles: titleRuntime } satisfies CollaborationRuntime,
   });
-  server.webSocketServer.options.maxPayload = maxPayloadBytes;
 
   const handlePageRenamed = createPageRenamePublication({
     hocuspocus: server.hocuspocus,

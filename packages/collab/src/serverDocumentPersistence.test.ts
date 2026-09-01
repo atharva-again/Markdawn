@@ -83,7 +83,7 @@ describe('collab server document persistence', () => {
     const owner = await createTestUser(pool);
     const page = await createTestPage(pool, owner.id);
     const document = new Document(page.id);
-    const connection = { close: vi.fn(), send: vi.fn() };
+    const connection = { messageAddress: 'test', close: vi.fn(), send: vi.fn() };
     vi.spyOn(document, 'getConnections').mockReturnValue([connection] as unknown as ReturnType<
       Document['getConnections']
     >);
@@ -94,20 +94,18 @@ describe('collab server document persistence', () => {
       document,
       documentName: page.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
+      requestHeaders: new Headers(),
       requestParameters: new URLSearchParams(),
       socketId: crypto.randomUUID(),
       connectionConfig: createConnectionConfig(),
     };
     const storePayload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context,
+      lastContext: context,
+      lastTransactionOrigin: null,
       document,
       documentName: page.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
 
     try {
@@ -121,7 +119,7 @@ describe('collab server document persistence', () => {
         document,
         documentName: page.id,
         instance: server.hocuspocus,
-        requestHeaders: {},
+        requestHeaders: new Headers(),
         requestParameters: new URLSearchParams(),
         socketId: crypto.randomUUID(),
         transactionOrigin: null,
@@ -152,7 +150,7 @@ describe('collab server document persistence', () => {
     const owner = await createTestUser(pool);
     const page = await createTestPage(pool, owner.id);
     const document = new Document(page.id);
-    const connection = { close: vi.fn(), send: vi.fn() };
+    const connection = { messageAddress: 'test', close: vi.fn(), send: vi.fn() };
     vi.spyOn(document, 'getConnections').mockReturnValue([connection] as unknown as ReturnType<
       Document['getConnections']
     >);
@@ -164,9 +162,17 @@ describe('collab server document persistence', () => {
       document,
       documentName: page.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
+      requestHeaders: new Headers(),
       requestParameters: new URLSearchParams(),
       socketId: crypto.randomUUID(),
+    };
+    const storePayloadBase = {
+      clientsCount: payloadBase.clientsCount,
+      lastContext: payloadBase.context,
+      lastTransactionOrigin: null,
+      document: payloadBase.document,
+      documentName: payloadBase.documentName,
+      instance: payloadBase.instance,
     };
 
     try {
@@ -183,7 +189,7 @@ describe('collab server document persistence', () => {
         transactionOrigin: connection,
         update: Y.encodeStateAsUpdate(document),
       });
-      await server.hocuspocus.hooks('onStoreDocument', payloadBase);
+      await server.hocuspocus.hooks('onStoreDocument', storePayloadBase);
       expect(document.getText('title').toString()).toBe(acceptedTitle);
       const accepted = await pool.query<{ title: string }>(
         'select title from pages where id = $1',
@@ -198,7 +204,7 @@ describe('collab server document persistence', () => {
         transactionOrigin: connection,
         update: Y.encodeStateAsUpdate(document),
       });
-      await server.hocuspocus.hooks('onStoreDocument', payloadBase);
+      await server.hocuspocus.hooks('onStoreDocument', storePayloadBase);
       expect(document.getText('title').toString()).toBe(acceptedTitle);
       const rejected = await pool.query<{ title: string }>(
         'select title from pages where id = $1',
@@ -232,7 +238,7 @@ describe('collab server document persistence', () => {
     const page = await createTestPage(pool, owner.id);
     const document = new Document(page.id);
     document.getText('content').insert(0, 'Unverified edit');
-    const connection = { close: vi.fn() };
+    const connection = { messageAddress: 'test', send: vi.fn(), close: vi.fn() };
     vi.spyOn(document, 'getConnections').mockReturnValue([connection] as unknown as ReturnType<
       Document['getConnections']
     >);
@@ -243,21 +249,19 @@ describe('collab server document persistence', () => {
     );
     const payload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, owner.id),
+      lastContext: await createAccountHookContext(pool, owner.id),
+      lastTransactionOrigin: null,
       document,
       documentName: page.id,
       instance: verificationServer.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
     await verificationServer.hocuspocus.hooks('onChange', {
       clientsCount: 1,
-      context: payload.context,
+      context: payload.lastContext,
       document,
       documentName: page.id,
       instance: verificationServer.hocuspocus,
-      requestHeaders: {},
+      requestHeaders: new Headers(),
       requestParameters: new URLSearchParams(),
       socketId: crypto.randomUUID(),
       transactionOrigin: null,
@@ -304,13 +308,11 @@ describe('collab server document persistence', () => {
     unexpectedServer.hocuspocus.documents.set(page.id, activeDocument);
     const payload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, owner.id),
+      lastContext: await createAccountHookContext(pool, owner.id),
+      lastTransactionOrigin: null,
       document: new Document(page.id),
       documentName: page.id,
       instance: unexpectedServer.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
 
     try {
@@ -361,13 +363,11 @@ describe('collab server document persistence', () => {
     const documentName = page.id;
     const payload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, user.id, 'edit'),
+      lastContext: await createAccountHookContext(pool, user.id, 'edit'),
+      lastTransactionOrigin: null,
       document: new Document(documentName),
       documentName,
       instance: failingServer.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
 
     await expect(failingServer.hocuspocus.hooks('onStoreDocument', payload)).rejects.toThrow(
@@ -423,13 +423,11 @@ describe('collab server document persistence', () => {
     document.getText('content').insert(0, 'Stale editor update');
     const payload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, editor.id, 'edit'),
+      lastContext: await createAccountHookContext(pool, editor.id, 'edit'),
+      lastTransactionOrigin: null,
       document,
       documentName: page.id,
       instance: lockedServer.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
 
     try {
@@ -477,13 +475,11 @@ describe('collab server document persistence', () => {
 
     const payload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context: createAnonymousHookContext(anonymousId, 'edit'),
+      lastContext: createAnonymousHookContext(anonymousId, 'edit'),
+      lastTransactionOrigin: null,
       document,
       documentName: page.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
 
     try {
@@ -512,7 +508,7 @@ describe('collab server document persistence', () => {
       document,
       documentName: page.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
+      requestHeaders: new Headers(),
       requestParameters: new URLSearchParams(),
       socketId: crypto.randomUUID(),
       transactionOrigin: null,
@@ -545,13 +541,11 @@ describe('collab server document persistence', () => {
 
     const payload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, owner.id, 'edit'),
+      lastContext: await createAccountHookContext(pool, owner.id, 'edit'),
+      lastTransactionOrigin: null,
       document,
       documentName: page.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
     try {
       await server.hocuspocus.hooks('onStoreDocument', payload);
@@ -724,7 +718,7 @@ describe('collab server document persistence', () => {
       document,
       documentName: page.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
+      requestHeaders: new Headers(),
       requestParameters: new URLSearchParams(),
       socketId: crypto.randomUUID(),
       connectionConfig: createConnectionConfig(),
@@ -736,7 +730,7 @@ describe('collab server document persistence', () => {
       document,
       documentName: page.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
+      requestHeaders: new Headers(),
       requestParameters: new URLSearchParams(),
       socketId: crypto.randomUUID(),
       transactionOrigin: null,
@@ -751,13 +745,11 @@ describe('collab server document persistence', () => {
 
     await server.hocuspocus.hooks('onStoreDocument', {
       clientsCount: 1,
-      context,
+      lastContext: context,
+      lastTransactionOrigin: null,
       document,
       documentName: page.id,
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     });
 
     const stored = await pool.query<{ ydoc: Buffer }>('select ydoc from pages where id = $1', [
@@ -772,13 +764,11 @@ describe('collab server document persistence', () => {
   it('rejects persistence when user context is missing', async () => {
     const payload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context: {},
+      lastContext: {},
+      lastTransactionOrigin: null,
       document: new Document(crypto.randomUUID()),
       documentName: crypto.randomUUID(),
       instance: server.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
 
     await expect(server.hocuspocus.hooks('onStoreDocument', payload)).rejects.toThrow(
@@ -806,13 +796,11 @@ describe('collab server document persistence', () => {
     document.getText('content').insert(0, 'x'.repeat(2_048));
     const payload: onStoreDocumentPayload = {
       clientsCount: 1,
-      context: await createAccountHookContext(pool, owner.id),
+      lastContext: await createAccountHookContext(pool, owner.id),
+      lastTransactionOrigin: null,
       document,
       documentName: page.id,
       instance: sizeLimitedServer.hocuspocus,
-      requestHeaders: {},
-      requestParameters: new URLSearchParams(),
-      socketId: crypto.randomUUID(),
     };
 
     try {

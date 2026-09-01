@@ -223,13 +223,11 @@ describe('collab server write application fences', () => {
 
         await server.hocuspocus.hooks('onStoreDocument', {
           clientsCount: 1,
-          context: harness.context,
+          lastContext: harness.context,
+          lastTransactionOrigin: null,
           document: harness.document,
           documentName: page.id,
           instance: server.hocuspocus,
-          requestHeaders: {},
-          requestParameters: new URLSearchParams(),
-          socketId: crypto.randomUUID(),
         });
         const stored = await pool.query<{
           title: string;
@@ -282,13 +280,11 @@ describe('collab server write application fences', () => {
         // title-only revision proves this collaboration write is later.
         await server.hocuspocus.hooks('onStoreDocument', {
           clientsCount: 1,
-          context: harness.context,
+          lastContext: harness.context,
+          lastTransactionOrigin: null,
           document: harness.document,
           documentName: page.id,
           instance: server.hocuspocus,
-          requestHeaders: {},
-          requestParameters: new URLSearchParams(),
-          socketId: crypto.randomUUID(),
         });
         await reconcileActiveCollaborationState(server, pool, logger);
 
@@ -335,13 +331,11 @@ describe('collab server write application fences', () => {
         );
         await server.hocuspocus.hooks('onStoreDocument', {
           clientsCount: 1,
-          context: harness.context,
+          lastContext: harness.context,
+          lastTransactionOrigin: null,
           document: harness.document,
           documentName: page.id,
           instance: server.hocuspocus,
-          requestHeaders: {},
-          requestParameters: new URLSearchParams(),
-          socketId: crypto.randomUUID(),
         });
 
         const stored = await pool.query<{

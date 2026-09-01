@@ -29,6 +29,7 @@ describe('document change disconnect hooks', () => {
       setDocumentSizeEstimate: vi.fn(),
       blockOversizedDocument: vi.fn(),
       recordDocumentChange: vi.fn(),
+      consumeAdmissionForUpdate: vi.fn(),
       resetDocumentState: vi.fn(),
       flushDocument,
     });

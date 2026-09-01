@@ -19,7 +19,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@floating-ui/react": "^0.27.19",
     "@fontsource/inter": "^5.2.8",
-    "@hocuspocus/provider": "3.4.4",
+    "@hocuspocus/provider": "4.6.0",
     "@logtape/logtape": "^2.0.5",
     "@markdawn/shared": "workspace:*",
     "@milkdown/components": "^7.20.0",

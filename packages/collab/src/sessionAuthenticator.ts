@@ -5,8 +5,8 @@ import type { Pool } from 'pg';
 import type { AuthenticatedCredential } from './authenticatedCredential';
 import { CollabAccessError, CollabGuestIdentityExpiredError } from './collabErrors';
 import { type CollabSession, createCollabSession } from './collabSession';
+import { createConnectionLifecycle } from './connectionLifecycle';
 import { queryAuthenticatedSession } from './credentialQueries';
-import { createConnectionLifecycle } from './hocuspocusV3Adapter';
 import type { GrantedPermissionState } from './permissionState';
 import { isUuid, parseCookies } from './utils';
 
@@ -25,8 +25,11 @@ type SessionAuthenticatorOptions = {
 };
 
 function getSessionToken(payload: onAuthenticatePayload): string {
-  const cookies = parseCookies(payload.requestHeaders.cookie);
-  const bearerToken = payload.requestHeaders.authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  const cookies = parseCookies(payload.requestHeaders.get('cookie') ?? '');
+  const bearerToken = payload.requestHeaders
+    .get('authorization')
+    ?.match(/^Bearer\s+(.+)$/i)?.[1]
+    ?.trim();
   return (
     payload.token?.trim() ||
     bearerToken ||

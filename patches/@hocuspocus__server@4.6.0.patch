@@ -1,0 +1,755 @@
+diff --git a/dist/hocuspocus-server.cjs b/dist/hocuspocus-server.cjs
+index 39719e3..dfd1388 100644
+--- a/dist/hocuspocus-server.cjs
++++ b/dist/hocuspocus-server.cjs
+@@ -229,17 +229,37 @@ var MessageReceiver = class {
+ 					source: "connection",
+ 					connection
+ 				} : this.defaultTransactionOrigin ?? { source: "local" };
++				const awarenessClientIds = new Set();
++				const awarenessClientClocks = new Map();
++				const awarenessDecoder = lib0_decoding.createDecoder(update);
++				const awarenessClientCount = lib0_decoding.readVarUint(awarenessDecoder);
++				for (let index = 0; index < awarenessClientCount; index++) {
++					const clientId = lib0_decoding.readVarUint(awarenessDecoder);
++					const clock = lib0_decoding.readVarUint(awarenessDecoder);
++					awarenessClientIds.add(clientId);
++					awarenessClientClocks.set(clientId, clock);
++					lib0_decoding.readVarString(awarenessDecoder);
++				}
+ 				const scratchDoc = new yjs.Doc();
+ 				const scratch = new y_protocols_awareness.Awareness(scratchDoc);
++				scratch.setLocalState(null);
++				for (const [clientId, clock] of awarenessClientClocks) {
++					scratch.meta.set(clientId, { clock: clock - 1, lastUpdated: 0 });
++				}
+ 				try {
+ 					(0, y_protocols_awareness.applyAwarenessUpdate)(scratch, update, null);
+ 					await document.callbacks.beforeHandleAwareness(document, scratch.getStates(), origin);
+-					update = (0, y_protocols_awareness.encodeAwarenessUpdate)(scratch, [...scratch.getStates().keys()]);
++					for (const clientId of scratch.getStates().keys()) {
++						if (!awarenessClientIds.has(clientId)) throw new Error("Awareness hooks cannot add client IDs");
++					}
++					update = (0, y_protocols_awareness.encodeAwarenessUpdate)(scratch, [...awarenessClientIds]);
+ 				} finally {
+ 					scratch.destroy();
+ 					scratchDoc.destroy();
+ 				}
+-				(0, y_protocols_awareness.applyAwarenessUpdate)(document.awareness, update, origin);
++				await this.applyWithLifecycleHook(connection, () => {
++					(0, y_protocols_awareness.applyAwarenessUpdate)(document.awareness, update, origin);
++				});
+ 				break;
+ 			}
+ 			case MessageType.QueryAwareness:
+@@ -278,8 +298,16 @@ var MessageReceiver = class {
+ 	async readSyncMessage(message, document, connection, reply, requestFirstSync = true) {
+ 		const type = message.readVarUint();
+ 		const messageAddress = connection?.messageAddress ?? document.name;
+-		if (connection) await connection.callbacks.beforeSync(connection, {
+-			type,
+-			payload: message.peekVarUint8Array()
+-		});
+-		switch (type) {
++		if (connection) try {
++			await connection.callbacks.beforeSync(connection, {
++				type,
++				payload: message.peekVarUint8Array()
++			});
++		} catch (error) {
++			await this.applyWithLifecycleHook(connection, () => {
++				throw error;
++			});
++			throw error;
++		}
++		await this.applyWithLifecycleHook(connection, () => {
++			switch (type) {
+@@ -322,9 +343,18 @@ var MessageReceiver = class {
+ 				if (connection) connection.send(new OutgoingMessage(messageAddress).writeSyncStatus(true).toUint8Array());
+ 				break;
+ 			default: throw new Error(`Received a message with an unknown type: ${type}`);
+-		}
++			}
++		});
+ 		return type;
+ 	}
++	async applyWithLifecycleHook(connection, apply) {
++		const hook = connection?.lifecycleHooks?.aroundApplyMessage;
++		if (hook && connection) {
++			await hook(connection, this.message.decoder.arr, apply);
++			return;
++		}
++		apply();
++	}
+ 	applyQueryAwarenessMessage(document, connection, reply) {
+ 		const message = new OutgoingMessage(connection?.messageAddress ?? document.name).createAwarenessUpdateMessage(document.awareness);
+ 		if (reply) reply(message.toUint8Array());
+@@ -344,7 +363,7 @@ var Connection = class {
+ 	/**
+ 	* Constructor.
+ 	*/
+-	constructor(connection, request, document, socketId, context, readOnly = false, sessionId, providerVersion) {
++	constructor(connection, request, document, socketId, context, readOnly = false, sessionId, providerVersion, lifecycleHooks) {
+ 		this.callbacks = {
+ 			onClose: [(document, event) => {}],
+ 			beforeHandleMessage: (connection, update) => Promise.resolve(),
+@@ -363,8 +382,9 @@ var Connection = class {
+ 		this.readOnly = readOnly;
+ 		this.sessionId = sessionId ?? null;
+ 		this.providerVersion = providerVersion ?? null;
++		this.lifecycleHooks = lifecycleHooks;
+ 		this.document.addConnection(this);
+-		this.sendCurrentAwareness();
++		if (!this.lifecycleHooks?.deferInitialAwareness?.(this)) this.sendCurrentAwareness();
+ 	}
+ 	/**
+ 	* Set a callback that will be triggered when the connection is closed
+@@ -418,6 +438,7 @@ var Connection = class {
+ 	* Send the given message
+ 	*/
+ 	send(message) {
++		if (this.lifecycleHooks?.beforeSend?.(this, message) === false) return;
+ 		if (this.webSocket.readyState === _hocuspocus_common.WsReadyStates.Closing || this.webSocket.readyState === _hocuspocus_common.WsReadyStates.Closed) {
+ 			this.close();
+ 			return;
+@@ -446,17 +467,21 @@ var Connection = class {
+ 	* Graceful wrapper around the WebSocket close method.
+ 	*/
+ 	close(event) {
+-		if (this.document.hasConnection(this)) {
+-			this.document.removeConnection(this);
+-			this.callbacks.onClose.forEach((callback) => callback(this.document, event));
+-			const closeMessage = new OutgoingMessage(this.messageAddress);
+-			closeMessage.writeCloseMessage(event?.reason ?? "Server closed the connection");
+-			this.send(closeMessage.toUint8Array());
+-		}
++		const close = (closeEvent) => {
++			if (this.document.hasConnection(this)) {
++				this.document.removeConnection(this);
++				this.callbacks.onClose.forEach((callback) => callback(this.document, closeEvent));
++				const closeMessage = new OutgoingMessage(this.messageAddress);
++				closeMessage.writeCloseMessage(closeEvent?.reason ?? "Server closed the connection");
++				this.send(closeMessage.toUint8Array());
++			}
++		};
++		if (this.lifecycleHooks?.beforeClose?.(this, event, close)) return;
++		close(event);
+ 	}
+ 	/**
+ 	* Send the current document awareness to the client, if any
+-	* @private
++	* @public
+ 	*/
+ 	sendCurrentAwareness() {
+ 		if (!this.document.hasAwarenessStates()) return;
+@@ -1081,7 +1107,7 @@ var ClientConnection = class {
+ 	* Create a new connection by the given request and document
+ 	*/
+ 	createConnection(connection, document, hookPayload, sessionId, providerVersion) {
+-		const instance = new Connection(connection, hookPayload.request, document, hookPayload.socketId, hookPayload.context, hookPayload.connectionConfig.readOnly, sessionId, providerVersion);
++		const instance = new Connection(connection, hookPayload.request, document, hookPayload.socketId, hookPayload.context, hookPayload.connectionConfig.readOnly, sessionId, providerVersion, this.opts.lifecycleHooks);
+ 		instance.onClose(async (document, event) => {
+ 			await instance.waitForPendingMessages();
+ 			const disconnectHookPayload = {
+@@ -1407,7 +1433,8 @@ var Hocuspocus = class {
+ 			timeout: this.configuration.timeout,
+ 			maxUnauthenticatedQueueSize: this.configuration.maxUnauthenticatedQueueSize,
+ 			maxUnauthenticatedQueueMessages: this.configuration.maxUnauthenticatedQueueMessages,
+-			maxPendingDocuments: this.configuration.maxPendingDocuments
++			maxPendingDocuments: this.configuration.maxPendingDocuments,
++			lifecycleHooks: this.configuration.lifecycleHooks
+ 		}, defaultContext);
+ 		clientConnection.onClose((document, hookPayload) => {
+ 			if (document.getConnectionsCount() > 0) return;
+@@ -5838,4 +5865,4 @@ exports.defaultServerConfiguration = defaultServerConfiguration;
+ exports.isTransactionOrigin = isTransactionOrigin;
+ exports.shouldSkipStoreHooks = shouldSkipStoreHooks;
+ exports.useDebounce = useDebounce;
+-//# sourceMappingURL=hocuspocus-server.cjs.map
+\ No newline at end of file
++//# sourceMappingURL=hocuspocus-server.cjs.map
+diff --git a/dist/hocuspocus-server.esm.js b/dist/hocuspocus-server.esm.js
+index 0fce8e2..ca53ba5 100644
+--- a/dist/hocuspocus-server.esm.js
++++ b/dist/hocuspocus-server.esm.js
+@@ -199,17 +199,37 @@ var MessageReceiver = class {
+ 					source: "connection",
+ 					connection
+ 				} : this.defaultTransactionOrigin ?? { source: "local" };
++				const awarenessClientIds = new Set();
++				const awarenessClientClocks = new Map();
++				const awarenessDecoder = decoding.createDecoder(update);
++				const awarenessClientCount = decoding.readVarUint(awarenessDecoder);
++				for (let index = 0; index < awarenessClientCount; index++) {
++					const clientId = decoding.readVarUint(awarenessDecoder);
++					const clock = decoding.readVarUint(awarenessDecoder);
++					awarenessClientIds.add(clientId);
++					awarenessClientClocks.set(clientId, clock);
++					decoding.readVarString(awarenessDecoder);
++				}
+ 				const scratchDoc = new Y.Doc();
+ 				const scratch = new Awareness(scratchDoc);
++				scratch.setLocalState(null);
++				for (const [clientId, clock] of awarenessClientClocks) {
++					scratch.meta.set(clientId, { clock: clock - 1, lastUpdated: 0 });
++				}
+ 				try {
+ 					applyAwarenessUpdate(scratch, update, null);
+ 					await document.callbacks.beforeHandleAwareness(document, scratch.getStates(), origin);
+-					update = encodeAwarenessUpdate(scratch, [...scratch.getStates().keys()]);
++					for (const clientId of scratch.getStates().keys()) {
++						if (!awarenessClientIds.has(clientId)) throw new Error("Awareness hooks cannot add client IDs");
++					}
++					update = encodeAwarenessUpdate(scratch, [...awarenessClientIds]);
+ 				} finally {
+ 					scratch.destroy();
+ 					scratchDoc.destroy();
+ 				}
+-				applyAwarenessUpdate(document.awareness, update, origin);
++				await this.applyWithLifecycleHook(connection, () => {
++					applyAwarenessUpdate(document.awareness, update, origin);
++				});
+ 				break;
+ 			}
+ 			case MessageType.QueryAwareness:
+@@ -248,8 +268,16 @@ var MessageReceiver = class {
+ 	async readSyncMessage(message, document, connection, reply, requestFirstSync = true) {
+ 		const type = message.readVarUint();
+ 		const messageAddress = connection?.messageAddress ?? document.name;
+-		if (connection) await connection.callbacks.beforeSync(connection, {
+-			type,
+-			payload: message.peekVarUint8Array()
+-		});
+-		switch (type) {
++		if (connection) try {
++			await connection.callbacks.beforeSync(connection, {
++				type,
++				payload: message.peekVarUint8Array()
++			});
++		} catch (error) {
++			await this.applyWithLifecycleHook(connection, () => {
++				throw error;
++			});
++			throw error;
++		}
++		await this.applyWithLifecycleHook(connection, () => {
++			switch (type) {
+@@ -292,9 +313,18 @@ var MessageReceiver = class {
+ 				if (connection) connection.send(new OutgoingMessage(messageAddress).writeSyncStatus(true).toUint8Array());
+ 				break;
+ 			default: throw new Error(`Received a message with an unknown type: ${type}`);
+-		}
++			}
++		});
+ 		return type;
+ 	}
++	async applyWithLifecycleHook(connection, apply) {
++		const hook = connection?.lifecycleHooks?.aroundApplyMessage;
++		if (hook && connection) {
++			await hook(connection, this.message.decoder.arr, apply);
++			return;
++		}
++		apply();
++	}
+ 	applyQueryAwarenessMessage(document, connection, reply) {
+ 		const message = new OutgoingMessage(connection?.messageAddress ?? document.name).createAwarenessUpdateMessage(document.awareness);
+ 		if (reply) reply(message.toUint8Array());
+@@ -314,7 +333,7 @@ var Connection = class {
+ 	/**
+ 	* Constructor.
+ 	*/
+-	constructor(connection, request, document, socketId, context, readOnly = false, sessionId, providerVersion) {
++	constructor(connection, request, document, socketId, context, readOnly = false, sessionId, providerVersion, lifecycleHooks) {
+ 		this.callbacks = {
+ 			onClose: [(document, event) => {}],
+ 			beforeHandleMessage: (connection, update) => Promise.resolve(),
+@@ -333,8 +352,9 @@ var Connection = class {
+ 		this.readOnly = readOnly;
+ 		this.sessionId = sessionId ?? null;
+ 		this.providerVersion = providerVersion ?? null;
++		this.lifecycleHooks = lifecycleHooks;
+ 		this.document.addConnection(this);
+-		this.sendCurrentAwareness();
++		if (!this.lifecycleHooks?.deferInitialAwareness?.(this)) this.sendCurrentAwareness();
+ 	}
+ 	/**
+ 	* Set a callback that will be triggered when the connection is closed
+@@ -388,6 +408,7 @@ var Connection = class {
+ 	* Send the given message
+ 	*/
+ 	send(message) {
++		if (this.lifecycleHooks?.beforeSend?.(this, message) === false) return;
+ 		if (this.webSocket.readyState === WsReadyStates.Closing || this.webSocket.readyState === WsReadyStates.Closed) {
+ 			this.close();
+ 			return;
+@@ -416,17 +437,21 @@ var Connection = class {
+ 	* Graceful wrapper around the WebSocket close method.
+ 	*/
+ 	close(event) {
+-		if (this.document.hasConnection(this)) {
+-			this.document.removeConnection(this);
+-			this.callbacks.onClose.forEach((callback) => callback(this.document, event));
+-			const closeMessage = new OutgoingMessage(this.messageAddress);
+-			closeMessage.writeCloseMessage(event?.reason ?? "Server closed the connection");
+-			this.send(closeMessage.toUint8Array());
+-		}
++		const close = (closeEvent) => {
++			if (this.document.hasConnection(this)) {
++				this.document.removeConnection(this);
++				this.callbacks.onClose.forEach((callback) => callback(this.document, closeEvent));
++				const closeMessage = new OutgoingMessage(this.messageAddress);
++				closeMessage.writeCloseMessage(closeEvent?.reason ?? "Server closed the connection");
++				this.send(closeMessage.toUint8Array());
++			}
++		};
++		if (this.lifecycleHooks?.beforeClose?.(this, event, close)) return;
++		close(event);
+ 	}
+ 	/**
+ 	* Send the current document awareness to the client, if any
+-	* @private
++	* @public
+ 	*/
+ 	sendCurrentAwareness() {
+ 		if (!this.document.hasAwarenessStates()) return;
+@@ -1051,7 +1077,7 @@ var ClientConnection = class {
+ 	* Create a new connection by the given request and document
+ 	*/
+ 	createConnection(connection, document, hookPayload, sessionId, providerVersion) {
+-		const instance = new Connection(connection, hookPayload.request, document, hookPayload.socketId, hookPayload.context, hookPayload.connectionConfig.readOnly, sessionId, providerVersion);
++		const instance = new Connection(connection, hookPayload.request, document, hookPayload.socketId, hookPayload.context, hookPayload.connectionConfig.readOnly, sessionId, providerVersion, this.opts.lifecycleHooks);
+ 		instance.onClose(async (document, event) => {
+ 			await instance.waitForPendingMessages();
+ 			const disconnectHookPayload = {
+@@ -1377,7 +1403,8 @@ var Hocuspocus = class {
+ 			timeout: this.configuration.timeout,
+ 			maxUnauthenticatedQueueSize: this.configuration.maxUnauthenticatedQueueSize,
+ 			maxUnauthenticatedQueueMessages: this.configuration.maxUnauthenticatedQueueMessages,
+-			maxPendingDocuments: this.configuration.maxPendingDocuments
++			maxPendingDocuments: this.configuration.maxPendingDocuments,
++			lifecycleHooks: this.configuration.lifecycleHooks
+ 		}, defaultContext);
+ 		clientConnection.onClose((document, hookPayload) => {
+ 			if (document.getConnectionsCount() > 0) return;
+@@ -1771,4 +1798,4 @@ var Server = class {
+ 
+ //#endregion
+ export { Connection, Document, Hocuspocus, IncomingMessage, MessageReceiver, MessageType, OutgoingMessage, Server, defaultConfiguration, defaultServerConfiguration, isTransactionOrigin, shouldSkipStoreHooks, useDebounce };
+-//# sourceMappingURL=hocuspocus-server.esm.js.map
+\ No newline at end of file
++//# sourceMappingURL=hocuspocus-server.esm.js.map
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index a236229..489c6fb 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -54,6 +54,7 @@ declare class ClientConnection<Context = any> {
+     maxUnauthenticatedQueueSize?: number;
+     maxUnauthenticatedQueueMessages?: number;
+     maxPendingDocuments?: number;
++    lifecycleHooks?: HocuspocusLifecycleHooks;
+   }, defaultContext?: Context);
+   /**
+    * Handle WebSocket close event. Call this from your integration
+@@ -400,6 +401,8 @@ interface Configuration<Context = any> extends Extension<Context>, FlushOptions
+    * A name for the instance, used for logging.
+    */
+   name: string | null;
++  /** Optional protocol lifecycle hooks for authorization-aware hosts. */
++  lifecycleHooks?: HocuspocusLifecycleHooks;
+   /**
+    * A list of hocuspocus extensions.
+    */
+@@ -599,11 +602,11 @@ interface beforeHandleAwarenessPayload<Context = any> {
+   requestParameters: URLSearchParams;
+   /**
+    * Per-client awareness states decoded from the inbound update, keyed by
+-   * Yjs clientId. Mutate this map in place to rewrite the update: change
+-   * fields on a state object, `states.delete(clientId)` to drop a peer, or
+-   * `states.set(clientId, ...)` to add or replace one. The encoded update
+-   * sent to peers reflects whatever the map looks like after every hook in
+-   * the chain has run.
++   * Yjs clientId. Hooks may change fields on an inbound state or use
++   * `states.delete(clientId)` to remove one. Hooks cannot add client IDs;
++   * attempted additions are rejected. The encoded update sent to peers
++   * reflects supported mutations after every hook in the chain has run.
++   * Removals retain the inbound client's clock.
+    */
+   states: Map<number, Record<string, any>>;
+   socketId: string;
+@@ -908,6 +911,12 @@ declare class Document extends Doc {
+ }
+ //#endregion
+ //#region packages/server/src/Connection.d.ts
++interface HocuspocusLifecycleHooks {
++  deferInitialAwareness?(connection: Connection): boolean;
++  beforeSend?(connection: Connection, message: Uint8Array): boolean;
++  aroundApplyMessage?(connection: Connection, message: Uint8Array, apply: () => void): Promise<void> | void;
++  beforeClose?(connection: Connection, event: CloseEvent | undefined, close: (event: CloseEvent | undefined) => void): boolean;
++}
+ declare class Connection<Context = any> {
+   webSocket: WebSocketLike;
+   context: Context;
+@@ -925,6 +936,7 @@ declare class Connection<Context = any> {
+   };
+   socketId: string;
+   readOnly: boolean;
++  lifecycleHooks?: HocuspocusLifecycleHooks;
+   sessionId: string | null;
+   providerVersion: string | null;
+   /**
+@@ -937,7 +949,7 @@ declare class Connection<Context = any> {
+   /**
+    * Constructor.
+    */
+-  constructor(connection: WebSocketLike, request: Request, document: Document, socketId: string, context: Context, readOnly?: boolean, sessionId?: string | null, providerVersion?: string | null);
++  constructor(connection: WebSocketLike, request: Request, document: Document, socketId: string, context: Context, readOnly?: boolean, sessionId?: string | null, providerVersion?: string | null, lifecycleHooks?: HocuspocusLifecycleHooks);
+   /**
+    * Set a callback that will be triggered when the connection is closed
+    */
+@@ -988,7 +1000,7 @@ declare class Connection<Context = any> {
+    * Send the current document awareness to the client, if any
+    * @private
+    */
+-  private sendCurrentAwareness;
++  sendCurrentAwareness(): void;
+   /**
+    * Handle an incoming message
+    * @public
+@@ -1061,4 +1073,4 @@ declare const useDebounce: () => {
+   executeNow: (id: string) => any;
+ };
+ //#endregion
+-export { AwarenessUpdate, Configuration, Connection, ConnectionConfiguration, ConnectionTransactionOrigin, DirectConnection, DisconnectOptions, Document, Extension, FlushOptions, Hocuspocus, HookName, HookPayloadByName, IncomingMessage, LocalTransactionOrigin, MessageReceiver, MessageType, OutgoingMessage, RedisTransactionOrigin, Server, ServerConfiguration, StatesArray, TransactionOrigin, WebSocketLike, afterHandleMessagePayload, afterLoadDocumentPayload, afterStoreDocumentPayload, afterUnloadDocumentPayload, beforeBroadcastStatelessPayload, beforeHandleAwarenessPayload, beforeHandleMessagePayload, beforeSyncPayload, beforeUnloadDocumentPayload, connectedPayload, defaultConfiguration, defaultServerConfiguration, fetchPayload, isTransactionOrigin, onAuthenticatePayload, onAwarenessUpdatePayload, onChangePayload, onConfigurePayload, onConnectPayload, onCreateDocumentPayload, onDestroyPayload, onDisconnectPayload, onListenPayload, onLoadDocumentPayload, onRequestPayload, onStatelessPayload, onStoreDocumentPayload, onTokenSyncPayload, onUpgradePayload, shouldSkipStoreHooks, storePayload, useDebounce };
+\ No newline at end of file
++export { AwarenessUpdate, Configuration, Connection, ConnectionConfiguration, ConnectionTransactionOrigin, DirectConnection, DisconnectOptions, Document, Extension, FlushOptions, Hocuspocus, HookName, HookPayloadByName, HocuspocusLifecycleHooks, IncomingMessage, LocalTransactionOrigin, MessageReceiver, MessageType, OutgoingMessage, RedisTransactionOrigin, Server, ServerConfiguration, StatesArray, TransactionOrigin, WebSocketLike, afterHandleMessagePayload, afterLoadDocumentPayload, afterStoreDocumentPayload, afterUnloadDocumentPayload, beforeBroadcastStatelessPayload, beforeHandleAwarenessPayload, beforeHandleMessagePayload, beforeSyncPayload, beforeUnloadDocumentPayload, connectedPayload, defaultConfiguration, defaultServerConfiguration, fetchPayload, isTransactionOrigin, onAuthenticatePayload, onAwarenessUpdatePayload, onChangePayload, onConfigurePayload, onConnectPayload, onCreateDocumentPayload, onDestroyPayload, onDisconnectPayload, onListenPayload, onLoadDocumentPayload, onRequestPayload, onStatelessPayload, onStoreDocumentPayload, onTokenSyncPayload, onUpgradePayload, shouldSkipStoreHooks, storePayload, useDebounce };
+diff --git a/src/ClientConnection.ts b/src/ClientConnection.ts
+index 9ac688a..8479269 100644
+--- a/src/ClientConnection.ts
++++ b/src/ClientConnection.ts
+@@ -12,6 +12,7 @@ import Connection from "./Connection.ts";
+ import type Document from "./Document.ts";
+ import type { Hocuspocus } from "./Hocuspocus.ts";
+ import { IncomingMessage as SocketIncomingMessage } from "./IncomingMessage.ts";
++import type { HocuspocusLifecycleHooks } from "./LifecycleHooks.ts";
+ import { OutgoingMessage } from "./OutgoingMessage.ts";
+ import type {
+ 	ConnectionConfiguration,
+@@ -118,6 +119,7 @@ export class ClientConnection<Context = any> {
+ 			maxUnauthenticatedQueueSize?: number;
+ 			maxUnauthenticatedQueueMessages?: number;
+ 			maxPendingDocuments?: number;
++			lifecycleHooks?: HocuspocusLifecycleHooks;
+ 		},
+ 		private readonly defaultContext: Context = {} as Context,
+ 	) {
+@@ -271,6 +273,7 @@ export class ClientConnection<Context = any> {
+ 			hookPayload.connectionConfig.readOnly,
+ 			sessionId,
+ 			providerVersion,
++			this.opts.lifecycleHooks,
+ 		);
+ 
+ 		instance.onClose(async (document, event) => {
+diff --git a/src/Connection.ts b/src/Connection.ts
+index 1981acb..24cab46 100644
+--- a/src/Connection.ts
++++ b/src/Connection.ts
+@@ -5,6 +5,7 @@ import {
+ } from "@hocuspocus/common";
+ import type Document from "./Document.ts";
+ import { IncomingMessage } from "./IncomingMessage.ts";
++import type { HocuspocusLifecycleHooks } from "./LifecycleHooks.ts";
+ import { MessageReceiver } from "./MessageReceiver.ts";
+ import { OutgoingMessage } from "./OutgoingMessage.ts";
+ import type {
+@@ -40,6 +41,7 @@ export class Connection<Context = any> {
+ 
+ 	readOnly: boolean;
+ 
++	lifecycleHooks?: HocuspocusLifecycleHooks;
+ 	sessionId: string | null;
+ 
+ 	providerVersion: string | null;
+@@ -70,6 +72,7 @@ export class Connection<Context = any> {
+ 		readOnly = false,
+ 		sessionId?: string | null,
+ 		providerVersion?: string | null,
++		lifecycleHooks?: HocuspocusLifecycleHooks,
+ 	) {
+ 		this.webSocket = connection;
+ 		this.context = context;
+@@ -79,10 +82,13 @@ export class Connection<Context = any> {
+ 		this.readOnly = readOnly;
+ 		this.sessionId = sessionId ?? null;
+ 		this.providerVersion = providerVersion ?? null;
++		this.lifecycleHooks = lifecycleHooks;
+ 
+ 		this.document.addConnection(this);
+ 
+-		this.sendCurrentAwareness();
++		if (!this.lifecycleHooks?.deferInitialAwareness?.(this)) {
++			this.sendCurrentAwareness();
++		}
+ 	}
+ 
+ 	/**
+@@ -165,6 +171,9 @@ export class Connection<Context = any> {
+ 	 * Send the given message
+ 	 */
+ 	send(message: Uint8Array): void {
++		if (this.lifecycleHooks?.beforeSend?.(this, message) === false) {
++			return;
++		}
+ 		if (
+ 			this.webSocket.readyState === WsReadyStates.Closing ||
+ 			this.webSocket.readyState === WsReadyStates.Closed
+@@ -206,26 +215,37 @@ export class Connection<Context = any> {
+ 	 * Graceful wrapper around the WebSocket close method.
+ 	 */
+ 	close(event?: CloseEvent): void {
+-		if (this.document.hasConnection(this)) {
+-			this.document.removeConnection(this);
+-			this.callbacks.onClose.forEach(
+-				(callback: (arg0: Document, arg1?: CloseEvent) => any) =>
+-					callback(this.document, event),
+-			);
+-
+-			const closeMessage = new OutgoingMessage(this.messageAddress);
+-			closeMessage.writeCloseMessage(
+-				event?.reason ?? "Server closed the connection",
+-			);
+-			this.send(closeMessage.toUint8Array());
+-		}
++		const close = (closeEvent?: CloseEvent) => {
++			if (this.document.hasConnection(this)) {
++				this.document.removeConnection(this);
++				this.callbacks.onClose.forEach(
++					(callback: (arg0: Document, arg1?: CloseEvent) => any) =>
++						callback(this.document, closeEvent),
++				);
++
++				const closeMessage = new OutgoingMessage(this.messageAddress);
++				closeMessage.writeCloseMessage(
++					closeEvent?.reason ?? "Server closed the connection",
++				);
++				this.send(closeMessage.toUint8Array());
++			}
++		};
++		if (
++			this.lifecycleHooks?.beforeClose?.(
++				this,
++				event,
++				close,
++			)
++		)
++			return;
++		close(event);
+ 	}
+ 
+ 	/**
+ 	 * Send the current document awareness to the client, if any
+-	 * @private
++	 * @public
+ 	 */
+-	private sendCurrentAwareness(): void {
++	public sendCurrentAwareness(): void {
+ 		if (!this.document.hasAwarenessStates()) {
+ 			return;
+ 		}
+diff --git a/src/Hocuspocus.ts b/src/Hocuspocus.ts
+index 9f9087a..6933346 100644
+--- a/src/Hocuspocus.ts
++++ b/src/Hocuspocus.ts
+@@ -231,6 +231,7 @@ export class Hocuspocus<Context = any> {
+ 				maxUnauthenticatedQueueMessages:
+ 					this.configuration.maxUnauthenticatedQueueMessages,
+ 				maxPendingDocuments: this.configuration.maxPendingDocuments,
++				lifecycleHooks: this.configuration.lifecycleHooks,
+ 			},
+ 			defaultContext,
+ 		);
+diff --git a/src/LifecycleHooks.ts b/src/LifecycleHooks.ts
+new file mode 100644
+index 0000000..317d526
+--- /dev/null
++++ b/src/LifecycleHooks.ts
+@@ -0,0 +1,18 @@
++import type { CloseEvent } from "@hocuspocus/common";
++import type { Connection } from "./Connection.ts";
++
++/** Optional interception points for authorization-aware hosts. */
++export interface HocuspocusLifecycleHooks {
++	deferInitialAwareness?(connection: Connection): boolean;
++	beforeSend?(connection: Connection, message: Uint8Array): boolean;
++	aroundApplyMessage?(
++		connection: Connection,
++		message: Uint8Array,
++		apply: () => void,
++	): Promise<void> | void;
++	beforeClose?(
++		connection: Connection,
++		event: CloseEvent | undefined,
++		close: (event: CloseEvent | undefined) => void,
++	): boolean;
++}
+diff --git a/src/MessageReceiver.ts b/src/MessageReceiver.ts
+index d6b185f..7eb88f3 100644
+--- a/src/MessageReceiver.ts
++++ b/src/MessageReceiver.ts
+@@ -85,8 +85,24 @@ export class MessageReceiver {
+ 				// object) are picked up by the re-encode below and forwarded as
+ 				// the broadcast payload. Hooks may also throw to reject the
+ 				// update entirely.
++				const awarenessClientIds = new Set<number>();
++				const awarenessClientClocks = new Map<number, number>();
++				const awarenessDecoder = decoding.createDecoder(update);
++				const awarenessClientCount = decoding.readVarUint(awarenessDecoder);
++				for (let index = 0; index < awarenessClientCount; index++) {
++					const clientId = decoding.readVarUint(awarenessDecoder);
++					const clock = decoding.readVarUint(awarenessDecoder);
++					awarenessClientIds.add(clientId);
++					awarenessClientClocks.set(clientId, clock);
++					decoding.readVarString(awarenessDecoder);
++				}
++
+ 				const scratchDoc = new Y.Doc();
+ 				const scratch = new Awareness(scratchDoc);
++				scratch.setLocalState(null);
++				for (const [clientId, clock] of awarenessClientClocks) {
++					scratch.meta.set(clientId, { clock: clock - 1, lastUpdated: 0 });
++				}
+ 				try {
+ 					applyAwarenessUpdate(scratch, update, null);
+ 
+@@ -95,16 +111,18 @@ export class MessageReceiver {
+ 						scratch.getStates(),
+ 						origin,
+ 					);
+-
+-					update = encodeAwarenessUpdate(scratch, [
+-						...scratch.getStates().keys(),
+-					]);
++					for (const clientId of scratch.getStates().keys()) {
++						if (!awarenessClientIds.has(clientId)) throw new Error("Awareness hooks cannot add client IDs");
++					}
++					update = encodeAwarenessUpdate(scratch, [...awarenessClientIds]);
+ 				} finally {
+ 					scratch.destroy();
+ 					scratchDoc.destroy();
+ 				}
+ 
+-				applyAwarenessUpdate(document.awareness, update, origin);
++				await this.applyWithLifecycleHook(connection, () => {
++					applyAwarenessUpdate(document.awareness, update, origin);
++				});
+ 
+ 				break;
+ 			}
+@@ -179,18 +197,26 @@ export class MessageReceiver {
+ 	async readSyncMessage(
+ 		message: IncomingMessage,
+ 		document: Document,
+ 		connection?: Connection,
+ 		reply?: (message: Uint8Array) => void,
+ 		requestFirstSync = true,
+ 	) {
+ 		const type = message.readVarUint();
+ 		const messageAddress = connection?.messageAddress ?? document.name;
+
+ 		if (connection) {
+-			await connection.callbacks.beforeSync(connection, {
+-				type,
+-				payload: message.peekVarUint8Array(),
+-			});
++			try {
++				await connection.callbacks.beforeSync(connection, {
++					type,
++					payload: message.peekVarUint8Array(),
++				});
++			} catch (error) {
++				await this.applyWithLifecycleHook(connection, () => {
++					throw error;
++				});
++				throw error;
++			}
+ 		}
+
+-		switch (type) {
++		await this.applyWithLifecycleHook(connection, () => {
++			switch (type) {
+@@ -283,11 +302,24 @@ export class MessageReceiver {
+ 			}
+ 			default:
+ 				throw new Error(`Received a message with an unknown type: ${type}`);
+-		}
++			}
++		});
+ 
+ 		return type;
+ 	}
+ 
++	private async applyWithLifecycleHook(
++		connection: Connection | undefined,
++		apply: () => void,
++	): Promise<void> {
++		const hook = connection?.lifecycleHooks?.aroundApplyMessage;
++		if (hook && connection) {
++			await hook(connection, this.message.decoder.arr, apply);
++			return;
++		}
++		apply();
++	}
++
+ 	applyQueryAwarenessMessage(
+ 		document: Document,
+ 		connection?: Connection,
+diff --git a/src/index.ts b/src/index.ts
+index 8ede6d1..b86aeaf 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -2,6 +2,7 @@ export * from "./Connection.ts";
+ export * from "./Document.ts";
+ export * from "./Hocuspocus.ts";
+ export * from "./IncomingMessage.ts";
++export * from "./LifecycleHooks.ts";
+ export * from "./MessageReceiver.ts";
+ export * from "./OutgoingMessage.ts";
+ export * from "./Server.ts";
+diff --git a/src/types.ts b/src/types.ts
+index 3c4b98c..fdd566e 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -3,6 +3,7 @@ import type { Awareness } from "y-protocols/awareness";
+ import type Connection from "./Connection.ts";
+ import type Document from "./Document.ts";
+ import type { Hocuspocus } from "./Hocuspocus.ts";
++import type { HocuspocusLifecycleHooks } from "./LifecycleHooks.ts";
+ 
+ export interface ConnectionTransactionOrigin {
+ 	source: "connection";
+@@ -243,6 +244,8 @@ export interface Configuration<Context = any>
+ 	 * A name for the instance, used for logging.
+ 	 */
+ 	name: string | null;
++	/** Optional protocol lifecycle hooks for authorization-aware hosts. */
++	lifecycleHooks?: HocuspocusLifecycleHooks;
+ 	/**
+ 	 * A list of hocuspocus extensions.
+ 	 */
+@@ -456,11 +459,11 @@ export interface beforeHandleAwarenessPayload<Context = any> {
+ 	requestParameters: URLSearchParams;
+ 	/**
+ 	 * Per-client awareness states decoded from the inbound update, keyed by
+-	 * Yjs clientId. Mutate this map in place to rewrite the update: change
+-	 * fields on a state object, `states.delete(clientId)` to drop a peer, or
+-	 * `states.set(clientId, ...)` to add or replace one. The encoded update
+-	 * sent to peers reflects whatever the map looks like after every hook in
+-	 * the chain has run.
++	 * Yjs clientId. Hooks may change fields on an inbound state or use
++	 * `states.delete(clientId)` to remove one. Hooks cannot add client IDs;
++	 * attempted additions are rejected. The encoded update sent to peers
++	 * reflects supported mutations after every hook in the chain has run.
++	 * Removals retain the inbound client's clock.
+ 	 */
+ 	states: Map<number, Record<string, any>>;
+ 	socketId: string;

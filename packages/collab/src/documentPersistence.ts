@@ -11,6 +11,7 @@ import {
 } from './contentMutationPersistence';
 import { getDocumentContentHash } from './documentContentHash';
 import { DocumentSizeLimitError } from './documentSizeError';
+import { SKIP_STORE_LOCAL_ORIGIN } from './hocuspocusTransactionOrigins';
 import {
   getActiveMetaDocuments,
   getPageMetaRecipients,
@@ -129,7 +130,7 @@ export async function persistDocument(
       Y.applyUpdate(connectionSnapshot, connectionSnapshotState);
       if (current.ydoc && current.ydoc.length > 0) {
         const canonicalCurrentState = sanitizeCanonicalYjsUpdate(new Uint8Array(current.ydoc));
-        Y.applyUpdate(document, canonicalCurrentState);
+        Y.applyUpdate(document, canonicalCurrentState, SKIP_STORE_LOCAL_ORIGIN);
         Y.applyUpdate(connectionSnapshot, canonicalCurrentState);
       }
       connectionState = Y.encodeStateAsUpdate(connectionSnapshot);
@@ -146,7 +147,7 @@ export async function persistDocument(
         const titleText = document.getText('title');
         titleText.delete(0, titleText.length);
         titleText.insert(0, current.title);
-      });
+      }, SKIP_STORE_LOCAL_ORIGIN);
     }
 
     const persistedTitle = {

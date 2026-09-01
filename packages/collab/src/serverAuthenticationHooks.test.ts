@@ -73,9 +73,7 @@ describe('collab server authentication hooks', () => {
 
       const payload = createAuthenticatePayload(server, {
         documentName: page.id,
-        requestHeaders: {
-          authorization: `Bearer ${session.token}`,
-        },
+        requestHeaders: new Headers({ authorization: `Bearer ${session.token}` }),
       });
 
       const result = await server.hocuspocus.hooks('onAuthenticate', payload);
@@ -90,9 +88,7 @@ describe('collab server authentication hooks', () => {
 
       const payload = createAuthenticatePayload(server, {
         documentName: page.id,
-        requestHeaders: {
-          cookie: `better-auth.session_token=${session.token}`,
-        },
+        requestHeaders: new Headers({ cookie: `better-auth.session_token=${session.token}` }),
       });
 
       const result = await server.hocuspocus.hooks('onAuthenticate', payload);
@@ -107,9 +103,9 @@ describe('collab server authentication hooks', () => {
 
       const payload = createAuthenticatePayload(server, {
         documentName: page.id,
-        requestHeaders: {
+        requestHeaders: new Headers({
           cookie: `__Secure-better-auth.session_token=${session.token}`,
-        },
+        }),
       });
 
       const result = await server.hocuspocus.hooks('onAuthenticate', payload);
@@ -165,8 +161,9 @@ describe('collab server authentication hooks', () => {
         context,
         documentName: page.id,
         instance: server.hocuspocus,
-        request: {} as connectedPayload['request'],
-        requestHeaders: {},
+        request: new Request('http://localhost'),
+        requestHeaders: new Headers(),
+        providerVersion: null,
         requestParameters: new URLSearchParams(),
         socketId: crypto.randomUUID(),
         connectionConfig: createConnectionConfig(),

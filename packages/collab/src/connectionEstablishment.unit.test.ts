@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CollabAccessError } from './collabErrors';
 import { createCollabSession } from './collabSession';
 import { createConnectionEstablishmentHook } from './connectionEstablishment';
-import { createConnectionLifecycle } from './hocuspocusV3Adapter';
+import { createConnectionLifecycle } from './connectionLifecycle';
 
 function createSession() {
   return createCollabSession({
