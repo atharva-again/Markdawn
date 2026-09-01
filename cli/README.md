@@ -148,6 +148,7 @@ markdawn page edit prepend <page-id-or-title> {--content-text CONTENT | --conten
 markdawn page edit replace <page-id-or-title> {--content-text CONTENT | --content-file CONTENT}
 markdawn page list [--parent FOLDER_ID] [--limit N]
 markdawn page move <page-id-or-title>... [--parent FOLDER_ID]
+markdawn page search <query>
 markdawn page update <page-id-or-title> [--title TITLE] [--icon ICON | --clear-icon]
 markdawn page view <page-id-or-title> [--raw]
 

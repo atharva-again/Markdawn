@@ -13,6 +13,7 @@ describe('v1 OpenAPI lifecycle contract', () => {
     expect(paths['/imports/obsidian']?.post).toBeDefined();
     expect(paths['/pages/{pageId}/export/markdown']?.get).toBeDefined();
     expect(paths['/exports/workspace']?.get).toBeDefined();
+    expect(paths['/pages/search']?.get).toBeDefined();
 
     const pageExport = paths['/pages/{pageId}/export/markdown']?.get as {
       responses: { 200: { content: Record<string, unknown> } };
@@ -105,6 +106,15 @@ describe('v1 OpenAPI lifecycle contract', () => {
       'x-markdawn-docs-slug': string;
     };
     expect(pageMetadata['x-markdawn-docs-slug']).toBe('pages-page-id-get');
+
+    const pageSearch = paths['/pages/search']?.get as {
+      'x-required-scopes': string[];
+      parameters: Array<{ name: string; in: string }>;
+    };
+    expect(pageSearch['x-required-scopes']).toEqual(['pages:read']);
+    expect(pageSearch.parameters).toContainEqual(
+      expect.objectContaining({ name: 'q', in: 'query' }),
+    );
 
     const listTokens = paths['/tokens']?.get as {
       'x-required-scopes': string[];

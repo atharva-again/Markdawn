@@ -46,6 +46,8 @@ export const mcpPageResolutionSchema = z
   .object(v1PageResolutionResponseSchema.shape)
   .extend({ data: z.array(mcpPageSchema.extend({ folderPath: z.string() })) })
   .strict();
+export const mcpPageSearchSchema = mcpPageResolutionSchema;
+export type McpPageSearch = z.infer<typeof mcpPageSearchSchema>;
 
 export const mcpFolderListSchema = z
   .object(v1FolderListResponseSchema.shape)

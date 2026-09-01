@@ -51,9 +51,12 @@ export const v1PageListResponseSchema = z.object({
   nextCursor: z.string().nullable(),
 });
 
-export const v1PageResolutionResponseSchema = z.object({
-  data: z.array(v1PageResponseSchema.extend({ folderPath: z.string() })),
-});
+export const v1PageResolutionItemSchema = v1PageResponseSchema
+  .extend({ folderPath: z.string() })
+  .strict();
+export const v1PageResolutionResponseSchema = z
+  .object({ data: z.array(v1PageResolutionItemSchema) })
+  .strict();
 
 export const v1CreateFolderRequestSchema = z
   .object({

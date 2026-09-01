@@ -31,11 +31,15 @@ type pageListItem struct {
 }
 
 func renderPageList(r *runtimeState, items []pageListItem) error {
+	return renderPageListWithEmptyMessage(r, items, "No accessible pages found.")
+}
+
+func renderPageListWithEmptyMessage(r *runtimeState, items []pageListItem, emptyMessage string) error {
 	if r.cli.JSON {
 		return r.printJSON(items)
 	}
 	if len(items) == 0 {
-		_, err := fmt.Fprintln(r.stdout, "No accessible pages found.")
+		_, err := fmt.Fprintln(r.stdout, emptyMessage)
 		return err
 	}
 	if !r.stdoutTTY || r.cli.Plain {

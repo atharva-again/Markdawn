@@ -85,6 +85,7 @@ type PageCmd struct {
 	Edit   PageEditCmd   `cmd:"" help:"Edit a page's Markdown."`
 	List   PageListCmd   `cmd:"" help:"List accessible pages."`
 	Move   PageMoveCmd   `cmd:"" help:"Move pages."`
+	Search PageSearchCmd `cmd:"" help:"Search page titles."`
 	Update PageUpdateCmd `cmd:"" help:"Update a page's title or icon."`
 	View   PageViewCmd   `cmd:"" help:"View a page's Markdown."`
 }

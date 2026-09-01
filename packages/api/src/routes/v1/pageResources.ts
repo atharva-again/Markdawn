@@ -9,10 +9,14 @@ import { HTTPException } from 'hono/http-exception';
 import { db } from '../../db/connection';
 import { query } from '../../db/query';
 import { recordTokenAuditEvent, requireV1OperationScope } from '../../middleware/v1Auth';
-import { enumerableFolderPathsCte } from '../../utils/enumerableFolderPaths';
 import { createPage } from '../../utils/pageCreation';
 import { notifyPageRename, updatePageMetadata } from '../../utils/pageMutation';
-import { getAccessiblePageById, pageMetadataSelection } from '../../utils/pageRepository';
+import {
+  type AccessiblePagePathRow,
+  accessiblePagePathsCte,
+  getAccessiblePageById,
+  pageMetadataSelection,
+} from '../../utils/pageRepository';
 import { normalizePageTitle } from '../../utils/pageTitle';
 import { ensurePageAccess, lockEntityAccess } from '../../utils/share-access';
 import { createPageRequestSchema, pageOperations, updatePageRequestSchema } from './pageContracts';
@@ -76,6 +80,34 @@ pageResourcesRoute.get(
   },
 );
 
+pageResourcesRoute.get(
+  pageOperations.search.routePath,
+  requireV1OperationScope(pageOperations.search),
+  async (c) => {
+    const principal = c.get('v1Principal');
+    const textQuery = c.req.query('q')?.trim() ?? '';
+    if (!textQuery) return c.json({ data: [] });
+
+    const searchPattern = `%${textQuery}%`;
+    const result = await query<AccessiblePagePathRow & { rank: number | null }>(
+      sql`${accessiblePagePathsCte(principal.userId)}
+      select p.*,
+        ts_rank(p.title_search, plainto_tsquery('english', ${textQuery})) as rank
+      from accessible_page_paths p
+      where (
+        p.title_search @@ plainto_tsquery('english', ${textQuery})
+        or p.title ilike ${searchPattern}
+      )
+      order by rank desc nulls last, p.updated_at desc, p.id
+      limit 20`,
+    );
+
+    return c.json({
+      data: result.rows.map((row) => ({ ...pageDto(row), folderPath: row.folder_path })),
+    });
+  },
+);
+
 pageResourcesRoute.post(
   pageOperations.create.routePath,
   requireV1OperationScope(pageOperations.create),
@@ -117,22 +149,12 @@ pageResourcesRoute.get(
         message: `title must be between 1 and ${MAX_PAGE_TITLE_LENGTH} characters`,
       });
     }
-    const result = await query<
-      PageRow & { folder_path: string }
-    >(sql`${enumerableFolderPathsCte(principal.userId)}
-    select ${pageMetadataSelection},
-      coalesce(get_root_folder_owner(p.parent_id), p.created_by) as owner_id,
-      case when paths.id is null then null else p.parent_id end as enumerable_parent_id,
-      access.permission,
-      case when paths.path is null then '/' else '/' || paths.path end as folder_path
-    from pages p
-    join lateral get_effective_page_permission(p.id, ${principal.userId}) access on true
-    left join folder_paths paths on paths.id = p.parent_id
-    where p.is_deleted = false
-      and lower(p.title) = lower(${title})
-      and p.id in (select page_id from get_accessible_page_ids(${principal.userId}))
-      and access.permission is not null
-    order by folder_path, p.id`);
+    const result =
+      await query<AccessiblePagePathRow>(sql`${accessiblePagePathsCte(principal.userId)}
+    select p.*
+    from accessible_page_paths p
+    where lower(p.title) = lower(${title})
+    order by p.folder_path, p.id`);
     return c.json({
       data: result.rows.map((row) => ({ ...pageDto(row), folderPath: row.folder_path })),
     });
