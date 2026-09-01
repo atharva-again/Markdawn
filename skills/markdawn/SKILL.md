@@ -49,12 +49,15 @@ command-specific syntax.
 Use JSON for reliable automation:
 
 ```bash
+markdawn --json page search "project notes"
 markdawn --json page list
 markdawn --json folder list
 markdawn --json page view "Page title"
 ```
 
-Page IDs are canonical. A title is only a convenience for interactive lookup. If a title is ambiguous, choose from the returned candidates and retry with the page ID; never guess.
+`page search` searches page titles only and returns at most 20 results with folder paths. Use a
+returned page ID with `page view` or another page command. Page IDs are canonical. A title is only
+a convenience for interactive lookup. If a title is ambiguous, choose from the returned candidates and retry with the page ID; never guess.
 
 ## Create pages
 

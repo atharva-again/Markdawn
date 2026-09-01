@@ -57,13 +57,17 @@ markdawn doctor
 ## Read Pages
 
 ```sh
+markdawn page search "project notes"
 markdawn page list
 markdawn page view "Page Title"
+markdawn --json page search "project notes"
 markdawn --json page list
 markdawn --json page view PAGE_ID
 ```
 
-Use page IDs in scripts. Titles are convenient for interactive use but can be ambiguous.
+`page search` searches page titles only and returns at most 20 matching pages, including their
+folder paths. Use a returned page ID with `page view` or another page command. Use page IDs in
+scripts; titles are convenient for interactive use but can be ambiguous.
 
 ## Create And Edit Pages
 

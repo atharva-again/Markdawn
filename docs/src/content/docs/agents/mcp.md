@@ -39,7 +39,7 @@ start OAuth again instead of retrying the operation.
 
 MCP provides workspace operations for:
 
-- Finding and reading pages and folders.
+- Searching and reading pages, and finding folders.
 - Creating and updating pages and folders.
 - Moving, copying, restoring, and removing pages and folders.
 - Listing and managing Trash.
