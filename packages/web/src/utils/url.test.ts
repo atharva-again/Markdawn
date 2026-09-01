@@ -5,22 +5,15 @@ import {
   ensureAbsoluteUrl,
   extractUuidFromSlug,
   findHttpUrls,
-  getAppOrigin,
   getHttpUrl,
   getLegacyWorkspacePath,
   getWorkspacePath,
   getWorkspaceRootPath,
   isAppHost,
-  isHostedApex,
   isWorkspacePath,
 } from './url';
 
 describe('app subdomain workspace paths', () => {
-  const hostedApexLocation = {
-    hostname: 'markdawn.space',
-    origin: 'https://markdawn.space',
-    protocol: 'https:',
-  };
   const appLocation = { hostname: 'app.markdawn.space' };
   const localAppLocation = {
     hostname: 'localhost',
@@ -28,30 +21,11 @@ describe('app subdomain workspace paths', () => {
     port: '5173',
     protocol: 'http:',
   };
-  const localLandingLocation = {
-    hostname: 'localhost',
-    origin: 'http://localhost:8888',
-    port: '8888',
-    protocol: 'http:',
-  };
-  const loopbackLandingLocation = {
-    hostname: '127.0.0.1',
-    origin: 'http://127.0.0.1:8888',
-    port: '8888',
-    protocol: 'http:',
-  };
-
   it('uses the subdomain root without the legacy app prefix', () => {
     expect(getWorkspaceRootPath(appLocation)).toBe('/');
     expect(getWorkspacePath('settings', appLocation)).toBe('/settings');
     expect(buildPagePath('A Page', 'page-1', appLocation)).toMatch(/^\/a-page-/);
     expect(buildFolderPath('A Folder', 'folder-1', appLocation)).toMatch(/^\/folder\/a-folder-/);
-  });
-
-  it('sends hosted apex links to the production app origin', () => {
-    expect(isHostedApex(hostedApexLocation)).toBe(true);
-    expect(isAppHost(hostedApexLocation)).toBe(false);
-    expect(getAppOrigin(hostedApexLocation)).toBe('https://app.markdawn.space');
   });
 
   it('recognizes page and folder paths on the app host', () => {
@@ -61,15 +35,9 @@ describe('app subdomain workspace paths', () => {
   });
 
   it('uses localhost as the local app host', () => {
-    expect(isHostedApex(localAppLocation)).toBe(false);
     expect(isAppHost(localAppLocation)).toBe(true);
     expect(getWorkspaceRootPath(localAppLocation)).toBe('/');
     expect(getWorkspacePath('settings', localAppLocation)).toBe('/settings');
-  });
-
-  it('sends local landing links to the local app root', () => {
-    expect(getAppOrigin(localLandingLocation)).toBe('http://localhost:5173');
-    expect(getAppOrigin(loopbackLandingLocation)).toBe('http://127.0.0.1:5173');
   });
 
   it('removes the legacy app prefix while preserving query and hash', () => {

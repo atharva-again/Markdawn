@@ -1,0 +1,95 @@
+---
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import MarketingLink from '../components/MarketingLink.astro';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import SiteLayout from '../components/SiteLayout.astro';
+import '../styles/marketingPage.css';
+import {
+  CHANGELOG_DESCRIPTION,
+  CHANGELOG_ENTRIES,
+  CHANGELOG_INTRO,
+  CHANGELOG_TITLE,
+  formatChangelogDate,
+} from '../data/changelog';
+import { SITE_ORIGIN } from '../data/siteConfig';
+
+const PAGE_URL = `${SITE_ORIGIN}/changelog`;
+const PAGE_TITLE = `${CHANGELOG_TITLE} | Markdawn`;
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const STRUCTURED_DATA = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebPage',
+      '@id': `${PAGE_URL}#webpage`,
+      url: PAGE_URL,
+      name: PAGE_TITLE,
+      description: CHANGELOG_DESCRIPTION,
+      abstract: CHANGELOG_INTRO,
+      isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+      breadcrumb: { '@id': `${PAGE_URL}#breadcrumb` },
+      mainEntity: {
+        '@type': 'ItemList',
+        itemListElement: CHANGELOG_ENTRIES.map((entry, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: entry.title,
+          description: entry.details.join(' '),
+          url: `${PAGE_URL}#${entry.id}`,
+        })),
+      },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      '@id': `${PAGE_URL}#breadcrumb`,
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_ORIGIN },
+        { '@type': 'ListItem', position: 2, name: CHANGELOG_TITLE, item: PAGE_URL },
+      ],
+    },
+  ],
+};
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const changelogEntries = CHANGELOG_ENTRIES.map((entry) => ({
+  ...entry,
+  dateLabel: formatChangelogDate(entry.date),
+}));
+---
+
+<SiteLayout
+  title={PAGE_TITLE}
+  description={CHANGELOG_DESCRIPTION}
+  url={PAGE_URL}
+  markdownUrl={`${PAGE_URL}.md`}
+  structuredData={STRUCTURED_DATA}
+>
+  <main class="changelog-page marketing-page">
+    <header class="changelog-hero">
+      <h1>{CHANGELOG_TITLE}</h1>
+      <p class="marketing-lede">{CHANGELOG_INTRO}</p>
+    </header>
+
+    <ol class="changelog-list">
+      {changelogEntries.map((entry) => (
+        <li id={entry.id} class="changelog-entry">
+          <article>
+            <header class="changelog-entry-header">
+              <time class="changelog-entry-date" datetime={entry.date}>{entry.dateLabel}</time>
+              <h2>{entry.title}</h2>
+            </header>
+            <div class="changelog-details">
+              <ul class="changelog-detail-list">
+                {entry.details.map((detail) => <li>{detail}</li>)}
+              </ul>
+              <ul class="changelog-links">
+                {entry.links.map((link) => (
+                  <li><MarketingLink class="inline-link" link={link} /></li>
+                ))}
+              </ul>
+            </div>
+          </article>
+        </li>
+      ))}
+    </ol>
+  </main>
+</SiteLayout>

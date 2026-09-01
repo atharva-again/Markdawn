@@ -1,3 +1,15 @@
+import {
+  v1LifecycleDeletedResponseSchema,
+  v1LifecycleEntityResponseSchema,
+  v1LifecycleFolderCopyResponseSchema,
+  v1LifecycleFolderTrashItemSchema,
+  v1LifecyclePageTrashItemSchema,
+  v1LifecyclePurgeResponseSchema,
+  v1MarkdownImportRequestSchema,
+  v1MarkdownImportResponseSchema,
+  v1ParentRequestSchema,
+  v1VaultImportResponseSchema,
+} from '@markdawn/shared';
 import { z } from 'zod';
 import { vaultImportRequestSchema } from '../../utils/vaultImportValidation';
 import {
@@ -11,67 +23,17 @@ import {
 } from './apiContract';
 import { lifecyclePaths } from './lifecyclePaths';
 
-const uuid = z.uuid();
-export const parentRequestSchema = z
-  .object({ parentId: uuid.nullable() })
-  .strict()
-  .meta({ example: { parentId: null } });
-export const markdownImportRequestSchema = z
-  .object({ file: z.file({ error: 'File is required' }) })
-  .strict();
-export const lifecycleEntityResponseSchema = z.object({ id: uuid }).strict();
-export const lifecycleDeletedResponseSchema = z.object({ deleted: z.literal(true) }).strict();
-export const lifecyclePurgeResponseSchema = lifecycleDeletedResponseSchema
-  .extend({
-    folders: z.number().int().nonnegative(),
-    pages: z.number().int().nonnegative(),
-  })
-  .strict();
-export const lifecycleFolderCopyResponseSchema = lifecycleEntityResponseSchema
-  .extend({
-    skippedRestrictedItems: z.boolean(),
-  })
-  .strict();
-export const lifecyclePageTrashItemSchema = z
-  .object({
-    id: uuid,
-    title: z.string(),
-    icon: z.string().nullable(),
-    deletedAt: z.string().nullable(),
-  })
-  .strict();
-export const lifecycleFolderTrashItemSchema = z
-  .object({
-    id: uuid,
-    name: z.string(),
-    icon: z.string().nullable(),
-    deletedAt: z.string().nullable(),
-  })
-  .strict();
+export const parentRequestSchema = v1ParentRequestSchema;
+export const markdownImportRequestSchema = v1MarkdownImportRequestSchema;
+export const lifecycleEntityResponseSchema = v1LifecycleEntityResponseSchema;
+export const lifecycleDeletedResponseSchema = v1LifecycleDeletedResponseSchema;
+export const lifecyclePurgeResponseSchema = v1LifecyclePurgeResponseSchema;
+export const lifecycleFolderCopyResponseSchema = v1LifecycleFolderCopyResponseSchema;
+export const lifecyclePageTrashItemSchema = v1LifecyclePageTrashItemSchema;
+export const lifecycleFolderTrashItemSchema = v1LifecycleFolderTrashItemSchema;
 export const obsidianImportRequestSchema = vaultImportRequestSchema;
-export const lifecycleMarkdownImportResponseSchema = z
-  .object({
-    page: z.object({ id: uuid, title: z.string() }).strict(),
-    warnings: z.array(
-      z
-        .object({
-          code: z.literal('LOCAL_IMAGES_NOT_IMPORTED'),
-          count: z.number().int().positive(),
-          message: z.string(),
-        })
-        .strict(),
-    ),
-  })
-  .strict();
-export const lifecycleVaultImportResponseSchema = z
-  .object({
-    foldersCreated: z.number(),
-    pagesCreated: z.number(),
-    imagesUploaded: z.number(),
-    backlinksCreated: z.number(),
-    errors: z.array(z.string()),
-  })
-  .strict();
+export const lifecycleMarkdownImportResponseSchema = v1MarkdownImportResponseSchema;
+export const lifecycleVaultImportResponseSchema = v1VaultImportResponseSchema;
 
 export type LifecycleEntityResponse = z.infer<typeof lifecycleEntityResponseSchema>;
 export type LifecycleDeletedResponse = z.infer<typeof lifecycleDeletedResponseSchema>;

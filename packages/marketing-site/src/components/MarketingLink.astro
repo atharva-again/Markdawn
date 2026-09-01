@@ -1,0 +1,21 @@
+---
+import type { MarketingLink as MarketingLinkData } from '../data/marketingContent';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import AppLink from './AppLink.astro';
+
+interface Props {
+  link: MarketingLinkData;
+  class?: string;
+}
+
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const { link, class: className } = Astro.props;
+---
+
+{link.kind === 'app' ? (
+  <AppLink class={className}>{link.label}</AppLink>
+) : link.kind === 'external' ? (
+  <a class={className} href={link.url} target="_blank" rel="noopener noreferrer">{link.label}</a>
+) : (
+  <a class={className} href={link.path}>{link.label}</a>
+)}

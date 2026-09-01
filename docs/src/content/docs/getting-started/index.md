@@ -33,4 +33,7 @@ Start with one useful page. You can change the structure later.
 
 ## When You Are Ready For Automation
 
-Use the [Markdawn CLI](/agents/markdawn-cli/) to read and change pages from a terminal. If you are connecting another program directly, use the [API Reference](/api-reference/endpoints/).
+Use [MCP](/agents/mcp/) when an AI assistant can connect to a remote MCP
+service. Use the [Markdawn CLI](/agents/markdawn-cli/) for terminal workflows,
+or the [API Reference](/api-reference/endpoints/) when you are building an
+integration or script.

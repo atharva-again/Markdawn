@@ -33,6 +33,7 @@ export default defineConfig({
           name: 'unit',
           include: ['src/**/*.unit.test.ts'],
           pool: 'threads',
+          setupFiles: ['./test/unit-setup.ts'],
           coverage: coverageConfig,
         },
       },

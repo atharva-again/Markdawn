@@ -13,3 +13,5 @@ allowBuilds:
 
 patchedDependencies:
   '@hocuspocus/server@4.6.0': patches/@hocuspocus__server@4.6.0.patch
+  '@better-auth/cimd@1.7.2': patches/@better-auth__cimd@1.7.2.patch
+  '@better-auth/oauth-provider@1.7.2': patches/@better-auth__oauth-provider@1.7.2.patch

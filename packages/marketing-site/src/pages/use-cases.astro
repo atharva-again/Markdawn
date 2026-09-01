@@ -1,0 +1,57 @@
+---
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import MarketingContentPage from '../components/MarketingContentPage.astro';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import SiteLayout from '../components/SiteLayout.astro';
+import '../styles/marketingPage.css';
+import { richTextToPlainText } from '../data/richText';
+import * as siteConfig from '../data/siteConfig';
+// biome-ignore lint/correctness/noUnusedImports: Used by the Astro template below.
+import { USE_CASE_PAGE, USE_CASES } from '../data/useCases';
+
+const PAGE_URL = `${siteConfig.SITE_ORIGIN}/use-cases`;
+const PAGE_TITLE = 'Collaborative Knowledge Base Use Cases | Markdawn';
+const PAGE_DESCRIPTION =
+  'Explore collaborative knowledge base use cases for personal notes, teams, writers, researchers, developers, and AI-assisted work.';
+// biome-ignore lint/correctness/noUnusedVariables: Used by the Astro template below.
+const STRUCTURED_DATA = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebPage',
+      '@id': `${PAGE_URL}#webpage`,
+      url: PAGE_URL,
+      name: PAGE_TITLE,
+      description: PAGE_DESCRIPTION,
+      isPartOf: { '@id': `${siteConfig.SITE_ORIGIN}/#website` },
+      mainEntity: {
+        '@type': 'ItemList',
+        itemListElement: USE_CASES.map((useCase, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: useCase.title,
+          description: richTextToPlainText(useCase.body),
+          url: `${PAGE_URL}#${useCase.id}`,
+        })),
+      },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: siteConfig.SITE_ORIGIN },
+        { '@type': 'ListItem', position: 2, name: 'Use Cases', item: PAGE_URL },
+      ],
+    },
+  ],
+};
+---
+
+<SiteLayout
+  title={PAGE_TITLE}
+  description={PAGE_DESCRIPTION}
+  url={PAGE_URL}
+  markdownUrl={`${PAGE_URL}.md`}
+  structuredData={STRUCTURED_DATA}
+>
+  <MarketingContentPage page={USE_CASE_PAGE} />
+</SiteLayout>

@@ -1,30 +1,41 @@
 ---
-title: Use Markdawn With AI Assistants
-description: Let people and AI assistants work with the same Markdawn pages through the CLI and API, with scoped access and reviewable changes.
+title: Connect Tools To Markdawn
+description: Choose MCP, the CLI, or the API to let AI assistants and scripts work with your Markdawn pages.
 ---
 
-Markdawn lets people and AI assistants work with the same pages. A page created or edited by a connected tool is an ordinary Markdawn page that you can open in the browser.
+Markdawn keeps people and tools on the same pages. Write in the browser, then
+let an assistant, terminal, or script find and update that content without
+creating a second copy.
 
-You can write a page in the browser, ask a connected tool to find it, and review changes in the same place. You do not need an AI assistant to use Markdawn, and you do not need to copy your pages into a separate AI-only system.
+Choose the connection that fits the way you work.
 
-## Choose Your Path
+## MCP
 
-- [Use Markdawn With AI Assistants](/agents/use-markdawn-with-ai-assistants/) explains the safe starting point.
-- [Markdawn CLI](/agents/markdawn-cli/) covers the current terminal-based connection.
-- [MCP](/agents/mcp/) explains the planned direct connection for supported AI assistants.
+Use MCP when your AI assistant can connect to a remote MCP service. Markdawn
+handles sign-in and permission approval through OAuth, then gives the
+assistant access to the pages and folders you allow.
 
-## What Is Available Today
+Connect with:
 
-The Markdawn CLI can sign in to an account, list pages, read pages, create pages, import and export content, and make targeted edits. Markdawn also ships an Agent Skills-compatible skill that teaches supported terminal-based AI tools how to use the CLI safely.
+```text
+https://mcp.markdawn.space/mcp
+```
 
-The CLI is optional. Pages created or edited through it are the same pages you see in the browser.
+[Read the MCP guide](/agents/mcp/) for permissions, connection details, and
+self-hosting.
 
-## Keep Control Of Changes
+## CLI
 
-Give tools only the access they need. Read a page before making a targeted edit, prefer exact changes over broad replacements, and review important changes in the browser.
+Use the Markdawn CLI when you work from a terminal or when an assistant can
+run command-line tools. The CLI can read and update pages, manage folders,
+import and export content, and make targeted edits.
 
-## Choose The Right Connection
+[Install and use the CLI](/agents/markdawn-cli/).
 
-- Use the [CLI](/agents/markdawn-cli/) when a terminal-based AI tool needs to work with pages or files.
-- Use the [API Reference](/api-reference/endpoints/) when you are building an integration or script.
-- Read the [MCP status](/agents/mcp/) before planning around a direct MCP connection.
+## API Reference
+
+Use the API when you are building an integration, script, or custom tool. The
+API provides direct access to pages, folders, Markdown content, imports,
+exports, and access tokens.
+
+[Read the API reference](/api-reference/endpoints/).

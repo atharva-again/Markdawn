@@ -4,7 +4,10 @@ import {
   aggregateIndexedPageConnections,
   extractInlineTags,
   extractPropertyTagConnections,
+  getFileExtension,
+  getV1VaultImportKind,
   normalizeWikiLinkLookupKey,
+  parseMarkdownFrontmatter,
 } from '@markdawn/shared';
 import { bindWikiLinkTargets, markdownToYjsState } from '@markdawn/shared/markdown-yjs';
 import { type ConnectionDraft, normalizeTagSlug } from '@markdawn/shared/yjs-helpers';
@@ -18,7 +21,6 @@ import {
   MAX_IMAGE_SIZE_BYTES,
   safeImageMimeForExtension,
 } from './image-upload';
-import { getExtension, isImageFile, parseFrontmatter } from './obsidian-parsers';
 import { replacePageConnectionIndex, replacePageConnections } from './pageConnectionIndex';
 import { normalizePageTitle } from './pageTitle';
 import { getNextPosition } from './position';
@@ -191,7 +193,7 @@ export async function importObsidianVault(
     try {
       if (!file.data || !file.mimeType) continue;
 
-      const extension = getExtension(file.path);
+      const extension = getFileExtension(file.path);
       const expectedMime = safeImageMimeForExtension(extension);
       if (!expectedMime || file.mimeType !== expectedMime) {
         throw new Error('Unsupported image type');
@@ -243,7 +245,7 @@ export async function importObsidianVault(
       }
       ensureDocumentInputSize(file.content);
 
-      const { frontmatter, body } = parseFrontmatter(file.content);
+      const { frontmatter, body } = parseMarkdownFrontmatter(file.content);
       const fileName = path.basename(file.path, path.extname(file.path));
       const title = normalizePageTitle(fileName);
 
@@ -359,7 +361,10 @@ export async function importObsidianVault(
                 }),
               ),
             ...allLinks.flatMap((link): ConnectionDraft[] => {
-              if (link.isEmbed && isImageFile(link.page)) return [];
+              if (link.isEmbed) {
+                const kind = getV1VaultImportKind(link.page);
+                if (kind === 'image' || kind === 'unsupported-image') return [];
+              }
               const targetTitleLower = normalizeWikiLinkLookupKey(link.page);
               const targetPageId = workspacePageLookup.get(targetTitleLower);
               if (targetPageId) createdBacklinks += 1;

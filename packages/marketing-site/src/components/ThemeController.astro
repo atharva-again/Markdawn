@@ -1,0 +1,20 @@
+<script is:inline>
+  (() => {
+    const storedTheme = localStorage.getItem('markdawn-theme');
+    const theme = ['light', 'dark', 'system'].includes(storedTheme) ? storedTheme : 'system';
+    const isDark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+
+    if (!themeColorMeta) throw new Error('Theme color metadata is required');
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.classList.toggle('dark', isDark);
+    document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+    themeColorMeta.setAttribute('content', isDark ? '#090909' : '#ffffff');
+  })();
+</script>
+
+<script>
+  import { initializeThemeController } from '../scripts/themeController';
+
+  initializeThemeController();
+</script>

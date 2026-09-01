@@ -61,7 +61,7 @@ Use `http://localhost:5173` for the application. This keeps local OAuth
 callbacks compatible with providers such as Google. In a second terminal, run:
 
 ```bash
-pnpm dev:landing
+pnpm dev:marketing-site
 ```
 
 Then use `http://localhost:8888` for the landing page. Its Web link points to
@@ -70,3 +70,6 @@ the application root at `http://localhost:5173`.
 Both the API and collaboration service require `COLLAB_INTERNAL_SECRET`. The development
 template provides a localhost-only value so a fresh checkout starts immediately. For every
 non-development environment, generate and set a unique secret with `openssl rand -hex 32`.
+
+Remote MCP access is available at `https://mcp.markdawn.space/mcp`. Local development
+can run it at `http://localhost:3002`.
